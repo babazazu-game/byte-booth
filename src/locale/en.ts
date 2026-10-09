@@ -77,7 +77,7 @@ export const EN: Record<string, string> = {
   'ord.req.ssd': 'Storage ≥ {n}',
   'ord.req.itx': 'Compact case (ITX)',
   'ord.req.white': 'White case',
-  'ord.req.rgb': 'RGB memory',
+  'ord.req.rgb': 'RGB: memory or case fans',
   'ord.req.silent': 'Quiet: cooler with big headroom',
   'ord.req.vendor': '{v} processor',
   'ord.req.up.gpu': 'Replace the graphics card',

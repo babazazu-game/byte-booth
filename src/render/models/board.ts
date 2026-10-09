@@ -33,55 +33,85 @@ export interface BoardModel {
   anchors: { cpu: THREE.Object3D; ram: THREE.Object3D; m2: THREE.Object3D; pcie: THREE.Object3D; atx24: THREE.Object3D; cpu8: THREE.Object3D };
 }
 
-function mbTex(p: MB, w: number, h: number): THREE.Texture {
+/**
+ * Облик каждой платы (по разбору Codex): различие — крупными пятнами. Свой
+ * текстолит и рисунок печати, форма и цвет радиаторов, крупная надпись серии.
+ * Раньше у всех девяти был один серый текстолит с одной паутиной дорожек.
+ */
+type Print = 'bare' | 'diag' | 'camo' | 'clean' | 'angular' | 'traces' | 'stripes' | 'cyber';
+interface MbStyle {
+  vrm: 'none' | 'fins' | 'block' | 'angular'; heat: string; io: 'short' | 'tall'; rgb?: boolean; m2?: 'plate' | 'cover';
+  print: Print; ink: string; logo: string; logoInk: string; slotDark: string; slotLight: string;
+}
+const MBSTYLE: Record<string, MbStyle> = {
+  h610m: { vrm: 'none', heat: '#3a3530', io: 'short', print: 'bare', ink: 'rgba(200,170,130,.18)', logo: 'PRO', logoInk: '#8fb6e8', slotDark: '#15161a', slotLight: '#3a3f47' },
+  b550m: { vrm: 'fins', heat: '#c9cdd4', io: 'short', m2: 'plate', print: 'diag', ink: 'rgba(225,230,238,.5)', logo: 'Pro4', logoInk: '#eef1f5', slotDark: '#15161a', slotLight: '#9aa3ad' },
+  b760m: { vrm: 'block', heat: '#f4f3f0', io: 'tall', m2: 'plate', print: 'camo', ink: 'rgba(120,128,140,.35)', logo: 'STEEL LEGEND', logoInk: '#5b6470', slotDark: '#3a3f47', slotLight: '#ffffff' },
+  b650: { vrm: 'block', heat: '#2b2d31', io: 'tall', m2: 'cover', print: 'clean', ink: 'rgba(160,165,175,.12)', logo: 'TOMAHAWK', logoInk: '#c9cdd4', slotDark: '#15161a', slotLight: '#c9cdd4' },
+  z790: { vrm: 'angular', heat: '#3a3d44', io: 'tall', m2: 'cover', print: 'angular', ink: 'rgba(150,155,165,.28)', logo: 'AORUS', logoInk: '#f2a13a', slotDark: '#15161a', slotLight: '#b9bec6' },
+  b860m: { vrm: 'angular', heat: '#cfd3d9', io: 'short', m2: 'plate', print: 'traces', ink: 'rgba(150,165,190,.22)', logo: 'GAMING PLUS', logoInk: '#e9ecf0', slotDark: '#15161a', slotLight: '#cfd3d9' },
+  b650i: { vrm: 'block', heat: '#c9cdd4', io: 'tall', print: 'clean', ink: 'rgba(150,155,165,.15)', logo: 'AORUS', logoInk: '#f2a13a', slotDark: '#15161a', slotLight: '#c9cdd4' },
+  z890: { vrm: 'angular', heat: '#43464d', io: 'tall', m2: 'plate', print: 'stripes', ink: 'rgba(210,180,90,.22)', logo: 'TUF GAMING', logoInk: '#f3c35a', slotDark: '#15161a', slotLight: '#b8a46a' },
+  x870e: { vrm: 'angular', heat: '#1d1f24', io: 'tall', rgb: true, m2: 'cover', print: 'cyber', ink: 'rgba(230,60,120,.35)', logo: 'ROG STRIX', logoInk: '#ff5aa0', slotDark: '#15161a', slotLight: '#8a8f99' },
+};
+const MB_DEFAULT: MbStyle = { vrm: 'block', heat: '#4a4f59', io: 'tall', print: 'traces', ink: 'rgba(150,165,190,.25)', logo: '', logoInk: '#fff', slotDark: '#15161a', slotLight: '#e9edf2' };
+
+function mbTex(p: MB, st: MbStyle, w: number, h: number): THREE.Texture {
   return memo('mb' + p.id, () => {
     const r = mulberry32(p.price + 3);
     const W = 512, Hh = Math.round((512 * h) / w);
     return canvasTex(W, Hh, (g) => {
       g.fillStyle = p.look.main; g.fillRect(0, 0, W, Hh);
-      g.strokeStyle = 'rgba(120,140,170,.35)'; g.lineWidth = 2;
-      for (let i = 0; i < 150; i++) {
-        let x = r() * W, y = r() * Hh; g.beginPath(); g.moveTo(x, y);
-        for (let k = 0; k < 3; k++) { const d = r() * 70 + 10; const dir = (r() * 4) | 0; if (dir === 0) x += d; else if (dir === 1) y += d; else { x += d * 0.7; y += d * 0.7 * (dir === 2 ? 1 : -1); } g.lineTo(x, y); }
-        g.stroke();
-        g.fillStyle = 'rgba(160,180,210,.45)'; g.beginPath(); g.arc(x, y, 2.5, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = st.ink; g.fillStyle = st.ink;
+      if (st.print === 'diag' || st.print === 'stripes') {
+        // широкие диагональные полосы (ASRock Pro4 — светлые, TUF — песочные)
+        g.lineWidth = st.print === 'diag' ? 26 : 40;
+        for (let k = -Hh; k < W + Hh; k += st.print === 'diag' ? 90 : 130) { g.beginPath(); g.moveTo(k, Hh); g.lineTo(k + Hh, 0); g.stroke(); }
+      } else if (st.print === 'camo') {
+        for (let i = 0; i < 70; i++) {
+          g.beginPath(); const x = r() * W, y = r() * Hh, rr = 10 + r() * 34;
+          for (let k = 0; k < 7; k++) { const a = (k / 7) * Math.PI * 2, q = rr * (0.6 + r() * 0.5); if (k) g.lineTo(x + Math.cos(a) * q, y + Math.sin(a) * q); else g.moveTo(x + Math.cos(a) * q, y + Math.sin(a) * q); }
+          g.closePath(); g.fill();
+        }
+      } else if (st.print === 'angular') {
+        g.lineWidth = 6;
+        for (let i = 0; i < 14; i++) { const x = r() * W, y = r() * Hh, d = 40 + r() * 120; g.beginPath(); g.moveTo(x, y); g.lineTo(x + d, y); g.lineTo(x + d + 30, y - 30); g.stroke(); }
+      } else if (st.print === 'cyber') {
+        g.font = '700 15px "JetBrains Mono", monospace';
+        const words = ['ROG', 'STRIX', '0x7F', 'REPUBLIC', '//', 'X870E'];
+        for (let i = 0; i < 26; i++) { g.fillStyle = i % 3 ? st.ink : 'rgba(80,220,255,.3)'; g.fillText(words[i % 6], r() * W, r() * Hh); }
+        g.lineWidth = 3; g.strokeStyle = 'rgba(80,220,255,.25)';
+        for (let i = 0; i < 6; i++) { const y = r() * Hh; g.beginPath(); g.moveTo(0, y); g.lineTo(W, y + 40); g.stroke(); }
+      } else if (st.print !== 'clean') {
+        // дорожки: густые у «голой» бюджетной платы, редкие у остальных
+        g.lineWidth = 2;
+        for (let i = 0; i < (st.print === 'bare' ? 200 : 90); i++) {
+          let x = r() * W, y = r() * Hh; g.beginPath(); g.moveTo(x, y);
+          for (let k = 0; k < 3; k++) { const d = r() * 70 + 10; const dir = (r() * 4) | 0; if (dir === 0) x += d; else if (dir === 1) y += d; else { x += d * 0.7; y += d * 0.7 * (dir === 2 ? 1 : -1); } g.lineTo(x, y); }
+          g.stroke();
+        }
       }
-      g.fillStyle = 'rgba(225,232,240,.85)'; g.font = '600 13px Rubik';
-      [['PCIEX16_1', 0.45, 0.68], ['DIMM_A1', 0.68, 0.12], ['CPU_FAN', 0.32, 0.07], ['M.2_1', 0.3, 0.6], ['SATA6G', 0.85, 0.85]].forEach(([s, x, y]) => g.fillText(s as string, (x as number) * W, (y as number) * Hh));
-      g.fillStyle = p.look.accent; g.textAlign = 'right';
-      fitText(g, `${p.brand} ${p.name}`, W - 16, Hh - 18, W * 0.62, 24, 900);
-      g.fillStyle = '#b8bcc4';
-      for (const [x, y] of [[16, 16], [W - 16, 16], [16, Hh - 16], [W - 16, Hh - 16], [W / 2, Hh / 2]]) {
-        g.beginPath(); g.arc(x, y, 9, 0, Math.PI * 2); g.fill();
-      }
+      const light = st.print === 'camo';
+      g.fillStyle = light ? 'rgba(60,66,76,.8)' : 'rgba(225,232,240,.75)'; g.font = '600 13px Rubik'; g.textAlign = 'left';
+      for (const [s2, x, y] of [['PCIEX16_1', 0.45, 0.68], ['DIMM_A1', 0.68, 0.12], ['CPU_FAN', 0.32, 0.07], ['M.2_1', 0.3, 0.6], ['SATA6G', 0.85, 0.85]] as [string, number, number][]) g.fillText(s2, x * W, y * Hh);
+      // крупная надпись серии — главная «подпись» платы
+      if (st.logo) { g.fillStyle = st.logoInk; g.textAlign = 'right'; fitText(g, st.logo, W - 18, Hh * 0.93, W * 0.62, 46, 900); }
+      g.fillStyle = light ? '#7d838c' : '#b8bcc4';
+      for (const [x, y] of [[16, 16], [W - 16, 16], [16, Hh - 16], [W - 16, Hh - 16], [W / 2, Hh / 2]]) { g.beginPath(); g.arc(x, y, 9, 0, Math.PI * 2); g.fill(); }
     });
   });
 }
 
-/** Дизайн плат: бюджетная «голая» плата и игровой «панцирь» должны отличаться с первого взгляда. */
-interface MbStyle { vrm: 'none' | 'fins' | 'block' | 'angular'; heat: string; io: 'short' | 'tall'; rgb?: boolean; m2?: 'plate' | 'cover' }
-const MBSTYLE: Record<string, MbStyle> = {
-  h610m: { vrm: 'none', heat: '#8a9099', io: 'short' },
-  b550m: { vrm: 'fins', heat: '#b9bec6', io: 'short' },
-  b760m: { vrm: 'block', heat: '#d8dbe0', io: 'short', m2: 'plate' },
-  b650: { vrm: 'fins', heat: '#5a5f68', io: 'tall', m2: 'plate' },
-  z790: { vrm: 'angular', heat: '#2a2c31', io: 'tall', rgb: true, m2: 'cover' },
-  b860m: { vrm: 'angular', heat: '#30343c', io: 'short', m2: 'plate' },
-  b650i: { vrm: 'block', heat: '#2a2c31', io: 'tall', m2: 'cover' },
-  z890: { vrm: 'block', heat: '#4a4f59', io: 'tall', m2: 'plate' },
-  x870e: { vrm: 'angular', heat: '#1d1f24', io: 'tall', rgb: true, m2: 'cover' },
-};
-
 export function buildBoard(p: MB): BoardModel {
   const [w, h] = MB_SIZE[p.form];
   const group = new THREE.Group();
-  add(group, rbox(w, h, 0.0016, 0.0006, 1), std('#fff', { map: mbTex(p, w, h), roughness: 0.6 }));
+  const st = MBSTYLE[p.id] ?? MB_DEFAULT;
+  add(group, rbox(w, h, 0.0016, 0.0006, 1), std('#fff', { map: mbTex(p, st, w, h), roughness: 0.6 }));
   const x0 = -w / 2, y1 = h / 2;
   const gray = std('#4a4f59', { metalness: 0.6, roughness: 0.38 });
   const accent = phys(p.look.accent, { roughness: 0.4, clearcoat: 0.3 });
   const dark = std('#1b1d22', { roughness: 0.5 });
   const steel = metal('#b9bec6');
-  const st = MBSTYLE[p.id] ?? { vrm: 'block', heat: '#4a4f59', io: 'tall' } as MbStyle;
   const heatM = std(st.heat, { metalness: 0.6, roughness: 0.36 });
   const cpuX = x0 + (p.form === 'ITX' ? 0.075 : 0.105), cpuY = y1 - (p.form === 'ITX' ? 0.07 : 0.085);
   // I/O-кожух: низкий у бюджетных плат, высокий «панцирь» у игровых
@@ -89,6 +119,16 @@ export function buildBoard(p: MB): BoardModel {
   const ioD = st.io === 'tall' ? 0.024 : 0.016;
   add(group, rbox(0.05, ioH, ioD, 0.004), std(st.io === 'tall' ? st.heat : shade(p.look.main, 1.4), { roughness: 0.45, metalness: st.io === 'tall' ? 0.4 : 0 }), x0 + 0.027, y1 - 0.01 - ioH / 2, ioD / 2);
   add(group, rbox(0.004, ioH * 0.7, 0.003, 0.001), st.rgb ? rgbMatV() : accent, x0 + 0.052, y1 - 0.01 - ioH / 2, ioD - 0.002);
+  // на высоком кожухе — крупная надпись серии вдоль него; у ROG она светится
+  if (st.io === 'tall' && st.logo) {
+    const lt = memo('mbio' + p.id, () => canvasTex(512, 96, (c, cw, chh) => {
+      c.clearRect(0, 0, cw, chh); c.fillStyle = st.rgb ? '#ffffff' : st.logoInk; c.textBaseline = 'middle';
+      fitText(c, st.logo, 16, chh / 2 + 2, cw - 32, 70, 900);
+    }));
+    const lm = decal(group, ioH * 0.82, 0.03, lt, x0 + 0.027, y1 - 0.01 - ioH / 2, ioD + 0.0006, 0, 0, Math.PI / 2,
+      st.rgb ? { emissive: '#ff4fa0', emissiveMap: lt, emissiveIntensity: 3 } : {});
+    lm.castShadow = false;
+  }
   // дроссели питания — у дешёвых плат голые, у дорогих прячутся под радиаторы
   for (let i = 0; i < 6; i++) add(group, box(0.008, 0.008, 0.006), metal('#7d838c', 0.45), cpuX - 0.03 + i * 0.012, cpuY + 0.036, 0.003);
   if (st.vrm === 'fins') {
@@ -117,7 +157,7 @@ export function buildBoard(p: MB): BoardModel {
   for (let i = 0; i < nSlots; i++) {
     // второй и четвёртый (рекомендуемые, A2/B2) — светлые, остальные чёрные: так пары
     // одного цвета читаются на любой плате (цвет акцента у некоторых плат серый)
-    add(group, rbox(0.006, 0.136, 0.006, 0.001), i % 2 ? std('#e9edf2', { roughness: 0.4 }) : std('#15161a', { roughness: 0.5 }), ramX + i * RAM_PITCH, ramY, 0.003);
+    add(group, rbox(0.006, 0.136, 0.006, 0.001), i % 2 ? std(st.slotLight, { roughness: 0.4 }) : std(st.slotDark, { roughness: 0.5 }), ramX + i * RAM_PITCH, ramY, 0.003);
     add(group, box(0.006, 0.006, 0.008), std('#e6e2da'), ramX + i * RAM_PITCH, ramY + 0.07, 0.004);
   }
   // 24-pin и 8-pin
@@ -229,7 +269,7 @@ export function buildRAM(p: RAM, idx: number[] = [0, 2], pitch = RAM_PITCH): THR
     fitText(c, p.name.replace(p.brand, '').replace(/\d+GB/, '').trim().toUpperCase(), 230, 44, 270, 30, 800);
   }));
   // Профиль радиатора у каждой линейки свой: по нему модуль узнают с полки.
-  const kind = p.id === 'r4-16lpx' ? 'lpx' : p.id === 'r5-16rgb' ? 'trident' : p.id === 'r5-32' ? 'dominator' : 'fury';
+  const kind = p.id === 'r4-16lpx' ? 'lpx' : p.id === 'r5-16rgb' ? 'trident' : p.id === 'r5-32' ? 'dominator' : p.id === 'r4-16rgb' ? 'vrgb' : 'fury';
   const bodyH = kind === 'lpx' ? 0.029 : kind === 'dominator' ? 0.04 : 0.034;
   const body = std(p.look.main, { metalness: 0.55, roughness: 0.38 });
   for (const i of idx) {
@@ -241,15 +281,32 @@ export function buildRAM(p: RAM, idx: number[] = [0, 2], pitch = RAM_PITCH): THR
     const lz = 0.004 + bodyH * 0.45;
     decal(s, 0.11, 0.021, label, 0.0022, 0, lz, 0, Math.PI / 2, Math.PI / 2);
     decal(s, 0.11, 0.021, label, -0.0022, 0, lz, 0, -Math.PI / 2, -Math.PI / 2);
-    if (kind === 'fury') for (let k = 0; k < 7; k++) add(s, box(0.0044, 0.012, 0.004), body, 0, -0.054 + k * 0.018, 0.0035 + bodyH, Math.PI / 4, 0, 0);
+    if (kind === 'fury') {
+      // зубчатый гребень FURY во всю толщину радиатора (раньше — повёрнутые бруски,
+      // сбоку они торчали шипами)
+      const sh = new THREE.Shape(); const L2 = 0.13, n = 9, tw = L2 / n;
+      sh.moveTo(-L2 / 2, 0);
+      for (let k = 0; k < n; k++) { const x = -L2 / 2 + k * tw; sh.lineTo(x + tw * 0.25, 0.0045); sh.lineTo(x + tw * 0.75, 0.0045); sh.lineTo(x + tw, 0); }
+      sh.lineTo(L2 / 2, -0.001); sh.lineTo(-L2 / 2, -0.001); sh.closePath();
+      const geo = new THREE.ExtrudeGeometry(sh, { depth: 0.0042, bevelEnabled: false });
+      // контур (x — вдоль планки, y — вверх), выдавливание — по толщине планки
+      geo.applyMatrix4(new THREE.Matrix4().set(0, 0, 1, -0.0021, 1, 0, 0, 0, 0, 1, 0, 0.002 + bodyH, 0, 0, 0, 1));
+      add(s, geo, body);
+    }
     if (kind === 'lpx') for (let k = 0; k < 10; k++) add(s, box(0.0046, 0.003, bodyH * 0.8), std(p.look.accent, { metalness: 0.4, roughness: 0.4 }), 0, -0.054 + k * 0.012, 0.002 + bodyH / 2);
     if (kind === 'trident') {
       add(s, rbox(0.0046, 0.132, 0.012, 0.0015), std(p.look.accent, { metalness: 0.5, roughness: 0.35 }), 0, 0, 0.002 + bodyH - 0.004);
-      add(s, rbox(0.0042, 0.126, 0.008, 0.002), own('#f4f2ee', { emissive: '#ffffff', emissiveMap: rgbTexV, emissiveIntensity: 1.6, transparent: true, opacity: 0.92 }), 0, 0, 0.002 + bodyH + 0.004);
+      // световая полоса — насыщенная радуга (бледная почти белая не читалась как RGB)
+      add(s, rbox(0.0042, 0.126, 0.008, 0.002), own('#16171b', { emissive: '#ffffff', emissiveMap: rgbTexV, emissiveIntensity: 3.2 }), 0, 0, 0.002 + bodyH + 0.004);
     }
     if (kind === 'dominator') {
       for (let k = 0; k < 6; k++) add(s, box(0.0048, 0.13, 0.0015), std(p.look.accent, { metalness: 0.8, roughness: 0.25 }), 0, 0, 0.002 + bodyH - 0.0075 + k * 0.0018);
       add(s, rbox(0.0046, 0.124, 0.005, 0.0018), rgbMatV(), 0, 0, 0.002 + bodyH + 0.003);
+    }
+    if (kind === 'vrgb') {
+      // Vengeance RGB PRO: широкий матовый рассеиватель во всю длину поверх радиатора
+      add(s, rbox(0.0048, 0.13, 0.004, 0.0015), std(p.look.accent, { metalness: 0.6, roughness: 0.3 }), 0, 0, 0.002 + bodyH);
+      add(s, rbox(0.0044, 0.124, 0.009, 0.002), own('#1d1f24', { emissive: '#ffffff', emissiveMap: rgbTexV, emissiveIntensity: 3 }), 0, 0, 0.002 + bodyH + 0.0065);
     }
     if (p.rgb && kind === 'fury') add(s, rbox(0.0046, 0.128, 0.006, 0.0018), rgbMatV(), 0, 0, 0.038);
   }
@@ -277,34 +334,90 @@ export function buildSSD(p: SSD): THREE.Group {
 
 /* ─────────────────────────────── PSU ─────────────────────────────── */
 
+/**
+ * Блоки питания различаются длиной, решёткой вентилятора, рисунком кожуха и
+ * наклейкой (разбор Codex): раньше все шесть были одной коробкой с разными
+ * этикетками и одинаковой красной кнопкой.
+ */
+interface PsuStyle { D: number; grill: 'wire' | 'rings' | 'tri' | 'mesh'; ribs?: boolean; label: 'band' | 'side' | 'big'; rows: number }
+const PSUSTYLE: Record<string, PsuStyle> = {
+  pk550: { D: 0.14, grill: 'wire', label: 'band', rows: 1 },
+  'sp10-650': { D: 0.14, grill: 'rings', ribs: true, label: 'side', rows: 1 },
+  rm750e: { D: 0.14, grill: 'tri', label: 'big', rows: 2 },
+  gx850: { D: 0.15, grill: 'rings', label: 'big', rows: 2 },
+  'dp13-1000': { D: 0.17, grill: 'mesh', ribs: true, label: 'side', rows: 2 },
+  hx1500: { D: 0.18, grill: 'tri', label: 'big', rows: 3 },
+};
+
+function grillTex(kind: PsuStyle['grill'], ink: string): THREE.Texture {
+  return memo('grill' + kind + ink, () => canvasTex(256, 256, (c) => {
+    c.clearRect(0, 0, 256, 256); c.strokeStyle = ink; c.fillStyle = ink;
+    if (kind === 'wire') {
+      c.lineWidth = 6;
+      for (let r = 20; r < 124; r += 14) { c.beginPath(); c.arc(128, 128, r, 0, Math.PI * 2); c.stroke(); }
+      c.beginPath(); c.moveTo(4, 128); c.lineTo(252, 128); c.moveTo(128, 4); c.lineTo(128, 252); c.stroke();
+    } else if (kind === 'rings') {
+      c.lineWidth = 9;
+      for (let r = 34; r < 124; r += 22) { c.beginPath(); c.arc(128, 128, r, 0, Math.PI * 2); c.stroke(); }
+      c.beginPath(); c.arc(128, 128, 26, 0, Math.PI * 2); c.fill();
+    } else if (kind === 'tri') {
+      // треугольная перфорация (Corsair)
+      for (let y = 10; y < 250; y += 16) for (let x = (y / 16) % 2 ? 18 : 10; x < 250; x += 16) {
+        if (Math.hypot(x - 128, y - 128) > 120) continue;
+        c.beginPath(); c.moveTo(x, y - 6); c.lineTo(x + 6, y + 5); c.lineTo(x - 6, y + 5); c.closePath(); c.fill();
+      }
+    } else {
+      // мелкая сплошная сетка (be quiet! Dark Power)
+      c.lineWidth = 2;
+      for (let k = 0; k < 256; k += 7) { c.beginPath(); c.moveTo(k, 0); c.lineTo(k, 256); c.moveTo(0, k); c.lineTo(256, k); c.stroke(); }
+    }
+  }));
+}
+
 export function buildPSU(p: PSU): THREE.Group {
   const g = new THREE.Group();
-  const W = 0.15, H = 0.086, D = p.watt >= 1000 ? 0.18 : 0.14;
-  add(g, rbox(W, H, D, 0.004), std(p.look.main, { metalness: 0.4, roughness: 0.5 }));
-  // Холст в пропорции наклейки: у длинных БП (1000 Вт+) она шире, и общий
-  // холст 512×300 растягивал текст.
+  const st = PSUSTYLE[p.id] ?? { D: p.watt >= 1000 ? 0.18 : 0.14, grill: 'wire', label: 'band', rows: 1 } as PsuStyle;
+  const W = 0.15, H = 0.086, D = st.D;
+  const white = inkFor(p.look.main) === '#1d1f24'; // светлый корпус — тёмные надписи
+  const bodyM = std(p.look.main, { metalness: white ? 0.1 : 0.4, roughness: 0.5 });
+  add(g, rbox(W, H, D, 0.004), bodyM);
+  // Холст в пропорции наклейки: у длинных БП она шире, и общий холст растягивал текст.
   const lab = memo('psu' + p.id, () => canvasTex(512, Math.round((512 * H) / D), (c, w, h) => {
+    const ink = inkFor(p.look.main);
     c.fillStyle = p.look.main; c.fillRect(0, 0, w, h);
-    c.fillStyle = p.look.accent; c.fillRect(0, h - 70, w, 70);
-    c.fillStyle = inkFor(p.look.main); c.textBaseline = 'middle';
-    fitText(c, p.brand.toUpperCase(), 30, 70, w - 60, 56, 900);
-    fitText(c, p.name.replace(p.brand, '').trim(), 30, 150, w - 60, 40, 700);
-    c.fillStyle = inkFor(p.look.accent);
-    fitText(c, `80 PLUS ${p.tier.toUpperCase()} · ${p.watt}W`, 30, h - 35, w - 60, 34, 800);
+    c.textBaseline = 'middle';
+    if (st.label === 'band') {
+      c.fillStyle = p.look.accent; c.fillRect(0, h - 70, w, 70);
+      c.fillStyle = ink; fitText(c, p.brand.toUpperCase(), 30, 70, w - 60, 56, 900);
+      fitText(c, p.name.replace(p.brand, '').trim(), 30, 150, w - 60, 40, 700);
+      c.fillStyle = inkFor(p.look.accent); fitText(c, `80 PLUS ${p.tier.toUpperCase()} · ${p.watt}W`, 30, h - 35, w - 60, 34, 800);
+    } else if (st.label === 'side') {
+      // сдержанная наклейка: тонкая линия акцента сверху и светлый логотип
+      c.fillStyle = p.look.accent; c.fillRect(30, 30, w - 60, 6);
+      c.fillStyle = ink; fitText(c, p.brand, 30, h * 0.42, w - 60, 64, 900);
+      c.globalAlpha = 0.75; fitText(c, p.name.replace(p.brand, '').trim(), 30, h * 0.66, w - 60, 34, 700);
+      c.globalAlpha = 1; c.fillStyle = p.look.accent; fitText(c, `${p.tier.toUpperCase()} · ${p.watt}W`, 30, h - 40, w - 60, 30, 800);
+    } else {
+      // крупная модель на весь бок (RM750e, FOCUS, HX1500i)
+      const model = p.name.replace(p.brand, '').trim().split(' ')[0].toUpperCase();
+      c.fillStyle = ink; c.globalAlpha = 0.9; fitText(c, model, 24, h * 0.5, w - 48, h * 0.5, 900);
+      c.globalAlpha = 1; c.fillStyle = p.look.accent; fitText(c, p.brand.toUpperCase(), 26, 40, w * 0.6, 34, 900);
+      fitText(c, `80+ ${p.tier.toUpperCase()}`, 26, h - 32, w * 0.6, 28, 800);
+    }
   }));
   decal(g, D * 0.8, H * 0.8, lab, W / 2 + 0.0005, 0, 0, 0, Math.PI / 2, 0);
   decal(g, D * 0.8, H * 0.8, lab, -W / 2 - 0.0005, 0, 0, 0, -Math.PI / 2, 0);
-  const grill = memo('grill', () => canvasTex(256, 256, (c) => {
-    c.clearRect(0, 0, 256, 256); c.strokeStyle = '#111'; c.lineWidth = 6;
-    for (let r = 20; r < 124; r += 14) { c.beginPath(); c.arc(128, 128, r, 0, Math.PI * 2); c.stroke(); }
-    c.beginPath(); c.moveTo(4, 128); c.lineTo(252, 128); c.moveTo(128, 4); c.lineTo(128, 252); c.stroke();
-  }));
-  decal(g, 0.12, 0.12, grill, 0, -H / 2 - 0.0005, 0, Math.PI / 2, 0, 0);
-  // задняя панель: решётка и выключатель
+  // вентилятор снизу: своя решётка у каждой линейки
+  const gInk = white ? '#b9bcc2' : '#5a5f68';
+  decal(g, Math.min(0.13, D * 0.86), Math.min(0.13, D * 0.86), grillTex(st.grill, gInk), 0, -H / 2 - 0.0005, 0, Math.PI / 2, 0, 0);
+  // рёбра на крышке (be quiet!) — видны сверху в корпусе
+  if (st.ribs) for (let i = 0; i < 7; i++) add(g, box(W * 0.8, 0.0015, 0.003), std(shade(p.look.main, white ? 0.9 : 1.6), { roughness: 0.5 }), 0, H / 2 + 0.0008, -D * 0.35 + i * (D * 0.7) / 6);
+  // задняя панель: сетевой разъём и выключатель рядом (тёмный, как у всех настоящих)
   add(g, box(0.022, 0.016, 0.002), std('#111'), -0.045, 0.02, D / 2 + 0.001);
-  add(g, box(0.008, 0.012, 0.004), std('#b8333f'), -0.045, -0.02, D / 2 + 0.002);
-  // модульные разъёмы спереди
-  for (let i = 0; i < 5; i++) add(g, box(0.016, 0.008, 0.004), std('#0d0e10'), -0.05 + i * 0.024, 0.02, -D / 2 - 0.002);
+  add(g, box(0.009, 0.013, 0.004), std('#1d1f24', { roughness: 0.4 }), -0.045, -0.006, D / 2 + 0.002);
+  add(g, box(0.06, 0.05, 0.0012), std(shade(p.look.main, white ? 0.85 : 0.6)), 0.035, 0, D / 2 + 0.0006);
+  // модульные разъёмы спереди: у дорогих рядов больше
+  for (let r2 = 0; r2 < st.rows; r2++) for (let i = 0; i < 5; i++) add(g, box(0.016, 0.008, 0.004), std('#0d0e10'), -0.05 + i * 0.024, 0.02 - r2 * 0.016, -D / 2 - 0.002);
   g.userData.dims = [W, H, D];
   mergeTree(g);
   return g;

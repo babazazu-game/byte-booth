@@ -104,13 +104,20 @@ const cheapest = <T extends { id: string }>(arr: T[], price: (id: string) => num
  * зафиксированы сокет, тип памяти, мощность и длина видеокарты.
  */
 export function solve(req: Req, rep: number, price: (id: string) => number): { build: Build; cost: number } | null {
+  // «С подсветкой» закрывает либо RGB-память, либо корпус со светящимися вентиляторами — берём дешевле
+  if (!req.rgb) return solveVia(req, rep, price, null);
+  const a = solveVia(req, rep, price, 'ram'), b = solveVia(req, rep, price, 'case');
+  return !a ? b : !b ? a : a.cost <= b.cost ? a : b;
+}
+
+function solveVia(req: Req, rep: number, price: (id: string) => number, rgbVia: 'ram' | 'case' | null): { build: Build; cost: number } | null {
   let best: { build: Build; cost: number } | null = null;
-  const cases = avail(CASES, rep).filter((c) => (!req.white || c.color === 'white') && (!req.itx || c.size === 'mini'));
+  const cases = avail(CASES, rep).filter((c) => (!req.white || c.color === 'white') && (!req.itx || c.size === 'mini') && (rgbVia !== 'case' || c.rgb));
   for (const cpu of avail(CPUS, rep)) {
     if (req.vendor && cpu.vendor !== req.vendor) continue;
     for (const gpu of avail(GPUS, rep)) {
       const probe: Build = { cpu: cpu.id, gpu: gpu.id, ram: undefined };
-      const ramPick = avail(RAMS, rep).filter((r) => (!req.rgb || r.rgb));
+      const ramPick = avail(RAMS, rep).filter((r) => (rgbVia !== 'ram' || r.rgb));
       if (!ramPick.length) continue;
       // Балл зависит от памяти только порогом 16 ГБ и каналами; берём пару планок.
       probe.ram = ramPick.find((r) => r.gb * 2 >= Math.max(16, req.ram))?.id ?? ramPick[0].id; probe.ramN = 2;
@@ -313,7 +320,7 @@ export function evaluate(o: Order, b: Build, tipK: number): Evaluation {
     if (r.ssd) checks.push({ key: 'chk.ssd', ok: (g.ssd(b)?.gb ?? 0) >= r.ssd, vars: { need: r.ssd >= 1000 ? r.ssd / 1000 + 'TB' : r.ssd + 'GB' } });
     if (r.itx) checks.push({ key: 'chk.itx', ok: g.case(b)?.size === 'mini' });
     if (r.white) checks.push({ key: 'chk.white', ok: g.case(b)?.color === 'white' });
-    if (r.rgb) checks.push({ key: 'chk.rgb', ok: !!g.ram(b)?.rgb });
+    if (r.rgb) checks.push({ key: 'chk.rgb', ok: !!g.ram(b)?.rgb || !!g.case(b)?.rgb });
     if (r.silent) checks.push({ key: 'chk.silent', ok: (g.cooler(b)?.cap ?? 0) >= (g.cpu(b)?.tdp ?? 999) * 1.6 });
     if (r.vendor) checks.push({ key: 'chk.vendor', ok: g.cpu(b)?.vendor === r.vendor, vars: { v: r.vendor === 'amd' ? 'AMD' : 'Intel' } });
     checks.push({ key: 'chk.temps', ok: test.stage !== 'throttle' });

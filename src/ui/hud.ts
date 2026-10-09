@@ -126,7 +126,7 @@ export class Hud {
     if (r.ssd) out.push({ text: t('ord.req.ssd', { n: r.ssd >= 1000 ? r.ssd / 1000 + 'TB' : r.ssd + 'GB' }), ok: b.ssd ? G.ssd(b)!.gb >= r.ssd : undefined });
     if (r.itx) out.push({ text: t('ord.req.itx'), ok: b.case ? G.case(b)!.size === 'mini' : undefined });
     if (r.white) out.push({ text: t('ord.req.white'), ok: b.case ? G.case(b)!.color === 'white' : undefined });
-    if (r.rgb) out.push({ text: t('ord.req.rgb'), ok: b.ram ? G.ram(b)!.rgb : undefined });
+    if (r.rgb) out.push({ text: t('ord.req.rgb'), ok: (b.ram && G.ram(b)!.rgb) || (b.case && G.case(b)!.rgb) ? true : b.ram && b.case ? false : undefined });
     if (r.silent) out.push({ text: t('ord.req.silent'), ok: b.cooler && b.cpu ? G.cooler(b)!.cap >= G.cpu(b)!.tdp * 1.6 : undefined });
     if (r.vendor) out.push({ text: t('ord.req.vendor', { v: r.vendor === 'amd' ? 'AMD' : 'Intel' }), ok: b.cpu ? G.cpu(b)!.vendor === r.vendor : undefined });
     if (r.reliable) {

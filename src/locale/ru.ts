@@ -88,7 +88,7 @@ export const RU: Record<string, string> = {
   'ord.req.ssd': 'Диск ≥ {n}',
   'ord.req.itx': 'Компактный корпус (ITX)',
   'ord.req.white': 'Белый корпус',
-  'ord.req.rgb': 'Память с подсветкой',
+  'ord.req.rgb': 'Подсветка: память или вентиляторы корпуса',
   'ord.req.silent': 'Тихий: кулер с большим запасом',
   'ord.req.vendor': 'Процессор {v}',
   'ord.req.up.gpu': 'Заменить видеокарту',

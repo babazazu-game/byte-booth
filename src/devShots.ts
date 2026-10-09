@@ -30,10 +30,10 @@ export async function runShot(app: App, scene: string): Promise<void> {
     for (const p of parts) {
       let o: T3.Object3D;
       if (cat === 'mb') o = M.buildBoard(p as never).group;
-      else if (cat === 'psu') { o = M.buildPSU(p as never); o.rotation.y = 0.6; o.rotation.x = 0.35; }
+      else if (cat === 'psu') { o = M.buildPSU(p as never); o.rotation.y = 0.7; o.rotation.x = new URLSearchParams(location.search).get('under') ? -0.7 : 0.35; }
       else if (cat === 'gpu') { o = M.buildGPU(p as never).group; o.rotation.x = 0.5; }
       else if (cat === 'cooler') { o = M.buildCooler(p as never).group; o.rotation.x = 0.3; o.rotation.y = 0.5; }
-      else if (cat === 'ram') { o = M.buildRAM(p as never, [0]); o.rotation.x = 0.3; }
+      else if (cat === 'ram') { o = M.buildRAM(p as never, [0]); o.rotation.y = -1.25; o.rotation.x = 0.15; }
       else { const r = new M.PcRig(); r.sync({ case: p.id, panel: false } as never); r.update(0, 0, false); o = r.group; o.rotation.y = -0.6; }
       list.push({ obj: o, name: p.brand + ' ' + p.name });
     }
@@ -90,7 +90,9 @@ export async function runShot(app: App, scene: string): Promise<void> {
   }
   const o = order(); S.acceptPending(s);
   const sol = solve(o.req, S.level(s), (id) => S.buyPrice(s, id))!.build;
-  for (const k of ['mb', 'cpu', 'cooler', 'ssd', 'gpu', 'psu'] as const) S.buy(s, sol[k]!, 1);
+  // ?parts=mb:x870e,cpu:r7-9800x3d — подменить детали (проверка посадки на разных платах)
+  for (const kv of (new URLSearchParams(location.search).get('parts') ?? '').split(',').filter(Boolean)) { const [k, v] = kv.split(':'); (sol as Record<string, string>)[k] = v; }
+  for (const k of ['case', 'mb', 'cpu', 'cooler', 'ssd', 'gpu', 'psu'] as const) S.buy(s, sol[k]!, 1);
   S.buy(s, sol.ram!, 2);
   if (scene === 'shop' || scene === 'stock' || scene === 'upgrades') {
     app.go('pc');
@@ -100,9 +102,11 @@ export async function runShot(app: App, scene: string): Promise<void> {
   }
   if (scene === 'shelf') { app.go('shelf'); for (let i = 0; i < 40; i++) app.debugStep(0.05); return; }
   S.startBench(s, o.id);
-  const ins = (c: string) => { const it = s.inv.find((i) => part(i.id).cat === c); if (it) S.install(s, { uid: it.uid }); };
+  const ins = (c: string) => { const want = (sol as Record<string, string | undefined>)[c]; const it = s.inv.find((i) => i.id === want) ?? s.inv.find((i) => part(i.id).cat === c); if (it) S.install(s, { uid: it.uid }); };
   ins('case'); ins('psu'); ins('mb');
-  if (scene === 'bench2') { ins('cpu'); S.applyPaste(s); ins('cooler'); ins('ram'); ins('ssd'); ins('gpu'); }
+  if (scene === 'bench2' || scene === 'bench3') { ins('cpu'); S.applyPaste(s); ins('cooler'); ins('ram'); ins('ssd'); ins('gpu'); }
+  // bench3: собранный ПК целиком — вторая планка, кабели, панель снята (проверка пересечений)
+  if (scene === 'bench3') { ins('ram'); for (const k of ['cab24', 'cab8', 'cabGpu'] as const) S.toggleCable(s, k); }
   app.bench.sync(false); app.go('bench');
   for (let i = 0; i < 40; i++) app.debugStep(0.05);
   app.bench.refresh();

@@ -160,12 +160,12 @@ export class PcRig {
       const y = (H - 0.08) / 2 - 0.065 - i * 0.125;
       // вентилятор целиком выше крышки БП (верх крышки на −H/2 + 0.1), иначе он в неё врезался
       if (y - 0.06 < -H / 2 + 0.1) break;
-      const f = buildFan({ R: 0.056, frame: true, frameColor: fanFrame, rgb: c.glass, logo: fanLogo, blade: '#4a4f59' });
+      const f = buildFan({ R: 0.056, frame: true, frameColor: fanFrame, rgb: !!c.rgb, logo: fanLogo, blade: '#4a4f59' });
       f.group.position.set(0, y, -D / 2 + 0.02); f.group.rotation.y = Math.PI;
       B.add(f.group); this.fans.push(f);
       const d = makeDust(0.112, 0.112); d.position.set(0, y, -D / 2 + 0.034); B.add(d); this.caseDust.push(d);
     }
-    const rf = buildFan({ R: 0.056, frame: true, frameColor: fanFrame, rgb: c.glass, logo: fanLogo, blade: '#4a4f59' });
+    const rf = buildFan({ R: 0.056, frame: true, frameColor: fanFrame, rgb: !!c.rgb, logo: fanLogo, blade: '#4a4f59' });
     const rx = this.rearGeo().fan[0];
     rf.group.position.set(rx, H / 2 - 0.09, D / 2 - 0.017); B.add(rf.group); this.fans.push(rf);
     const rd = makeDust(0.112, 0.112); rd.position.set(rx, H / 2 - 0.09, D / 2 - 0.032); rd.rotation.y = Math.PI; B.add(rd); this.caseDust.push(rd);
