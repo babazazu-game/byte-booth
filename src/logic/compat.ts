@@ -292,11 +292,16 @@ export function runTest(b: Build): TestResult {
   if (g.psu(b)!.watt < need * 0.85) return { ...base, stage: 'burn', lines: ['test.post', 'test.boot', 'test.psuBurn'] };
   if (g.psu(b)!.watt < need) return { ...base, stage: 'shutdown', lines: ['test.post', 'test.boot', 'test.psuWeak'] };
   const score = gameScore(b), work = workScore(b);
+  // почему балл ниже ожидаемого — говорим прямо (иначе −10% за одноканальную
+  // память было не найти: игрок собрал «всё топовое» и не понимал, где очки)
+  const why: string[] = [];
+  if (b.ram && !dualChannel(b)) why.push((b.ramN ?? 1) < 2 ? 'test.single' : 'test.singleSlots');
+  { const c = g.cpu(b); if (c && b.gpu && gpuPerf(b) * 0.8 - c.perf > 4) why.push('test.neck'); }
   if (t.cpu >= 95 || t.gpu >= 92) {
-    return { ...base, score: Math.round(score * 0.7), work: Math.round(work * 0.7), stage: 'throttle', lines: ['test.post', 'test.boot', ...(b.fakeGpu ? ['test.fake'] : []), 'test.hot'] };
+    return { ...base, score: Math.round(score * 0.7), work: Math.round(work * 0.7), stage: 'throttle', lines: ['test.post', 'test.boot', ...(b.fakeGpu ? ['test.fake'] : []), 'test.hot', ...why] };
   }
   // подделку выдаёт драйвер: определяется не тот чип, что на наклейке
-  return { ...base, score, work, stage: 'ok', lines: ['test.post', 'test.boot', ...(b.fakeGpu ? ['test.fake'] : []), 'test.bench'] };
+  return { ...base, score, work, stage: 'ok', lines: ['test.post', 'test.boot', ...(b.fakeGpu ? ['test.fake'] : []), 'test.bench', ...why] };
 }
 
 /** Сколько стоит сборка по ЗАДАННЫМ ценам (рынок передаёт свои). */

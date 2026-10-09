@@ -318,12 +318,25 @@ export function buildPerson(L: PersonLook, seed = 1, far = false): Person {
   const brows: THREE.Mesh[] = [];
   [-1, 1].forEach((s) => brows.push(tube(head, [V(s * 0.045, 0.15, 0.232), V(s * 0.1, 0.17, 0.222), V(s * 0.15, 0.155, 0.2)], 0.0145, hairM, 16, 8)));
   if (L.beard) {
-    const beard = add(head, new THREE.SphereGeometry(0.285, 48, 20, Math.PI / 2 - 1.2, 2.4, 2.25, 0.62), std(L.hairColor, { roughness: 0.85 }));
-    beard.rotation.y = Math.PI; beard.rotation.y = 0;
-    beard.scale.set(1.04, 0.98, 0.95);
-    const g2 = beard.geometry; noiseDisplace(g2, 0.006, 40, 3); g2.computeVertexNormals();
-    // Борода не должна закрывать рот — опускаем её ниже губ.
-    beard.position.y = -0.02;
+    /*
+     * Борода — слой поверх самой формы головы: те же вершины, сдвинутые наружу
+     * по нормали на щеках и подбородке и утопленные внутрь за краем. Раньше это
+     * была отдельная сферическая полоса, и она висела на 2 см ниже подбородка
+     * с щелью между ней и лицом. Рот (наклейка) остаётся открытым.
+     */
+    const g2 = headGeometry('#000'); g2.deleteAttribute('color');
+    const bp = g2.attributes.position as THREE.BufferAttribute, bn = g2.attributes.normal as THREE.BufferAttribute;
+    const ss = (a: number, b: number, x: number) => { const k = Math.max(0, Math.min(1, (x - a) / (b - a))); return k * k * (3 - 2 * k); };
+    const dv = V(), nv = V();
+    for (let i = 0; i < bp.count; i++) {
+      dv.fromBufferAttribute(bp, i); nv.fromBufferAttribute(bn, i);
+      const d = dv.clone().normalize();
+      const lower = ss(-0.12, -0.34, d.y), side = ss(0.3, 0.52, Math.abs(d.x)), chin = ss(-0.6, -0.74, d.y), front = ss(-0.4, -0.05, d.z);
+      const w = lower * Math.max(side, chin) * front;
+      dv.addScaledVector(nv, 0.016 * w - 0.008 * (1 - w)); bp.setXYZ(i, dv.x, dv.y, dv.z);
+    }
+    noiseDisplace(g2, 0.004, 40, 3); g2.computeVertexNormals();
+    add(head, g2, std(L.hairColor, { roughness: 0.85 }));
   }
   buildHair(head, L, hairM, seed);
   if (L.headphones) {
@@ -552,7 +565,9 @@ function buildHair(head: THREE.Group, L: PersonLook, hairM: THREE.Material, seed
   if (L.hardhat) {
     // каска: купол, поля и рёбра жёсткости
     const hat = std('#f2c230', { roughness: 0.35 });
-    add(head, new THREE.SphereGeometry(0.31, 40, 20, 0, TAU, 0, 1.45), hat, 0, 0.05, -0.01).scale.set(1, 0.92, 1.02);
+    // купол — до самого экватора: обрезанный на 1.45 рад, он кончался на 1 см выше
+    // полей, и между каской и козырьком светилась щель
+    add(head, new THREE.SphereGeometry(0.31, 40, 20, 0, TAU, 0, Math.PI / 2), hat, 0, 0.05, -0.01).scale.set(1, 0.92, 1.02);
     add(head, cyl(0.36, 0.36, 0.018, 40), hat, 0, 0.065, 0.02).scale.set(1, 1, 1.08);
     // гребень жёсткости — дуга точно по куполу, спереди назад (была прямая палка)
     const ridge = add(head, new THREE.TorusGeometry(0.31, 0.022, 10, 48, Math.PI * 0.86), hat, 0, 0.05, -0.01, 0, Math.PI / 2, Math.PI * 0.07);

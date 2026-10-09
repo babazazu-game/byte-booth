@@ -63,12 +63,12 @@ export function openCablePuzzle(seed: number, onDone: (tidy: boolean) => void, b
     grid.append(el);
     return el;
   });
-  // выходы трасс: сверху над левой колонкой — процессор, справа — плата и видеокарта
-  const outs: Record<Wire, HTMLElement> = {
-    cpu: h('div', { class: 'cp-out top', style: `left:${CELL / 2 - 34}px` }, t('cab.cpu')),
-    atx: h('div', { class: 'cp-out right', style: `top:${CELL + GAP + CELL / 2 - 12}px` }, t('cab.atx')),
-    gpu: h('div', { class: 'cp-out right', style: `top:${2 * (CELL + GAP) + CELL / 2 - 12}px` }, t('cab.gpu')),
-  };
+  // выходы трасс — там, где их положила раскладка этой партии
+  const outs = {} as Record<Wire, HTMLElement>;
+  for (const w of Object.keys(b.routes) as Wire[]) {
+    const o = b.routes[w].out, mid = o.at * (CELL + GAP) + CELL / 2;
+    outs[w] = o.side === 'top' ? h('div', { class: 'cp-out top', style: `left:${mid - 34}px` }, t('cab.' + w)) : h('div', { class: 'cp-out right', style: `top:${mid - 12}px` }, t('cab.' + w));
+  }
   const psu = h('div', { class: 'cp-psu' }, h('span', {}, t('cab.psu')),
     ...([0, 1, 2] as const).map((i) => h('i', { style: `left:${i * (CELL + GAP) + CELL / 2 - 13}px` })));
   const board = h('div', { class: 'cp-board' }, grid, outs.cpu, outs.atx, outs.gpu, psu);

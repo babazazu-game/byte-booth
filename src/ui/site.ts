@@ -5,7 +5,7 @@ import * as S from '../logic/state.ts';
 import { solve } from '../logic/orders.ts';
 import { canInstall } from '../logic/compat.ts';
 import { t, money, lang } from '../i18n.ts';
-import { h, btn, icon, thumb, toast, spark, confirmBox, modal } from './dom.ts';
+import { h, btn, icon, thumb, toast, spark, confirmBox, modal, dragScroll } from './dom.ts';
 import { sound } from '../audio/audio.ts';
 import { guideBody } from './guide.ts';
 import { DISTRICTS, DISTRICT_IDS, LEGEND_REP } from '../logic/districts.ts';
@@ -33,7 +33,7 @@ export class Site {
   private recFor: number | null = null;
 
   constructor(private app: App) {
-    this.tabsEl = h('div', { class: 'tabs' });
+    this.tabsEl = dragScroll(h('div', { class: 'tabs' }));
     this.cashEl = h('div', { class: 'chip', style: 'background:#2a3142;color:#e8eef6' });
     this.body = h('div', { class: 'pb' });
     this.el = h('div', { class: 'panel site live hidden' },
@@ -99,7 +99,7 @@ export class Site {
   private renderShop(): void {
     const s = this.app.state!;
     const rec = this.recommended();
-    const cats = h('div', { class: 'cats' });
+    const cats = dragScroll(h('div', { class: 'cats' }));
     // «✓ К заказу» — первой: только то, что подходит к сборке на верстаке или к заказу (Codex)
     for (const c of ['fit', 'all', ...CATS] as (Cat | 'all' | 'fit')[]) {
       const b = h('button', { class: 'live ' + (this.cat === c ? 'on' : '') + (c === 'fit' ? ' fitcat' : '') }, c === 'all' ? t('site.all') : c === 'fit' ? '✓ ' + t('site.fitCat') : t('cat.' + c));
@@ -107,6 +107,9 @@ export class Site {
       cats.append(b);
     }
     this.body.append(cats);
+    // полоса пересоздаётся при каждом выборе — держим выбранную категорию в кадре
+    const onB = cats.querySelector<HTMLElement>('button.on');
+    if (onB) requestAnimationFrame(() => { cats.scrollLeft = Math.max(0, onB.offsetLeft - (cats.clientWidth - onB.offsetWidth) / 2); });
     if (this.app.settings.hints && rec.size) this.body.append(h('div', { class: 'tag teal', style: 'display:inline-block;margin-bottom:8px' }, '★ ' + t('site.fits')));
     // Обучение: явный список «что ещё купить» и кнопка «купить всё». Без него игрок
     // не понимал, что от него хотят на этом шаге, и застревал.

@@ -6,6 +6,7 @@
  * localhost вместе с отладкой.
  */
 import type { App } from './game/app.ts';
+import type * as T3 from 'three';
 import * as S from './logic/state.ts';
 import { solve } from './logic/orders.ts';
 import { part } from './logic/parts.ts';
@@ -14,6 +15,46 @@ export async function runShot(app: App, scene: string): Promise<void> {
   app.persist = () => {};
   app.saveSettings = () => {};
   if (scene === 'menu') return;
+  if (scene === 'lineup') {
+    // витрина деталей одной категории: ?shot=lineup&cat=mb|psu|gpu|cooler|ram|case
+    const THREE = await import('three');
+    const M = await import('./render/debugModels.ts');
+    const cat = new URLSearchParams(location.search).get('cat') ?? 'mb';
+    const sc = new THREE.Scene(); sc.background = new THREE.Color('#d9dde3');
+    sc.environment = (app.engine as unknown as { env: T3.Texture }).env; sc.environmentIntensity = 0.5;
+    sc.add(new THREE.HemisphereLight('#ffffff', '#8a8f99', 1.6));
+    const sun = new THREE.DirectionalLight('#fff', 2.4); sun.position.set(1, 2, 3); sc.add(sun);
+    const list: { obj: T3.Object3D; name: string }[] = [];
+    const L = M as unknown as Record<string, unknown>;
+    const parts = ({ mb: L.MBS, psu: L.PSUS, gpu: L.GPUS, cooler: L.COOLERS, ram: L.RAMS, case: L.CASES } as Record<string, { id: string; brand: string; name: string }[]>)[cat];
+    for (const p of parts) {
+      let o: T3.Object3D;
+      if (cat === 'mb') o = M.buildBoard(p as never).group;
+      else if (cat === 'psu') { o = M.buildPSU(p as never); o.rotation.y = 0.6; o.rotation.x = 0.35; }
+      else if (cat === 'gpu') { o = M.buildGPU(p as never).group; o.rotation.x = 0.5; }
+      else if (cat === 'cooler') { o = M.buildCooler(p as never).group; o.rotation.x = 0.3; o.rotation.y = 0.5; }
+      else if (cat === 'ram') { o = M.buildRAM(p as never, [0]); o.rotation.x = 0.3; }
+      else { const r = new M.PcRig(); r.sync({ case: p.id, panel: false } as never); r.update(0, 0, false); o = r.group; o.rotation.y = -0.6; }
+      list.push({ obj: o, name: p.brand + ' ' + p.name });
+    }
+    const n = list.length, cols = Math.ceil(Math.sqrt(n * 1.6)), rows = Math.ceil(n / cols);
+    let size = 0;
+    for (const { obj } of list) { const b = new THREE.Box3().setFromObject(obj); const v = b.getSize(new THREE.Vector3()); size = Math.max(size, v.x, v.y); }
+    const step = size * 1.25;
+    list.forEach(({ obj }, i) => {
+      const b = new THREE.Box3().setFromObject(obj); const c = b.getCenter(new THREE.Vector3());
+      const g = new THREE.Group(); obj.position.sub(c); g.add(obj);
+      g.position.set(((i % cols) - (cols - 1) / 2) * step, (-(Math.floor(i / cols)) + (rows - 1) / 2) * step, 0); sc.add(g);
+    });
+    const cam = new THREE.PerspectiveCamera(30, innerWidth / innerHeight, 0.01, 50);
+    const span = Math.max(cols * step / (innerWidth / innerHeight), rows * step) * 1.1;
+    cam.position.set(0, 0, span / 2 / Math.tan((15 * Math.PI) / 180)); cam.lookAt(0, 0, 0);
+    app.engine.render = () => app.engine.renderer.render(sc, cam);
+    document.getElementById('ui')!.style.display = 'none';
+    const lab = document.createElement('div'); lab.style.cssText = 'position:fixed;left:8px;bottom:8px;font:12px monospace;color:#223;z-index:99;background:#fff9;padding:4px';
+    lab.textContent = list.map((x, i) => i + 1 + '. ' + x.name).join('  ·  '); document.body.append(lab);
+    return;
+  }
   app.play(true);
   const s = app.state!;
   s.tutorial = 99; s.cash = 9999; s.xp = 200; s.up.shelf = 2;
@@ -67,6 +108,6 @@ export async function runShot(app: App, scene: string): Promise<void> {
   app.bench.refresh();
   if (scene === 'puzzle') {
     const { openCablePuzzle } = await import('./ui/cablePuzzle.ts');
-    openCablePuzzle(7, () => {}, 40);
+    openCablePuzzle(Number(new URLSearchParams(location.search).get('seed') ?? 7), () => {}, 40);
   }
 }

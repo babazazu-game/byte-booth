@@ -127,3 +127,24 @@ export function spark(vals: number[], w = 90, hgt = 26): SVGSVGElement {
   s.innerHTML = `<polyline points="${pts}" fill="none" stroke="${up ? '#d2462f' : '#3f9a5a'}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
   return s;
 }
+
+/**
+ * Полоса вкладок/категорий, которую можно тянуть пальцем или мышью вбок.
+ * Своя обработка, а не только CSS: внутри вертикального списка браузер
+ * запрещал горизонтальный жест, и не влезшие вкладки было не достать.
+ * После протяжки клик по кнопке под пальцем гасится.
+ */
+export function dragScroll(el: HTMLElement): HTMLElement {
+  let x0 = 0, s0 = 0, id = -1, moved = false;
+  el.addEventListener('pointerdown', (e) => { if (el.scrollWidth <= el.clientWidth + 1) return; id = e.pointerId; x0 = e.clientX; s0 = el.scrollLeft; moved = false; });
+  el.addEventListener('pointermove', (e) => {
+    if (e.pointerId !== id) return;
+    const dx = e.clientX - x0;
+    if (!moved && Math.abs(dx) > 6) { moved = true; try { el.setPointerCapture(id); } catch { /* пусто */ } }
+    if (moved) el.scrollLeft = s0 - dx;
+  });
+  const end = (e: PointerEvent) => { if (e.pointerId === id) id = -1; };
+  el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
+  el.addEventListener('click', (e) => { if (moved) { e.stopPropagation(); e.preventDefault(); moved = false; } }, true);
+  return el;
+}

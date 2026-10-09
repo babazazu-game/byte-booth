@@ -593,3 +593,18 @@
   .bench-phone .btn.tile { width: 64px; font-size: 10px; }
   .titem .tag { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
 }
+/* телефон: вкладки и категории магазина мельче и двигаются пальцем вбок
+   (список разрешал только вертикальный жест — браузер гасил и горизонтальный) */
+.panel .pb, .modal .mb { touch-action: pan-x pan-y; }
+@media (max-height: 560px), (max-width: 700px) {
+  .site .tabs, .site .cats { touch-action: pan-x; overscroll-behavior-x: contain; cursor: grab; }
+  .site .tabs button { min-height: 34px; padding: 0 .65em; font-size: 13px; flex: none; }
+  .site .cats button { min-height: 34px; padding: 0 .6em; font-size: 12.5px; }
+  .site .ph { gap: 6px; }
+}
+/* лента деталей не шире экрана — иначе прокручивать было нечего и она
+   «отскакивала» назад (была 556 px при экране 390) */
+@media (max-width: 700px) and (min-height: 561px) {
+  .bench-bottom { max-width: 100%; min-width: 0; }
+  .tray .items { width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; align-self: stretch; }
+}
