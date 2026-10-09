@@ -1,0 +1,10 @@
+node_modules/
+dist/
+build/
+*.zip
+.env
+.env.local
+.claude/settings.local.json
+
+# служебное: исходники артов, референсы (чужие скриншоты), скриншоты для ревью
+art/

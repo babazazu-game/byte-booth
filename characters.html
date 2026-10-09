@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Персонажи — Железный ларёк</title>
+  <style>
+    :root { --bg: #f3efe7; --ink: #1d2230; --muted: #6b7280; --card: #fff; --line: #e2dccf; --acc: #f3c632; --acc2: #1e56c8; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font: 14px/1.35 system-ui, -apple-system, 'Segoe UI', sans-serif; }
+    #app { display: grid; grid-template-columns: 270px 1fr; height: 100%; }
+    aside { border-right: 1px solid var(--line); background: var(--card); overflow-y: auto; padding: 12px; }
+    h1 { font-size: 17px; margin: 0 0 4px; }
+    .sub { color: var(--muted); font-size: 12px; margin-bottom: 10px; }
+    .list button { display: flex; width: 100%; align-items: center; gap: 8px; text-align: left; padding: 8px 10px; margin: 0 0 4px; border: 1px solid var(--line); background: #fbfaf7; border-radius: 8px; cursor: pointer; font: inherit; color: inherit; }
+    .list button b { font-weight: 650; }
+    .list button small { margin-left: auto; color: var(--muted); font: 11px ui-monospace, monospace; }
+    .list button.on { border-color: var(--acc2); background: #eef3ff; }
+    .list button.all { background: #fff7d6; border-color: #e8d48a; }
+    main { position: relative; overflow: hidden; }
+    canvas { display: block; width: 100%; height: 100%; }
+    .bar { position: absolute; left: 12px; right: 12px; bottom: 12px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; background: rgba(255,255,255,.92); border: 1px solid var(--line); padding: 8px; border-radius: 10px; }
+    .bar .grp { display: flex; gap: 4px; align-items: center; margin-right: 10px; }
+    .bar .grp span { color: var(--muted); font-size: 12px; margin-right: 2px; }
+    .bar button { padding: 6px 10px; border-radius: 7px; border: 1px solid var(--line); background: #fff; cursor: pointer; font: inherit; color: inherit; }
+    .bar button.on { background: var(--acc); border-color: #d9b12a; }
+    .title { position: absolute; left: 12px; top: 12px; background: rgba(255,255,255,.92); border: 1px solid var(--line); padding: 8px 12px; border-radius: 10px; max-width: min(520px, calc(100% - 24px)); }
+    .title b { font-size: 16px; }
+    .title div { color: var(--muted); font-size: 12px; margin-top: 2px; }
+    .tag { position: absolute; transform: translate(-50%, -100%); background: #1d2230; color: #fff; font-size: 12px; padding: 3px 7px; border-radius: 6px; white-space: nowrap; pointer-events: none; }
+    .tag small { opacity: .7; font-family: ui-monospace, monospace; }
+    @media (max-width: 720px) { #app { grid-template-columns: 1fr; grid-template-rows: 190px 1fr; } aside { border-right: 0; border-bottom: 1px solid var(--line); } }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <aside>
+      <h1>Персонажи</h1>
+      <div class="sub">Крути мышью (или пальцем), колесо — приближение. «Другой вариант» меняет лицо, цвета и причёску в пределах типа.</div>
+      <div class="list" id="list"></div>
+    </aside>
+    <main id="main">
+      <div class="title" id="title"></div>
+      <div class="bar" id="bar"></div>
+    </main>
+  </div>
+  <script type="module" src="./src/viewer/characters.ts"></script>
+</body>
+</html>
