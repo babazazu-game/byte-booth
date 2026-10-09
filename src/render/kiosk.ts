@@ -517,8 +517,10 @@ export function buildKiosk(root: THREE.Group, inner: THREE.Light[]): KioskParts 
     for (let i = 0; i < 2; i++) add(coffee, cyl(0.007, 0.007, 0.006, 12), own('#111', { emissive: i ? '#6fe08a' : '#ffb347', emissiveIntensity: 1.6 }), 0.02 + i * 0.025, 0.29, 0.101, Math.PI / 2);
     // чашка под группой и пара на поддоне
     const cupM = phys('#f4f1ea', { roughness: 0.25, clearcoat: 0.5 });
-    add(coffee, new THREE.LatheGeometry([[0, 0], [0.022, 0], [0.026, 0.004], [0.028, 0.045], [0.025, 0.045], [0.023, 0.006], [0, 0.006]].map(([a, b]) => V2(a, b)), 20), cupM, 0, 0.034, 0.04);
-    add(coffee, cyl(0.024, 0.024, 0.003, 16), std('#5a3a22', { roughness: 0.3 }), 0, 0.074, 0.04);
+    // кружка крупнее (автор): R 4 см, 7.5 см высотой — под краником (низ 0.235) и перед корпусом (z −0.01) с запасом
+    add(coffee, new THREE.LatheGeometry([[0, 0], [0.032, 0], [0.037, 0.005], [0.04, 0.075], [0.036, 0.075], [0.033, 0.008], [0, 0.008]].map(([a, b]) => V2(a, b)), 24), cupM, 0, 0.034, 0.042);
+    add(coffee, cyl(0.035, 0.035, 0.003, 20), std('#5a3a22', { roughness: 0.3 }), 0, 0.099, 0.042);
+    add(coffee, new THREE.TorusGeometry(0.017, 0.0055, 8, 16, Math.PI * 1.2), cupM, 0.042, 0.071, 0.042, 0, 0, -Math.PI * 0.6);
   }
   {
     // шнур кофемашины — к удлинителю на стене (он чуть левее и выше)
