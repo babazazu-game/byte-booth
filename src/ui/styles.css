@@ -537,3 +537,47 @@
   /* в сетке прокручиваемая полоса категорий сжималась до нуля по высоте */
   .site .pb > .cats { min-height: 54px; }
 }
+/* телефон: у окна идёт разговор — карточки заказов не закрывают реплику;
+   на верстаке видна только карточка того заказа, что собирается */
+@media (max-width: 700px), (max-height: 560px) {
+  .hud-orders.talk { display: none; }
+  .hud-orders[data-zone="bench"] .ocard:not(.bench) { display: none; }
+}
+/* телефон: пустой лоток не висит пустой рамкой, а «нет деталей» не повторяет
+   подсказку шага (одна и та же фраза стояла дважды) */
+@media (max-width: 700px), (max-height: 560px) {
+  .tray .items > .chip { display: none; }
+  .tray .items:not(:has(.titem)) { display: none; }
+}
+/* телефон: действия верстака — плитки «значок + подпись» */
+@media (max-width: 700px), (max-height: 560px) {
+  .bench-phone { display: flex; flex-wrap: nowrap; gap: 6px; justify-content: safe center; overflow-x: auto; scrollbar-width: none; padding: 2px; }
+  .bench-phone .btn.tile { flex: none; flex-direction: column; justify-content: center; gap: 3px; width: 74px; min-height: 58px; padding: 6px 4px; font-size: 11px; line-height: 1.15; text-align: center; white-space: normal; }
+  .bench-phone .btn.tile svg { width: 20px; height: 20px; }
+  .bench-phone .btn.tile .tl { display: block; max-width: 100%; overflow-wrap: normal; hyphens: auto; }
+  .bench-phone .btn.tile.on { background: #2b2f36; color: #fff; }
+  .bench-phone .btn.tile.next { outline: 3px solid var(--tape, #f3c632); outline-offset: 1px; }
+  .bench-phone .btn.tile.more { width: 48px; }
+  .bench-phone .btn.tile.more .dots { font-size: 22px; margin: 0; }
+  /* лента деталей прокручивается с первой карточки (по центру край уезжал за экран) */
+  .tray .items { justify-content: safe center; }
+}
+@media (max-height: 560px) {
+  .bench-phone { flex-direction: row; flex-wrap: wrap; justify-content: flex-end; overflow: visible; }
+  .bench-bottom { width: 316px; }
+  .bench-phone .btn.tile { width: 68px; min-height: 50px; }
+  .bench-phone .btn.tile.more { width: 44px; }
+}
+@media (max-width: 700px) and (min-height: 561px) {
+  .bench-phone { flex-wrap: wrap; overflow: visible; }
+}
+/* плитки не вылезают за правый край (альбом), лоток не уходит под навигацию (портрет) */
+@media (max-height: 560px) {
+  .bench-bottom { width: 300px; right: calc(6px + var(--safe-r, 0px)); box-sizing: border-box; }
+  .bench-phone .btn.tile { width: 64px; font-size: 10.5px; padding: 5px 2px; }
+  .bench-phone .btn.tile.more { width: 40px; }
+}
+@media (max-width: 700px) and (min-height: 561px) {
+  .tray { height: 244px; }
+  .bench-phone .btn.tile { min-height: 54px; }
+}

@@ -36,7 +36,15 @@ export function setLangByPlayer(l: 'ru' | 'en'): void {
   core.i18n.setLang(l);
 }
 
-export const t = (key: string, vars?: Record<string, string | number>): string => core.i18n.t(key, vars);
+/**
+ * Куски строк про клавиатуру размечены ⟦…⟧: на сенсорном экране (телефон,
+ * планшет) клавиш нет, и «или клавиша 3» только сбивала с толку — их убираем.
+ */
+const TOUCH = typeof matchMedia !== 'undefined' && matchMedia('(pointer: coarse)').matches && !matchMedia('(any-pointer: fine)').matches;
+export const t = (key: string, vars?: Record<string, string | number>): string => {
+  const s = core.i18n.t(key, vars);
+  return s.includes('⟦') ? s.replace(/⟦([^⟧]*)⟧/g, TOUCH ? '' : '$1') : s;
+};
 export const lang = (): 'ru' | 'en' => core.i18n.current;
 
 /** Случайный вариант из строки «а|б|в». `seed` — чтобы реплика была стабильной. */

@@ -28,6 +28,25 @@ export async function runShot(app: App, scene: string): Promise<void> {
     for (let i = 0; i < 140; i++) app.debugStep(0.1);
     return;
   }
+  if (scene === 'carry' || scene === 'carry2') {
+    // клиент забирает собранный ПК: проверка, как руки держат корпус
+    const o = order();
+    app.director.spawn(o.cust.look, o.cust.seed, () => {});
+    for (let i = 0; i < 140; i++) app.debugStep(0.1);
+    const { PcRig } = await import('./render/models/pc.ts');
+    const rig = new PcRig();
+    const sol = solve(o.req, S.level(s), (id) => S.buyPrice(s, id))!.build;
+    rig.sync({ case: sol.case, mb: sol.mb, panel: true } as never);
+    rig.group.scale.setScalar(1.15); rig.group.position.set(0.5, (rig.H / 2) * 1.15, -0.16);
+    app.world.counterAnchor.add(rig.group);
+    const st = window.setTimeout; (window as { setTimeout: unknown }).setTimeout = () => 0;
+    app.director.leaveWith(rig.group, 'smile', () => {}, rig.W * 1.15, rig.D / 2);
+    (window as { setTimeout: unknown }).setTimeout = st;
+    const p = (app.director as unknown as { person: { root: { rotation: { y: number } } } }).person;
+    if (scene === 'carry2') p.root.rotation.y += 1.2;
+    for (let i = 0; i < 40; i++) app.debugStep(0.05);
+    return;
+  }
   const o = order(); S.acceptPending(s);
   const sol = solve(o.req, S.level(s), (id) => S.buyPrice(s, id))!.build;
   for (const k of ['mb', 'cpu', 'cooler', 'ssd', 'gpu', 'psu'] as const) S.buy(s, sol[k]!, 1);

@@ -301,19 +301,26 @@ export class Bench {
   }
 
   /**
-   * Телефон: одна главная кнопка — то, что нужно сделать СЕЙЧАС (подсвеченный
-   * шаг: нужный кабель, тест, закрыть панель, готово), и «⋯ Ещё» со списком
-   * всех действий крупными строками.
+   * Телефон: действия верстака — плитками «значок + подпись» (панель, снять,
+   * кисть, кабели, тест, готово), следующий шаг подсвечен. Раньше была одна
+   * кнопка и «Ещё», и всё нужное приходилось искать в списке. В «⋯» остались
+   * только справка и «Отложить».
    */
   private renderPhoneBar(acts: { ic: string; label: string; fn: () => void; cls: string; next: boolean }[]): void {
     this.phoneBar.innerHTML = '';
-    const main = acts.find((a) => a.next);
-    if (main) this.phoneBar.append(btn([icon(main.ic), main.label], main.fn, 'primary main'));
-    const more = btn([h('span', { class: 'dots' }, '⋯'), t('bench.more')], () => {
+    const extra = (a: { ic: string }) => a.ic === 'book' || a.ic === 'aside';
+    // на плитке кабеля значок уже говорит «питание» — подпись короче
+    const short: Record<string, string> = { [t('bench.cab24')]: t('bench.cab24s'), [t('bench.cab8')]: t('bench.cab8s') };
+    for (const a of acts.filter((x) => !extra(x))) {
+      const cls = ['tile', a.cls.includes('on') ? 'on' : '', a.cls.includes('primary') ? 'primary' : '', a.next ? 'next' : ''].join(' ');
+      this.phoneBar.append(btn([icon(a.ic), h('span', { class: 'tl' }, short[a.label] ?? a.label)], a.fn, cls));
+    }
+    const rest = acts.filter(extra);
+    const more = btn([h('span', { class: 'dots' }, '⋯')], () => {
       let close = () => {};
-      const list = h('div', { class: 'sheet' }, ...acts.map((a) => btn([icon(a.ic), a.label], () => { close(); a.fn(); }, (a.cls.includes('primary') || a.cls.includes('dark') ? a.cls : '') + (a.next ? ' next' : ''))));
+      const list = h('div', { class: 'sheet' }, ...rest.map((a) => btn([icon(a.ic), a.label], () => { close(); a.fn(); }, 'ghost')));
       close = modal(t('bench.more'), [list], [{ label: t('site.close'), cls: 'ghost' }], { dismissable: true });
-    }, 'more');
+    }, 'tile more', { 'aria-label': t('bench.more') });
     this.phoneBar.append(more);
   }
 

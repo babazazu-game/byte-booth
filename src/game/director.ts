@@ -98,7 +98,7 @@ export class Director {
    * кадр ставится ровно перед клиентом — по его курсу, в натуральную величину.
    */
   private handoff: { obj: THREE.Object3D; t: number; p0: THREE.Vector3; q0: THREE.Quaternion; s0: number; depth: number } | null = null;
-  leaveWith(obj: THREE.Object3D, mood: Mood, onGone?: () => void, depth = 0.22): void {
+  leaveWith(obj: THREE.Object3D, mood: Mood, onGone?: () => void, depth = 0.22, grip = 0.2): void {
     const p = this.person;
     if (!p) { obj.removeFromParent(); onGone?.(); return; }
     this.hideBubble();
@@ -106,6 +106,8 @@ export class Director {
     this.root.updateMatrixWorld(true);
     this.root.attach(obj);
     this.handoff = { obj, t: 0, p0: obj.position.clone(), q0: obj.quaternion.clone(), s0: obj.scale.x, depth };
+    // половина ширины корпуса в руках — в единицах тела (тело масштабировано по ширине)
+    p.st.grip = (grip * obj.scale.x) / p.root.scale.x;
     p.st.carrying = true;
     setTimeout(() => {
       if (this.person !== p) return;

@@ -32,7 +32,7 @@ function stickyTex(text: string, color: string): THREE.Texture {
   });
 }
 
-export interface Props { setDay(n: number, ru: boolean): void; setStickies(lines: string[]): void; setCash(n: number): void; figSlots: THREE.Object3D[]; posterSlots: THREE.Object3D[] }
+export interface Props { update(dt: number): void; setDay(n: number, ru: boolean): void; setStickies(lines: string[]): void; setCash(n: number): void; figSlots: THREE.Object3D[]; posterSlots: THREE.Object3D[] }
 
 export function buildProps(root: THREE.Group): Props {
   // ── картонные коробки в углу у прилавка ──
@@ -49,7 +49,7 @@ export function buildProps(root: THREE.Group): Props {
   // ── мелочи на прилавке: мастерская должна «рассказывать историю» ──
   const cy = 0.925; // верх столешницы
   // горшок с суккулентом (левый угол)
-  const pot = new THREE.Group(); pot.position.set(-1.12, cy, 0.24); root.add(pot);
+  const pot = new THREE.Group(); pot.position.set(-1.14, cy, 0.22); root.add(pot);
   add(pot, new THREE.CylinderGeometry(0.05, 0.04, 0.08, 20), std('#c96f4a', { roughness: 0.85 }), 0, 0.04, 0);
   add(pot, cyl(0.046, 0.046, 0.01, 20), std('#4a3527', { roughness: 1 }), 0, 0.076, 0);
   for (let i = 0; i < 9; i++) {
@@ -58,7 +58,7 @@ export function buildProps(root: THREE.Group): Props {
     leaf.scale.set(0.7, 1.5, 0.7); leaf.rotation.z = Math.cos(a) * 0.5; leaf.rotation.x = Math.sin(a) * 0.5;
   }
   // стакан с отвёртками и ручками
-  const cup = new THREE.Group(); cup.position.set(-0.98, cy, 0.3); root.add(cup);
+  const cup = new THREE.Group(); cup.position.set(-1.02, cy, 0.3); root.add(cup);
   add(cup, new THREE.CylinderGeometry(0.035, 0.032, 0.1, 18, 1, true), std('#e7b84a', { roughness: 0.6, side: THREE.DoubleSide }), 0, 0.05, 0);
   add(cup, cyl(0.032, 0.032, 0.004, 18), std('#e7b84a'), 0, 0.002, 0);
   // Карандаши с ластиками — «веером» из центра дна: низ внутри стакана, наклон
@@ -73,15 +73,11 @@ export function buildProps(root: THREE.Group): Props {
     add(pg, cyl(0.0058, 0.0058, 0.008, 10), ferrule, 0, len + 0.004, 0);
     add(pg, cyl(0.0054, 0.005, 0.011, 10), eraser, 0, len + 0.013, 0);
   });
-  // стопка тетрадей/инструкций и коробочка с винтиками (правый угол)
-  const st = new THREE.Group(); st.position.set(1.2, cy, 0.33); st.rotation.y = 0.25; root.add(st);
+  // стопка тетрадей/инструкций (правый угол)
+  const st = new THREE.Group(); st.position.set(1.18, cy, 0.3); st.rotation.y = 0.25; root.add(st);
   ['#3d5a80', '#e0c48a', '#9c4f3a', '#f1ece2'].forEach((c, i) => add(st, rbox(0.21, 0.016, 0.15, 0.003), std(c, { roughness: 0.8 }), (i % 2) * 0.008, 0.008 + i * 0.017, (i % 3) * 0.006).rotation.y = (i - 1.5) * 0.06);
-  const tray = new THREE.Group(); tray.position.set(0.32, cy, 0.34); tray.rotation.y = -0.15; root.add(tray);
-  add(tray, rbox(0.14, 0.022, 0.09, 0.004), std('#cfd3d8', { metalness: 0.5, roughness: 0.4 }), 0, 0.011, 0);
-  const screwM = metal('#b8bcc4', 0.3), r = mulberry32(77);
-  for (let i = 0; i < 16; i++) add(tray, cyl(0.004, 0.004, 0.003, 8), screwM, (r() - 0.5) * 0.11, 0.024, (r() - 0.5) * 0.065);
   // маленький робот-фигурка — характер мастера
-  const bot = new THREE.Group(); bot.position.set(-0.62, cy, 0.34); bot.rotation.y = 0.5; root.add(bot);
+  const bot = new THREE.Group(); bot.position.set(-0.9, cy, 0.33); bot.rotation.y = 0.5; root.add(bot);
   add(bot, rbox(0.05, 0.05, 0.04, 0.01), std('#e9e4d8', { roughness: 0.5 }), 0, 0.05, 0);
   add(bot, rbox(0.07, 0.05, 0.05, 0.012), std('#e2674f', { roughness: 0.5 }), 0, 0.105, 0);
   for (const s of [-1, 1]) add(bot, sph(0.008, 10, 8), own('#111', { emissive: '#7fd6ff', emissiveIntensity: 1.5 }), s * 0.015, 0.11, 0.026);
@@ -214,13 +210,23 @@ export function buildProps(root: THREE.Group): Props {
   const cal = new THREE.Group(); cal.position.set(-1.05, 1.22, 2.093); cal.rotation.y = Math.PI; root.add(cal);
   add(cal, new THREE.PlaneGeometry(0.2, 0.25), new THREE.MeshStandardMaterial({ map: calT, roughness: 0.9 }), 0, 0, 0, 0, 0, 0, false);
   add(cal, cyl(0.004, 0.004, 0.18, 6), metal('#c9ccd2'), 0, 0.125, 0.004, 0, 0, Math.PI / 2);
-  // ── вентилятор-«ветродуй» на столе ──
-  const fan = new THREE.Group(); fan.position.set(0.45, 0.797, 1.75); fan.rotation.y = 2.6; root.add(fan);
-  add(fan, cyl(0.06, 0.07, 0.02, 20), std('#e9e5dc'), 0, 0.01, 0);
-  add(fan, cyl(0.01, 0.01, 0.16, 8), std('#e9e5dc'), 0, 0.09, 0);
-  add(fan, new THREE.TorusGeometry(0.09, 0.006, 6, 32), std('#e9e5dc'), 0, 0.2, 0.0);
-  for (let k = 0; k < 8; k++) { const a = (k / 8) * TAU; add(fan, cyl(0.002, 0.002, 0.18, 4), std('#d8d3c8'), Math.cos(a) * 0.0, 0.2, 0, 0, 0, a); }
-  add(fan, sph(0.025, 10, 8), std('#2f6f6b'), 0, 0.2, -0.01);
+  // ── настольный вентилятор: три лопасти крутятся за решёткой ──
+  const fan = new THREE.Group(); fan.position.set(0.53, 0.797, 1.95); fan.rotation.y = Math.PI + 0.5; root.add(fan);
+  const fanBody = std('#e9e5dc', { roughness: 0.5 }), fanWire = metal('#c9ccd2', 0.3);
+  add(fan, cyl(0.06, 0.07, 0.022, 24), fanBody, 0, 0.011, 0);
+  add(fan, cyl(0.011, 0.013, 0.15, 10), fanBody, 0, 0.095, 0);
+  const head = new THREE.Group(); head.position.set(0, 0.2, 0); head.rotation.x = -0.12; fan.add(head);
+  const motor = add(head, sph(0.032, 16, 12), fanBody, 0, 0, -0.03); motor.scale.set(1, 1, 1.25);
+  for (const z of [-0.006, 0.03]) add(head, new THREE.TorusGeometry(0.085, 0.003, 6, 40), fanWire, 0, 0, z);
+  for (let k = 0; k < 10; k++) { const a = (k / 10) * TAU; add(head, cyl(0.0013, 0.0013, 0.17, 4), fanWire, 0, 0, 0.03, 0, 0, a); }
+  add(head, cyl(0.016, 0.016, 0.004, 16), std('#2f6f6b'), 0, 0, 0.032, Math.PI / 2, 0, 0);
+  const blades = new THREE.Group(); blades.position.z = 0.012; blades.userData.keep = true; head.add(blades);
+  add(blades, cyl(0.014, 0.014, 0.014, 14), std('#2f6f6b'), 0, 0, 0, Math.PI / 2, 0, 0);
+  const bladeM = std('#9fd3cf', { roughness: 0.4, transparent: true, opacity: 0.9 });
+  for (let k = 0; k < 3; k++) {
+    const arm = new THREE.Group(); arm.rotation.z = (k / 3) * TAU; blades.add(arm);
+    const b = add(arm, sph(1, 14, 8), bladeM, 0, 0.042, 0, 0, 0.35, 0); b.scale.set(0.026, 0.036, 0.003);
+  }
   // ── доска с ценами у входа (видна из меню и с улицы) ──
   const chalk = liveTex(256, 360, (g, w, h) => {
     g.fillStyle = '#2b2f2c'; g.fillRect(0, 0, w, h);
@@ -259,6 +265,7 @@ export function buildProps(root: THREE.Group): Props {
 
   return {
     setCash, figSlots, posterSlots,
+    update(dt: number) { blades.rotation.z -= dt * 14; },
     setDay(n: number, ru: boolean) {
       if (n === lastDay) return; lastDay = n;
       const c = calT.image as HTMLCanvasElement, g = c.getContext('2d')!;

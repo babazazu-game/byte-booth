@@ -170,7 +170,26 @@ function buildPark(root: THREE.Group, lamps: THREE.PointLight[], bulbs: THREE.Me
   const water = add(root, new THREE.CircleGeometry(1.86, 48), phys('#5aa7d8', { roughness: 0.05, transparent: true, opacity: 0.85, clearcoat: 1 }), 1.8, 0.38, -12, -Math.PI / 2);
   add(root, cyl(0.25, 0.4, 1.2, 20), stone, 1.8, 0.6, -12);
   add(root, new THREE.LatheGeometry([[0, 0], [0.8, 0.02], [0.75, 0.12], [0, 0.1]].map(([a, b]) => V2(a, b)), 32), stone, 1.8, 1.2, -12);
-  add(root, cyl(0.04, 0.06, 0.5, 8), phys('#bfe6ff', { transparent: true, opacity: 0.6, roughness: 0.1 }), 1.8, 1.5, -12);
+  /*
+   * Фонтан работает: струя бьёт вверх, переливается через край верхней чаши
+   * «юбкой» и рябит в бассейне. Это три прозрачных меша с одной текстурой
+   * штрихов, которая просто едет — ни частиц, ни лишнего света.
+   */
+  const streakT = canvasTex(64, 128, (g, w, h) => {
+    g.fillStyle = 'rgba(220,240,255,.28)'; g.fillRect(0, 0, w, h);
+    for (let i = 0; i < 140; i++) { g.fillStyle = `rgba(255,255,255,${(0.25 + r() * 0.6).toFixed(2)})`; g.fillRect(r() * w, r() * h, 1 + r() * 2, 8 + r() * 30); }
+  }, { repeat: true });
+  const flowM = new THREE.MeshBasicMaterial({ map: streakT, color: '#cdeeff', transparent: true, opacity: 0.75, depthWrite: false, side: THREE.DoubleSide });
+  const jet = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.05, 0.55, 12, 1, true), flowM); jet.position.set(1.8, 1.48, -12);
+  const curtain = new THREE.Mesh(new THREE.CylinderGeometry(0.79, 0.98, 0.84, 36, 1, true), flowM); curtain.position.set(1.8, 0.8, -12);
+  for (const m of [jet, curtain]) { m.castShadow = false; m.userData.keep = true; root.add(m); }
+  const ripT = canvasTex(128, 128, (g, w, h) => {
+    g.clearRect(0, 0, w, h); g.strokeStyle = 'rgba(255,255,255,.35)'; g.lineWidth = 2;
+    for (let i = 0; i < 6; i++) { g.beginPath(); g.arc(w / 2, h / 2, 10 + i * 10, 0, TAU); g.stroke(); }
+  });
+  const ripple = new THREE.Mesh(new THREE.CircleGeometry(1.84, 40), new THREE.MeshBasicMaterial({ map: ripT, transparent: true, depthWrite: false }));
+  ripple.rotation.x = -Math.PI / 2; ripple.position.set(1.8, 0.385, -12); ripple.userData.keep = true; root.add(ripple);
+  water.userData.flow = { streakT, ripple };
   // деревья, кусты, клумбы
   const spots: [number, number][] = [];
   for (let i = 0; i < 46; i++) {
@@ -185,7 +204,7 @@ function buildPark(root: THREE.Group, lamps: THREE.PointLight[], bulbs: THREE.Me
    * и куст, задевающий любое из них, пропускаем.
    */
   const PARK_BENCH: [number, number][] = [[-4, -4.4], [5.5, -4.4], [-9, -4.4], [0.2, -16.6], [3.4, -9], [-6, -13.4]];
-  const PARK_LAMP: [number, number][] = [[-6.5, -4.2], [6.4, -4.2], [12, -4.2], [-15, -4.2], [0, -10.6], [3.6, -14]];
+  const PARK_LAMP: [number, number][] = [[-6.5, -4.2], [6.4, -4.2], [12, -4.2], [-15, -4.2], [-1.1, -10.4], [3.6, -14]];
   const busy: [number, number, number][] = [...spots.map(([x, z]) => [x, z, 1.0] as [number, number, number]), ...PARK_BENCH.map(([x, z]) => [x, z, 1.1] as [number, number, number]), ...PARK_LAMP.map(([x, z]) => [x, z, 0.5] as [number, number, number])];
   const free = (x: number, z: number, rad: number) => busy.every(([bx, bz, br]) => Math.hypot(x - bx, z - bz) > br + rad);
   for (let i = 0; i < 26; i++) {
@@ -197,13 +216,16 @@ function buildPark(root: THREE.Group, lamps: THREE.PointLight[], bulbs: THREE.Me
   const flowerC = ['#ff8aa8', '#ffd25e', '#ffffff', '#c38aff', '#ff6b4f'];
   for (let i = 0; i < 70; i++) {
     const x = -2.5 + r() * 9, z = -10.6 - r() * 0.6 - (i % 2) * 2.2;
-    add(root, sph(0.06, 6, 4), std(flowerC[i % flowerC.length], { roughness: 0.6 }), x, 0.12, z);
+    // не в фонтане и не под фонарём (раньше клумба заходила в чашу)
+    if (Math.hypot(x - 1.8, z + 12) < 2.35 || Math.hypot(x + 1.1, z + 10.4) < 0.35) continue;
+    add(root, cyl(0.006, 0.006, 0.1, 4), std('#5e8a4c', { roughness: 0.8 }), x, 0.05, z);
+    add(root, sph(0.04, 6, 4), std(flowerC[i % flowerC.length], { roughness: 0.6 }), x, 0.11, z).scale.y = 0.6;
   }
   // лавочки и фонари вдоль аллеи
   for (const [x, z, ry] of [[-4, -4.4, 0], [5.5, -4.4, 0], [-9, -4.4, 0], [0.2, -16.6, Math.PI / 2], [3.4, -9, -Math.PI / 2], [-6, -13.4, Math.PI]] as const) { // те же точки, что PARK_BENCH
     const b = bench(); b.position.set(x, 0, z); b.rotation.y = ry; root.add(b);
   }
-  for (const [x, z] of [[-6.5, -4.2], [6.4, -4.2], [12, -4.2], [-15, -4.2], [0, -10.6], [3.6, -14]] as const) {
+  for (const [x, z] of [[-6.5, -4.2], [6.4, -4.2], [12, -4.2], [-15, -4.2], [-1.1, -10.4], [3.6, -14]] as const) {
     const L = lampPost(); L.g.position.set(x, 0, z); root.add(L.g); lamps.push(L.light); bulbs.push(L.bulb);
   }
   /*
@@ -386,8 +408,12 @@ export function buildWorld(scene: THREE.Scene): World {
       for (const l of lamps) l.intensity = night * 14;
       for (const m of bulbs) m.emissiveIntensity = night * 5;
     },
-    update(t: number) {
+    update(t: number, dt: number) {
       (water.material as THREE.MeshPhysicalMaterial).color.setHSL(0.56, 0.55, 0.55 + Math.sin(t * 2) * 0.02);
+      const flow = water.userData.flow as { streakT: THREE.Texture; ripple: THREE.Mesh };
+      flow.streakT.offset.y = (t * 0.9) % 1;
+      const k = (t * 0.35) % 1; flow.ripple.scale.setScalar(0.85 + k * 0.15); (flow.ripple.material as THREE.MeshBasicMaterial).opacity = 0.9 - k * 0.6;
+      props.update(dt);
     },
   };
   world.setPhase(0.2);

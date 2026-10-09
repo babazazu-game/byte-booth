@@ -58,6 +58,10 @@ export class Hud {
     this.orders.innerHTML = '';
     const act = S.activeOrders(s);
     for (const o of act) this.orders.append(this.orderCard(o, this.expanded.has(o.id)));
+    // Телефон: у окна карточки наезжали на реплику клиента, на верстаке — друг
+    // на друга. По этим меткам CSS прячет лишнее только на маленьком экране.
+    this.orders.dataset.zone = this.app.views.zone;
+    this.orders.classList.toggle('talk', this.app.views.zone === 'window' && !this.app.director.free);
     // навигация
     this.nav.innerHTML = '';
     const zones: [Zone, string][] = [['window', 'window'], ['bench', 'bench'], ['pc', 'pc'], ['shelf', 'shelf']];

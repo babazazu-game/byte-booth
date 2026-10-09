@@ -346,10 +346,10 @@ export function buildKiosk(root: THREE.Group, inner: THREE.Light[]): KioskParts 
   add(bell, new THREE.SphereGeometry(0.04, 24, 12, 0, TAU, 0, Math.PI / 2), metal('#d9dde2', 0.15), 0, 0.012, 0);
   add(bell, cyl(0.006, 0.006, 0.02, 8), metal('#9aa0a8'), 0, 0.06, 0);
   // терминал и кружка
-  const term = new THREE.Group(); term.position.set(0.55, K.counterY + 0.025, 0.22); term.rotation.y = -0.2; root.add(term);
+  const term = new THREE.Group(); term.position.set(0.68, K.counterY + 0.025, 0.26); term.rotation.y = -0.2; root.add(term);
   add(term, rbox(0.08, 0.035, 0.16, 0.01), std('#26282e'), 0, 0.018, 0);
   add(term, box(0.06, 0.002, 0.05), own('#000', { emissive: '#4fd1c0', emissiveIntensity: 1.2 }), 0, 0.037, -0.04);
-  const mug = new THREE.Group(); mug.position.set(-0.4, K.counterY + 0.025, 0.22); root.add(mug);
+  const mug = new THREE.Group(); mug.position.set(-0.74, K.counterY + 0.025, 0.24); root.add(mug);
   add(mug, new THREE.LatheGeometry([[0, 0], [0.045, 0], [0.05, 0.01], [0.05, 0.11], [0.044, 0.11], [0.044, 0.012], [0, 0.012]].map(([a, b]) => V2(a, b)), 32), phys('#2f6f6b', { roughness: 0.35, clearcoat: 0.6 }));
   add(mug, cyl(0.044, 0.044, 0.004, 24), std('#3b2416', { roughness: 0.2 }), 0, 0.095, 0);
   add(mug, new THREE.TorusGeometry(0.03, 0.009, 8, 20, Math.PI), phys('#2f6f6b', { roughness: 0.35 }), 0.05, 0.055, 0, 0, 0, -Math.PI / 2);
@@ -429,7 +429,13 @@ export function buildKiosk(root: THREE.Group, inner: THREE.Light[]): KioskParts 
   const dm = new THREE.Object3D(); let ki = 0;
   for (let rr = 0; rr < 4; rr++) for (let c = 0; c < 15; c++) { dm.position.set(-0.19 + c * 0.026, 0.02, -0.045 + rr * 0.03); dm.updateMatrix(); keys.setMatrixAt(ki++, dm.matrix); }
   kb.add(keys);
-  add(root, rbox(0.06, 0.025, 0.1, 0.012), std('#d9d6cf'), 0.32, 0.81, 1.75);
+  // мышь на коврике: обтекаемый корпус, щель между кнопками и колёсико
+  add(root, rbox(0.2, 0.003, 0.17, 0.02), std('#2b3038', { roughness: 0.9 }), 0.335, 0.7985, 1.76, 0, 0, 0, false);
+  const mouse = new THREE.Group(); mouse.position.set(0.335, 0.8, 1.74); mouse.rotation.y = 0.12; root.add(mouse);
+  const shell = add(mouse, new THREE.SphereGeometry(1, 24, 14, 0, TAU, 0, Math.PI / 2), std('#ecebe6', { roughness: 0.35 }), 0, 0, 0);
+  shell.scale.set(0.031, 0.022, 0.05);
+  add(mouse, box(0.0012, 0.004, 0.03), std('#9a9890'), 0, 0.019, 0.022, -0.3, 0, 0);
+  add(mouse, cyl(0.0045, 0.0045, 0.005, 12), std('#3a3f47'), 0, 0.021, 0.026, 0, 0, Math.PI / 2);
   const drawScreen = (lines: string[], accent = '#4fd1c0') => {
     const c = scrT.image as HTMLCanvasElement; const g = c.getContext('2d')!;
     const w = c.width, h = c.height;
@@ -491,7 +497,7 @@ export function buildKiosk(root: THREE.Group, inner: THREE.Light[]): KioskParts 
   // контактные тени под предметами на прилавке: мягкие тёмные пятна
   const blobT = radial('rgba(10,6,4,0.55)', 'rgba(10,6,4,0)');
   const blobM = new THREE.MeshBasicMaterial({ map: blobT, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
-  for (const [x, z, r] of [[-0.52, -0.24, 0.12], [-0.4, 0.22, 0.12], [0.55, 0.22, 0.26]] as const) {
+  for (const [x, z, r] of [[-0.52, -0.24, 0.12], [-0.74, 0.24, 0.12], [0.68, 0.26, 0.14]] as const) {
     const b = new THREE.Mesh(new THREE.PlaneGeometry(r * 2, r * 2), blobM);
     b.rotation.x = -Math.PI / 2; b.position.set(x, K.counterY + 0.0255, z); b.renderOrder = 2; b.userData.keep = true; root.add(b);
   }

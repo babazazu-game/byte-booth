@@ -159,7 +159,7 @@ function stripeTex(a: string, b: string): THREE.Texture {
 export interface Person {
   root: THREE.Group;
   head: THREE.Group;
-  st: { walkW: number; leanW: number; carryW: number; walking: boolean; leaning: boolean; carrying: boolean; talking: boolean; speed: number; mood: Mood; restY: number | null };
+  st: { walkW: number; leanW: number; carryW: number; walking: boolean; leaning: boolean; carrying: boolean; grip: number; talking: boolean; speed: number; mood: Mood; restY: number | null };
   carrySlot: THREE.Group;
   update(t: number, dt: number): void;
 }
@@ -343,8 +343,8 @@ export function buildPerson(L: PersonLook, seed = 1, far = false): Person {
   // Прохожим — дешёвый LOD с цветом в вершинах, клиенту у окна — полная детализация.
   if (far) bakeVertexColors(root); else mergeTree(root);
 
-  type P = { bob: number; yaw: number; lean: number; roll: number; thigh: number[]; knee: number[]; ankle: number[]; arm: number[]; out: number[]; elbow: number[]; twist: number[]; curl: number[]; hx: number; hy: number; hz: number };
-  const P0 = (): P => ({ bob: 0, yaw: 0, lean: 0, roll: 0, thigh: [0, 0], knee: [0, 0], ankle: [0, 0], arm: [0, 0], out: [0.2, 0.2], elbow: [-0.15, -0.15], twist: [0, 0], curl: [0.3, 0.3], hx: 0, hy: 0, hz: 0 });
+  type P = { bob: number; yaw: number; lean: number; roll: number; thigh: number[]; knee: number[]; ankle: number[]; arm: number[]; out: number[]; elbow: number[]; ayaw: number[]; twist: number[]; curl: number[]; hx: number; hy: number; hz: number };
+  const P0 = (): P => ({ bob: 0, yaw: 0, lean: 0, roll: 0, thigh: [0, 0], knee: [0, 0], ankle: [0, 0], arm: [0, 0], out: [0.2, 0.2], elbow: [-0.15, -0.15], ayaw: [0, 0], twist: [0, 0], curl: [0.3, 0.3], hx: 0, hy: 0, hz: 0 });
   const A = P0(), B = P0(), C = P0(), D = P0();
   const mix = (a: P, b: P, w: number, o: P): P => {
     for (const k of Object.keys(a) as (keyof P)[]) {
@@ -380,9 +380,16 @@ export function buildPerson(L: PersonLook, seed = 1, far = false): Person {
     return o;
   };
   const carry = (o: P): P => {
-    // руки вперёд и чуть внутрь — держат коробку перед животом
-    // руки вперёд почти прямо, ладони внутрь — обхватывают корпус ПК с боков
-    o.arm = [-1.3, -1.3]; o.out = [0.06, 0.06]; o.elbow = [-0.32, -0.32]; o.twist = [Math.PI / 2, -Math.PI / 2]; o.curl = [0.25, 0.25];
+    /*
+     * Несёт ПК как настоящий: плечи опущены вперёд, локти согнуты, предплечья
+     * лежат вдоль боков корпуса, ладони внутрь. Поворот плеча подбирается
+     * по ширине корпуса (st.grip — половина в локальных единицах), чтобы
+     * предплечья прижимались к боковинам, но не уходили внутрь.
+     */
+    const want = st.grip + 0.085; // ось предплечья: бок корпуса + толщина руки
+    const yaw = Math.max(-0.35, Math.min(0.55, Math.asin(Math.max(-1, Math.min(1, (0.29 - want) / 0.3)))));
+    o.arm = [-0.36, -0.36]; o.out = [0.02, 0.02]; o.ayaw = [yaw, yaw]; o.elbow = [-1.6, -1.6];
+    o.twist = [0, 0]; o.curl = [0.3, 0.3];
     return o;
   };
   const apply = (p: P) => {
@@ -391,7 +398,7 @@ export function buildPerson(L: PersonLook, seed = 1, far = false): Person {
     for (let k = 0; k < 2; k++) {
       const s = k ? 1 : -1;
       R.thigh[k].rotation.x = p.thigh[k]; R.knee[k].rotation.x = p.knee[k]; R.ankle[k].rotation.x = p.ankle[k];
-      R.shoulder[k].rotation.set(p.arm[k], 0, s * p.out[k]);
+      R.shoulder[k].rotation.set(p.arm[k], -s * p.ayaw[k], s * p.out[k]);
       R.elbow[k].rotation.x = p.elbow[k];
       R.wrist[k].rotation.set(0, p.twist[k], 0);
       (R.hand[k].userData.curl as (a: number) => void)(p.curl[k]);
@@ -400,7 +407,7 @@ export function buildPerson(L: PersonLook, seed = 1, far = false): Person {
   };
 
   let nextBlink = 1.5, blinkT = -1, phase = 0, talkT = 0;
-  const st: Person['st'] = { walkW: 0, leanW: 0, carryW: 0, walking: false, leaning: false, carrying: false, talking: false, speed: 0.9, mood: 'smile', restY: null };
+  const st: Person['st'] = { walkW: 0, leanW: 0, carryW: 0, walking: false, leaning: false, carrying: false, grip: 0.2, talking: false, speed: 0.9, mood: 'smile', restY: null };
   const hw = V();
   const M = mouths();
   return {
@@ -414,7 +421,7 @@ export function buildPerson(L: PersonLook, seed = 1, far = false): Person {
       if (st.carryW > 0.001) {
         // руки «несут» поверх ходьбы: ноги и корпус остаются от ходьбы
         const cr = carry(Object.assign(P0(), D));
-        for (const k of ['arm', 'out', 'elbow', 'twist', 'curl'] as const) for (let i = 0; i < 2; i++) D[k][i] += (cr[k][i] - D[k][i]) * st.carryW;
+        for (const k of ['arm', 'out', 'ayaw', 'elbow', 'twist', 'curl'] as const) for (let i = 0; i < 2; i++) D[k][i] += (cr[k][i] - D[k][i]) * st.carryW;
       }
       apply(D);
       /*

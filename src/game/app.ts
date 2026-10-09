@@ -681,7 +681,7 @@ export class App {
     setTimeout(() => {
       // забирает свой ПК с прилавка в руки и уходит с ним
       const rig = this.pickupRig; this.pickupRig = null;
-      if (rig) this.director.leaveWith(rig.group, mood, () => this.refresh(), rig.W * 1.15);
+      if (rig) this.director.leaveWith(rig.group, mood, () => this.refresh(), rig.W * 1.15, rig.D / 2);
       else this.director.leave(o.build.case ?? null, mood, () => this.refresh());
       this.dialogOpen = false;
       this.refresh();

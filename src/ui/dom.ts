@@ -43,7 +43,7 @@ const ICONS: Record<string, string> = {
   cable: '<path d="M6 3v6a6 6 0 0 0 12 0V3 M9 3v4 M15 3v4 M12 15v6" fill="none" stroke="currentColor" stroke-width="2"/>',
   panel: '<path d="M4 3h12v18H4z M16 7l4-2v16l-4-2" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>',
   brush: '<path d="M14 3l7 7-6 6-7-7z M8 9l-5 5c-1 1-1 4 0 5s4 1 5 0l5-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>',
-  remove: '<path d="M4 7h16 M9 7V4h6v3 M6 7l1 13h10l1-13" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>',
+  remove: '<path d="M4 13v7h16v-7 M12 15V3 M7 8l5-5 5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>',
   paste: '<path d="M6 18l9-9 3 3-9 9H6z M15 9l3-3 3 3-3 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>',
   cart: '<path d="M3 4h2l2 11h11l2-8H6 M9 20a1 1 0 1 0 0-.01 M17 20a1 1 0 1 0 0-.01" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>',
   star: '<path d="M12 3l2.7 5.6 6.2.9-4.5 4.3 1 6.2L12 17l-5.5 3 1-6.2L3 9.5l6.2-.9z" fill="currentColor"/>',
