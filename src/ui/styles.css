@@ -579,3 +579,17 @@
   .tray { height: 244px; }
   .bench-phone .btn.tile { min-height: 54px; }
 }
+/* счётчик FPS — наверху у кнопки настроек: внизу он лез на лоток деталей */
+.fps { bottom: auto; top: calc(14px + var(--safe-t)); right: calc(62px + var(--safe-r, 0px)); }
+/* альбом: правая колонка ниже шестерёнки, лоток деталей — до низа экрана */
+@media (max-height: 560px) {
+  .tray { top: calc(62px + var(--safe-t)); bottom: calc(8px + var(--safe-b)); }
+  .bench-bottom { width: 284px; }
+  .bench-phone .btn.tile { width: 60px; }
+  .tray .items { max-height: none; flex: 1; align-content: flex-start; }
+  .bench-bottom { height: 100%; }
+}
+@media (max-height: 560px) {
+  .bench-phone .btn.tile { width: 64px; font-size: 10px; }
+  .titem .tag { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+}
