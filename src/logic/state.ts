@@ -291,6 +291,9 @@ export function callCustomer(s: GameState, basePrice: (id: string) => number, fo
   if (s.pending) return 'err.busyWindow';
   if (s.visitsToday >= visitsMax(s)) return 'err.dayOver';
   const r = rngOf(s);
+  // Касса почти пуста (всё ушло в ларёк) — чаще приходят на чистку: для неё
+  // детали не нужны, только паста, и игрок может заработать на закупку.
+  if (!forced && s.cash < 120 && s.day >= 2 && r.chance(0.7)) forced = { kind: 'clean' };
   const o = makeOrder(r, s.nextOrder++, level(s), s.day, basePrice, forced, districtOf(s));
   s.pending = o;
   if (!forced && o.kind === 'build') {

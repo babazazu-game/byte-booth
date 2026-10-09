@@ -310,7 +310,7 @@ class Sound {
       const src = ctx.createBufferSource(); src.buffer = this.pink; src.loop = true;
       const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.setValueAtTime(200, t); lp.frequency.linearRampToValueAtTime(900, t + 1.2);
       const hum = ctx.createOscillator(); hum.frequency.value = 118; const hg = ctx.createGain(); hg.gain.value = 0.015; hum.connect(hg);
-      const gain = ctx.createGain(); gain.gain.setValueAtTime(0.0001, t); gain.gain.exponentialRampToValueAtTime(0.35, t + 1.0);
+      const gain = ctx.createGain(); gain.gain.setValueAtTime(0.0001, t); gain.gain.exponentialRampToValueAtTime(0.14, t + 1.0); // тише: шум вентиляторов гудел на телефоне
       src.connect(lp).connect(gain); hg.connect(gain); gain.connect(this.out('sfx', -0.2, 0.1));
       src.start(); hum.start();
       this.fanNode = { src, gain };
@@ -662,17 +662,18 @@ class Sound {
   private startAmbience(): void {
     const ctx = this.ctx!;
     const bus = this.buses.amb;
-    // ветер: розовый шум через подвижный фильтр
+    // ветер: розовый шум через подвижный фильтр. Тихо: на динамике телефона
+    // ветер с гомоном сливались в сплошной гул (автор: «фон прям гудит»)
     const wind = ctx.createBufferSource(); wind.buffer = this.pink; wind.loop = true;
-    const wl = ctx.createBiquadFilter(); wl.type = 'lowpass'; wl.frequency.value = 500;
-    const lfo = ctx.createOscillator(); lfo.frequency.value = 0.07; const lg = ctx.createGain(); lg.gain.value = 250; lfo.connect(lg).connect(wl.frequency);
-    const wg = ctx.createGain(); wg.gain.value = 0.25;
+    const wl = ctx.createBiquadFilter(); wl.type = 'lowpass'; wl.frequency.value = 420;
+    const lfo = ctx.createOscillator(); lfo.frequency.value = 0.07; const lg = ctx.createGain(); lg.gain.value = 180; lfo.connect(lg).connect(wl.frequency);
+    const wg = ctx.createGain(); wg.gain.value = 0.07;
     wind.connect(wl).connect(wg).connect(bus); wind.start(); lfo.start();
     // далёкий гомон: полосовой шум с медленной амплитудной модуляцией
     const ch = ctx.createBufferSource(); ch.buffer = this.pink; ch.loop = true; ch.playbackRate.value = 0.7;
     const cb = ctx.createBiquadFilter(); cb.type = 'bandpass'; cb.frequency.value = 650; cb.Q.value = 0.9;
-    const cgn = ctx.createGain(); cgn.gain.value = 0.12;
-    const alfo = ctx.createOscillator(); alfo.frequency.value = 0.3; const ag = ctx.createGain(); ag.gain.value = 0.06; alfo.connect(ag).connect(cgn.gain);
+    const cgn = ctx.createGain(); cgn.gain.value = 0.035;
+    const alfo = ctx.createOscillator(); alfo.frequency.value = 0.3; const ag = ctx.createGain(); ag.gain.value = 0.02; alfo.connect(ag).connect(cgn.gain);
     ch.connect(cb).connect(cgn).connect(bus); ch.start(); alfo.start();
     // птицы: короткие трели с глиссандо, случайно по стерео
     this.ambTimer = setInterval(() => {

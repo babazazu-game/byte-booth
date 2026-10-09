@@ -169,9 +169,8 @@ export class PcRig {
     const rx = this.rearGeo().fan[0];
     rf.group.position.set(rx, H / 2 - 0.09, D / 2 - 0.017); B.add(rf.group); this.fans.push(rf);
     const rd = makeDust(0.112, 0.112); rd.position.set(rx, H / 2 - 0.09, D / 2 - 0.032); rd.rotation.y = Math.PI; B.add(rd); this.caseDust.push(rd);
-    // задняя панель: заглушки слотов, отверстие под I/O
-    const slots = canvasTex(256, 288, (g, w, h) => { g.fillStyle = white ? '#d8d5ce' : '#2a2c31'; g.fillRect(0, 0, w, h); for (let i = 0; i < 7; i++) { g.fillStyle = white ? '#c2beb6' : '#1d1f24'; g.fillRect(6, 6 + i * 40, w - 12, 34); g.fillStyle = white ? '#8e8a83' : '#3a3c42'; for (let k = 0; k < 8; k++) { g.beginPath(); g.roundRect(40 + k * 24, 14 + i * 40, 12, 18, 5); g.fill(); } } });
-    decal(B, 0.125, 0.14, slots, -0.025, -0.02, D / 2 + 0.0006);
+    // заднюю стенку с настоящими вырезами строит buildRear(); старая нарисованная
+    // «заглушка слотов» лежала поверх и закрывала выход видеокарты
     // боковая панель: стекло или сталь
     const P = this.panel;
     if (c.glass) {

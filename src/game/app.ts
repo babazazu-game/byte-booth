@@ -57,6 +57,8 @@ export class App {
   dialogOpen = false;
   private choices: HTMLElement;
   private ptr = { x: 0, y: 0, down: false };
+  /** Палец на холсте вне верстака: ведём взгляд, как мышью на ПК. */
+  private look: { id: number; x: number; y: number; ox: number; oy: number; moved: boolean } | null = null;
   private lastLevel = 1;
   private lastDirState = 'none';
   private notesKey = '';
@@ -187,6 +189,8 @@ export class App {
     this.world.setDistrict(s.district ?? 'park');
     const dec = S.upVal(s, 'decor');
     this.world.decor.forEach((d, i) => (d.visible = i < dec));
+    const neon = S.upVal(s, 'sign');
+    this.world.neon.forEach((n, i) => (n.visible = i < neon));
     // покраска стен и коллекция статуэток на подставке
     this.world.wall.color.set(wallOf(s).hex);
     const slots = this.world.props.figSlots;
@@ -280,7 +284,8 @@ export class App {
   private fpsEl: HTMLElement | null = null;
   private fpsAcc = 0; private fpsN = 0;
   private tickFps(dt: number): void {
-    if (this.settings.fps === false) { this.fpsEl?.remove(); this.fpsEl = null; return; }
+    // счётчик FPS — только если включён в настройках (по умолчанию выключен)
+    if (this.settings.fps !== true) { this.fpsEl?.remove(); this.fpsEl = null; return; }
     if (!this.fpsEl) { this.fpsEl = document.createElement('div'); this.fpsEl.className = 'fps'; this.uiRoot.append(this.fpsEl); }
     this.fpsAcc += dt; this.fpsN++;
     if (this.fpsAcc < 0.5) return;
@@ -870,6 +875,7 @@ export class App {
       sound.unlock();
       this.ptr.down = true;
       if (!this.views.menu && this.views.zone === 'bench' && !isModalOpen()) this.bench.pointerDown(e);
+      else if (e.pointerType !== 'mouse' && !this.views.menu) { const lo = this.views.lookOff; this.look = { id: e.pointerId, x: e.clientX, y: e.clientY, ox: lo.x, oy: lo.y, moved: false }; }
     });
     window.addEventListener('pointermove', (e) => {
       const r = cv.getBoundingClientRect();
@@ -877,10 +883,19 @@ export class App {
       this.ptr.y = ((e.clientY - r.top) / r.height) * 2 - 1;
       if (!this.views.menu && this.views.zone === 'bench') this.bench.pointerMove(e);
       else if (e.pointerType === 'mouse') this.views.pointer(this.ptr.x, this.ptr.y);
+      else if (this.look && e.pointerId === this.look.id) {
+        // палец ведёт взгляд, как мышь на ПК: вправо — смотрим правее (по сдвигу, без рывка к пальцу)
+        const L = this.look, dx = (e.clientX - L.x) / r.width, dy = (e.clientY - L.y) / r.height;
+        if (Math.abs(e.clientX - L.x) + Math.abs(e.clientY - L.y) > 10) L.moved = true;
+        const cl = (v: number) => Math.max(-1, Math.min(1, v));
+        this.views.pointer(cl(L.ox + dx * 2.4), cl(L.oy + dy * 2.4));
+      }
     });
     window.addEventListener('pointerup', (e) => {
       if (!this.ptr.down) return;
       this.ptr.down = false;
+      const dragged = !!this.look?.moved; this.look = null;
+      if (dragged) return;
       if (this.views.menu || isModalOpen()) return;
       if (this.views.zone === 'bench') this.bench.pointerUp(e);
       else if (this.views.zone === 'window') this.tapWindow(e);

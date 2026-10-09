@@ -159,7 +159,7 @@ function stripeTex(a: string, b: string): THREE.Texture {
 export interface Person {
   root: THREE.Group;
   head: THREE.Group;
-  st: { walkW: number; leanW: number; carryW: number; walking: boolean; leaning: boolean; carrying: boolean; grip: number; talking: boolean; speed: number; mood: Mood; restY: number | null };
+  st: { walkW: number; leanW: number; carryW: number; walking: boolean; leaning: boolean; carrying: boolean; grip: number; talking: boolean; speed: number; mood: Mood; restY: number | null; restZ?: number | null };
   carrySlot: THREE.Group;
   update(t: number, dt: number): void;
 }
@@ -438,19 +438,36 @@ export function buildPerson(L: PersonLook, seed = 1, far = false): Person {
       }
       apply(D);
       /*
-       * Ладони — точно на прилавок. Поза одна, а рост и пропорции у всех разные:
-       * у высоких руки уходили в столешницу, у низких висели над ней. Пара шагов
-       * «довести плечо по ошибке высоты» — дешёвая замена настоящему IK.
+       * Ладони — плашмя на подоконник окна. Двухзвенный IK: по точке, куда
+       * должна лечь середина ладони (restY — высота поверхности, restZ — где по
+       * глубине), считаются плечо и локоть, кисть доворачивается горизонтально.
+       * Раньше поза была одна на всех: у одних руки уходили в столешницу и
+       * проходили сквозь стену под окном, у других висели в воздухе.
        */
-      if (st.restY !== null && st.leanW > 0.01) {
+      if (st.restY !== null && st.restZ != null && st.leanW > 0.01) {
+        root.updateMatrixWorld(true);
+        const L1 = 0.25, L2 = 0.225, HC = 0.065, half = 0.033;
         for (let k = 0; k < 2; k++) {
-          for (let it = 0; it < 3; it++) {
-            R.shoulder[k].updateMatrixWorld(true);
-            R.hand[k].getWorldPosition(hw);
-            const err = st.restY + 0.03 - hw.y;
-            if (Math.abs(err) < 0.004) break;
-            R.shoulder[k].rotation.x -= err * 2.2 * st.leanW;
-          }
+          const s2 = k ? 1 : -1;
+          R.hand[k].getWorldPosition(hw);
+          // цель запястья в мире: середина ладони на поверхности, запястье — на ладонь ближе к клиенту
+          const fwd = V(Math.sin(root.rotation.y), 0, Math.cos(root.rotation.y));
+          const target = V(hw.x, st.restY + half * root.scale.y, 0).setZ(st.restZ).addScaledVector(fwd, -HC * root.scale.z);
+          const loc = torso.worldToLocal(target.clone());
+          const dy = loc.y - 0.52, dz = loc.z;
+          const dist = Math.max(0.08, Math.min(L1 + L2 - 0.002, Math.hypot(dy, dz)));
+          const phi = Math.atan2(dz, -dy);
+          const al = Math.acos(Math.max(-1, Math.min(1, (L1 * L1 + dist * dist - L2 * L2) / (2 * L1 * dist))));
+          const be = Math.acos(Math.max(-1, Math.min(1, (L1 * L1 + L2 * L2 - dist * dist) / (2 * L1 * L2))));
+          const sh = -(phi - al), el = -(Math.PI - be);
+          // кисть горизонтально: вперёд от «низа» туловища — π/2 + наклон корпуса
+          const wr = -((Math.PI / 2 + D.lean) - (phi - al) - (Math.PI - be));
+          const w = st.leanW * (1 - st.carryW);
+          R.shoulder[k].rotation.x += (sh - R.shoulder[k].rotation.x) * w;
+          R.shoulder[k].rotation.z += (s2 * 0.05 - R.shoulder[k].rotation.z) * w;
+          R.shoulder[k].rotation.y *= 1 - w;
+          R.elbow[k].rotation.x += (el - R.elbow[k].rotation.x) * w;
+          R.wrist[k].rotation.x += (wr - R.wrist[k].rotation.x) * w;
         }
       }
       body.scale.y = 1 + Math.sin(t * 2.1) * 0.01 * (1 - st.walkW);

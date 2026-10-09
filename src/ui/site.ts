@@ -29,7 +29,7 @@ export class Site {
   /** Название магазина — обновляется при смене языка (раньше оставалось «Мегабайт» в EN). */
   private titleEl!: HTMLElement;
   tab: Tab = 'shop';
-  cat: Cat | 'all' | 'fit' = 'all';
+  cat: Cat | 'all' = 'all';
   private recFor: number | null = null;
 
   constructor(private app: App) {
@@ -100,9 +100,9 @@ export class Site {
     const s = this.app.state!;
     const rec = this.recommended();
     const cats = dragScroll(h('div', { class: 'cats' }));
-    // «✓ К заказу» — первой: только то, что подходит к сборке на верстаке или к заказу (Codex)
-    for (const c of ['fit', 'all', ...CATS] as (Cat | 'all' | 'fit')[]) {
-      const b = h('button', { class: 'live ' + (this.cat === c ? 'on' : '') + (c === 'fit' ? ' fitcat' : '') }, c === 'all' ? t('site.all') : c === 'fit' ? '✓ ' + t('site.fitCat') : t('cat.' + c));
+    // Категории «К заказу» нет: подбор деталей — работа игрока (автор), подсказки только в обучении.
+    for (const c of ['all', ...CATS] as (Cat | 'all')[]) {
+      const b = h('button', { class: 'live ' + (this.cat === c ? 'on' : '') }, c === 'all' ? t('site.all') : t('cat.' + c));
       b.addEventListener('click', () => { sound.tab(); this.cat = c; this.render(); });
       cats.append(b);
     }
@@ -159,8 +159,7 @@ export class Site {
     }
     };
     if (!phone) specials();
-    const fit = this.fitIds();
-    const list = ALL.filter((p) => this.cat === 'all' || (this.cat === 'fit' ? fit.has(p.id) : p.cat === this.cat))
+    const list = ALL.filter((p) => this.cat === 'all' || p.cat === this.cat)
       .sort((a, b) => Number(rec.has(b.id)) - Number(rec.has(a.id)) || CATS.indexOf(a.cat) - CATS.indexOf(b.cat) || a.price - b.price);
     for (const p of list) {
       const locked = p.rep > lvl;
@@ -191,19 +190,7 @@ export class Site {
           h('div', { style: 'display:flex;align-items:center;gap:6px' }, spark(hist), h('span', { class: 'chg ' + (chg > 0 ? 'up' : chg < 0 ? 'down' : '') }, `${chg > 0 ? '+' : ''}${chg}%`)),
           buyBtn)));
     }
-    if (this.cat === 'fit' && !list.length) this.body.append(h('p', { class: 'sp' }, t('site.fitEmpty')));
     if (phone) specials();
-  }
-
-  /** Что подходит к заказу: к сборке на верстаке (можно поставить сейчас) или к ближайшему заказу на сборку. */
-  private fitIds(): Set<string> {
-    const s = this.app.state!;
-    const out = new Set<string>();
-    const bench = S.benchOrder(s);
-    if (bench?.build.case) { for (const p of ALL) if (p.cat !== 'paste' && p.rep <= S.level(s) && canInstall(bench.build, p.id).ok) out.add(p.id); return out; }
-    const o = (bench && bench.kind === 'build' ? bench : null) ?? S.activeOrders(s).find((x) => x.kind === 'build' && x.state === 'active');
-    if (o) { const sol = solve(o.req, S.level(s), (id) => S.buyPrice(s, id)); if (sol) for (const k of ['case', 'mb', 'cpu', 'cooler', 'ram', 'ssd', 'gpu', 'psu'] as const) out.add(sol.build[k]!); }
-    return out;
   }
 
   private openBox(id: S.BoxId): void {
@@ -264,7 +251,13 @@ export class Site {
     const s = this.app.state!;
     const news = s.market.news.slice().reverse();
     if (!news.length) this.body.append(h('p', {}, t('site.newsEmpty')));
-    for (const n of news) this.body.append(h('div', { class: 'news ' + n.kind + (n.day === s.day ? ' fresh' : '') }, h('span', { class: 'd' }, t('hud.day', { n: n.day })), h('span', {}, newsText(n))));
+    // свежие отдельно сверху, старые ниже и приглушённые; новость о нашем ларьке помечена
+    const row = (n: (typeof news)[number]) => h('div', { class: 'news ' + n.kind + (n.day >= s.day ? ' fresh' : ' old') },
+      h('span', { class: 'd' }, t('hud.day', { n: n.day })),
+      h('span', {}, n.key.startsWith('news.blog') ? h('b', { class: 'tag teal', style: 'margin-right:6px' }, t('site.newsOurs')) : null, n.day >= s.day ? h('b', { class: 'tag good', style: 'margin-right:6px' }, t('site.newsNew')) : null, newsText(n)));
+    const fresh = news.filter((n) => n.day >= s.day), old = news.filter((n) => n.day < s.day);
+    if (fresh.length) { this.body.append(h('h4', { class: 'newsh' }, t('site.newsToday'))); for (const n of fresh) this.body.append(row(n)); }
+    if (old.length) { this.body.append(h('h4', { class: 'newsh' }, t('site.newsOld'))); for (const n of old) this.body.append(row(n)); }
     s.newsSeen = s.day;
   }
 

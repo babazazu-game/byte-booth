@@ -12,6 +12,20 @@ import { solve } from './logic/orders.ts';
 import { part } from './logic/parts.ts';
 
 export async function runShot(app: App, scene: string): Promise<void> {
+  await runScene(app, scene);
+  const q = new URLSearchParams(location.search);
+  // ?up=sign:2,decor:2 — улучшения; ?cam=x,y,z,tx,ty,tz — свой ракурс; ?noui=1 — без интерфейса
+  if (q.get('up') && app.state) { for (const kv of q.get('up')!.split(',')) { const [k, v] = kv.split(':'); (app.state.up as Record<string, number>)[k] = Number(v); } app.applyUpgrades(); }
+  const cam = q.get('cam')?.split(',').map(Number);
+  if (cam?.length === 6) {
+    const v = app.views as unknown as { update: (...a: unknown[]) => void }; const ou = v.update.bind(v);
+    v.update = (...a: unknown[]) => { ou(...a); const c = app.engine.camera; c.position.set(cam[0], cam[1], cam[2]); c.lookAt(cam[3], cam[4], cam[5]); };
+    if (app.director.person) app.director.person.root.visible = q.get('person') === '1';
+  }
+  if (q.get('noui')) document.getElementById('ui')!.style.display = 'none';
+}
+
+async function runScene(app: App, scene: string): Promise<void> {
   app.persist = () => {};
   app.saveSettings = () => {};
   if (scene === 'menu') return;

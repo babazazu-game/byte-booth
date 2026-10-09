@@ -28,7 +28,7 @@ export class Views {
   menu = true;
   private pos = V(4, 2.4, -6);
   private look = V(0, 1.3, 0);
-  private lookOff = new THREE.Vector2();
+  readonly lookOff = new THREE.Vector2();
   private focus: { point: THREE.Vector3; dist: number } | null = null;
   /** Отдаление на верстаке: 0 — обзор, 1 — вплотную к фокусу. */
   zoom = 0;

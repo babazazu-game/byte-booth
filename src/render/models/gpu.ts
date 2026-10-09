@@ -45,7 +45,6 @@ const fingersTex = () => memo('fingers', () => canvasTex(512, 32, (g, w, h) => {
   g.fillStyle = '#1d3a2c'; g.fillRect(0, 0, w, h);
   g.fillStyle = '#e0ac45'; for (let x = 4; x < w; x += 9) { if (x > 120 && x < 140) continue; g.fillRect(x, 3, 6, h - 3); }
 }));
-const portTex = () => memo('port', () => canvasTex(64, 32, (g, w, h) => { g.fillStyle = '#0d0e12'; g.fillRect(0, 0, w, h); g.fillStyle = '#3a3d45'; g.fillRect(8, 9, 48, 14); }));
 const pwrTex = () => memo('pwr', () => canvasTex(128, 64, (g, w, h) => {
   g.fillStyle = '#16171c'; g.fillRect(0, 0, w, h); g.fillStyle = '#000';
   for (let i = 0; i < 6; i++) for (let j = 0; j < 2; j++) { g.beginPath(); g.roundRect(8 + i * 19, 10 + j * 24, 14, 18, 3); g.fill(); }
@@ -311,7 +310,30 @@ export function buildGPU(p: GPU): GpuModel {
   const slotW = big ? 0.05 : 0.04;
   add(pcb, rbox(0.0012, 0.124, slotW, 0.0004, 1), steel, -L / 2 - 0.001, -0.003, slotW / 2 - 0.006);
   add(pcb, rbox(0.012, 0.0012, slotW, 0.0004, 1), steel, -L / 2 + 0.005, 0.0585, slotW / 2 - 0.006);
-  [-0.05, -0.033, -0.016, 0.001].forEach((y) => add(pcb, rbox(0.003, 0.014, 0.0075, 0.0012), std('#fff', { map: portTex() }), -L / 2 - 0.0025, y, 0.004));
+  /*
+   * Выходы на мониторы — рисунком на наружной стороне планки (3×DisplayPort +
+   * HDMI) и с лёгким самосвечением: сзади корпуса планка всегда в тени, и
+   * объёмные чёрные коробочки портов там просто не читались.
+   */
+  const zc = slotW / 2 - 0.006, PH = 0.124;
+  const ioT = memo('gpuio' + slotW, () => canvasTex(128, 320, (c, w, h) => {
+    c.fillStyle = '#c3c8cf'; c.fillRect(0, 0, w, h);
+    const u = (z: number) => (0.5 + (z - zc) / slotW) * w, v = (y: number) => (1 - (0.5 + (y + 0.003) / PH)) * h;
+    [-0.05, -0.033, -0.016, 0.001].forEach((y, i) => {
+      const cx = u(0.004), cy = v(y), pw = 26, ph = 38;
+      c.fillStyle = '#2a2d33'; c.fillRect(cx - pw / 2 - 3, cy - ph / 2 - 3, pw + 6, ph + 6);
+      c.fillStyle = '#0c0d10'; c.beginPath();
+      if (i === 3) { c.moveTo(cx - pw / 2, cy - ph / 2); c.lineTo(cx + pw / 2, cy - ph / 2); c.lineTo(cx + pw / 2, cy + ph / 2 - 6); c.lineTo(cx + pw / 2 - 6, cy + ph / 2); c.lineTo(cx - pw / 2 + 6, cy + ph / 2); c.lineTo(cx - pw / 2, cy + ph / 2 - 6); }
+      else { c.moveTo(cx - pw / 2, cy - ph / 2); c.lineTo(cx + pw / 2, cy - ph / 2); c.lineTo(cx + pw / 2, cy + ph / 2); c.lineTo(cx - pw / 2 + 8, cy + ph / 2); c.lineTo(cx - pw / 2, cy + ph / 2 - 8); }
+      c.closePath(); c.fill();
+      c.fillStyle = '#c9a54a'; c.fillRect(cx - 3, cy - ph / 2 + 6, 6, ph - 12);
+    });
+    // вентиляционные прорези в планке
+    c.fillStyle = '#1b1d22';
+    for (let k = 0; k < 9; k++) c.fillRect(u(0.02) - 14, v(0.058) + 10 + k * 14, 28, 7);
+  }));
+  const ioM = new THREE.MeshStandardMaterial({ map: ioT, emissive: '#ffffff', emissiveMap: ioT, emissiveIntensity: 0.22, metalness: 0.5, roughness: 0.4 });
+  add(pcb, new THREE.PlaneGeometry(slotW, PH), ioM, -L / 2 - 0.0018, -0.003, zc, 0, -Math.PI / 2, 0, false);
   for (let i = 0; i < 5; i++) add(pcb, rbox(0.0016, 0.0045, 0.016, 0.001), std('#14161b'), -L / 2 - 0.0018, 0.014 + i * 0.0085, 0.02);
 
   mergeTree(group);

@@ -70,7 +70,7 @@ export function settings(app: App): void {
     h('div', { class: 'setrow' }, h('span', {}, t('set.ambience')), seg([['1', t('set.on')], ['0', t('set.off')]], st.amb ? '1' : '0', (v) => { st.amb = v === '1'; app.applySettings(); })),
     h('div', { class: 'setrow' }, h('span', {}, t('set.lang')), seg([['ru', 'Русский'], ['en', 'English']], lang(), (v) => { setLangByPlayer(v as 'ru' | 'en'); app.onLang(); app.saveSettings(); closeSet(); settings(app); })),
     h('div', { class: 'setrow' }, h('span', {}, t('set.quality')), seg([['low', t('set.q.low')], ['mid', t('set.q.mid')], ['high', t('set.q.high')]], st.quality, (v) => { st.quality = v as Quality; st.qualityChosen = true; app.applySettings(); })),
-    h('div', { class: 'setrow' }, h('span', {}, t('set.fps')), seg([['1', t('set.on')], ['0', t('set.off')]], st.fps !== false ? '1' : '0', (v) => { st.fps = v === '1'; app.applySettings(); })),
+    h('div', { class: 'setrow' }, h('span', {}, t('set.fps')), seg([['1', t('set.on')], ['0', t('set.off')]], st.fps === true ? '1' : '0', (v) => { st.fps = v === '1'; app.applySettings(); })),
     h('div', { class: 'setrow' }, h('span', {}, t('set.hints')), seg([['1', t('set.on')], ['0', t('set.off')]], st.hints ? '1' : '0', (v) => { st.hints = v === '1'; app.applySettings(); app.refresh(); })),
   ];
   // окно пересобирается при смене языка: иначе оно оставалось на старом языке

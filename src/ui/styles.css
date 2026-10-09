@@ -608,3 +608,44 @@
   .bench-bottom { max-width: 100%; min-width: 0; }
   .tray .items { width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; align-self: stretch; }
 }
+/* плашка пыли: на телефоне стоя был задан и верх, и низ — её растягивало на весь экран */
+@media (max-width: 700px) and (min-height: 561px) {
+  .dustbar { top: calc(112px + var(--safe-t)); bottom: auto; height: auto; }
+}
+/* новости: «Сегодня» сверху, «Раньше» ниже и приглушённо */
+.site .newsh { margin: 10px 2px 6px; font: 800 .8em/1 var(--body); letter-spacing: .08em; text-transform: uppercase; color: #5b6573; }
+.site .news.old { opacity: .62; }
+
+/* ── Совсем низкий экран (телефон лёжа, ~330–420 px по высоте) ──
+   Зоны — узкой колонкой у левого края, а не плашкой по центру снизу: она
+   съедала середину кадра, и подсказка, лоток и плитки верстака не влезали. */
+@media (max-height: 420px) {
+  .hud-top { gap: 6px; }
+  .hud-top .chip { min-height: 32px; font-size: .78em; padding: .2em .6em; }
+  .nav { left: calc(6px + var(--safe-l)); transform: none; bottom: calc(6px + var(--safe-b)); flex-direction: column; gap: 4px; padding: 5px; max-width: none; }
+  .nav button { width: 58px; min-width: 0; min-height: 44px; flex-direction: column; justify-content: center; gap: 1px; padding: 3px 2px; font-size: 10px; }
+  .nav button .lbl { display: block !important; font-size: 10px; }
+  .nav button svg { width: 18px; height: 18px; }
+  .hud-orders { left: calc(74px + var(--safe-l)); top: calc(48px + var(--safe-t)); width: min(230px, 32vw); max-height: calc(100% - 120px); }
+  .hint { top: auto; bottom: calc(8px + var(--safe-b)); left: calc(74px + var(--safe-l)); transform: none; max-width: calc(100% - 400px); text-align: left; font-size: .78em; }
+  .dustbar { left: calc(74px + var(--safe-l)); right: auto; top: auto; bottom: calc(56px + var(--safe-b)); }
+  .choices, .actions { left: calc(50% + 30px); bottom: calc(8px + var(--safe-b)); width: min(680px, calc(100% - 100px)); }
+  .bench-bottom { width: 300px; }
+  .bench-phone .btn.tile { width: 56px; min-height: 46px; font-size: 9.5px; gap: 2px; padding: 4px 2px; }
+  .bench-phone .btn.tile svg { width: 17px; height: 17px; }
+  .bench-phone .btn.tile.more { width: 40px; }
+  .tray { top: calc(52px + var(--safe-t)); }
+}
+@media (max-height: 420px) {
+  .bench-phone .btn.tile { width: 63px; font-size: 9.5px; }
+  .bench-phone .btn.tile.more { width: 40px; }
+}
+@media (max-height: 420px) {
+  .site:not(.inmon) { left: calc(72px + var(--safe-l)); right: calc(4px + var(--safe-r)); bottom: calc(4px + var(--safe-b)); top: calc(4px + var(--safe-t)); width: auto; }
+}
+/* счётчик FPS (временный) — под панелями, не поверх баланса в магазине */
+.fps { z-index: 1; }
+/* пузырь сбоку от головы (низкий экран): хвостик смотрит на говорящего */
+.bubble.side { transform: translate(0, -50%); max-width: min(300px, 40vw); }
+.bubble.side:after { left: -9px; top: 50%; bottom: auto; margin: -8px 0 0 0; transform: rotate(135deg) skew(8deg, 8deg); }
+.bubble.side.left:after { left: auto; right: -9px; transform: rotate(-45deg) skew(8deg, 8deg); }

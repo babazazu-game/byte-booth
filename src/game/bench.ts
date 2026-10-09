@@ -146,7 +146,7 @@ export class Bench {
     const axisOf = (o: THREE.Object3D, local: THREE.Vector3) => local.clone().applyQuaternion(o.getWorldQuaternion(new THREE.Quaternion())).normalize();
     const boardObj = this.rig.board?.group ?? obj;
     let axis = axisOf(boardObj, V(0, 0, 1));
-    if (slot === 'mb' && this.rig.board) { const { w, h: hh } = this.rig.board; for (const [x, y] of [[-1, 1], [1, 1], [-1, -1], [1, -1]]) pts.push(obj.localToWorld(V(x * (w / 2 - 0.012), y * (hh / 2 - 0.012), 0.004))); }
+    if (slot === 'mb' && this.rig.board) { for (const [x, y] of this.rig.board.holes) pts.push(this.rig.board.group.localToWorld(V(x, y, 0.002))); }
     if (slot === 'gpu') { const gm = this.rig.gpuModel(); if (gm) { pts.push(gm.group.localToWorld(V(-gm.L / 2 + 0.005, 0.0585, 0.014))); axis = axisOf(gm.group, V(0, 1, 0)); } }
     // винты БП — на верхней грани у задней стенки: сзади их с места сборщика не видно
     if (slot === 'psu') { const dm = obj.userData.dims as number[]; for (const x of [-0.05, 0.05]) pts.push(obj.localToWorld(V(x, dm[1] / 2 + 0.001, dm[2] / 2 - 0.012))); axis = axisOf(obj, V(0, 1, 0)); }

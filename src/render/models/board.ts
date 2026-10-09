@@ -30,6 +30,8 @@ export const MB_SIZE: Record<MB['form'], [number, number]> = { ATX: [0.244, 0.30
 export interface BoardModel {
   group: THREE.Group;
   w: number; h: number;
+  /** Крепёжные отверстия (в плоскости платы) — туда встают винты. */
+  holes: [number, number][];
   anchors: { cpu: THREE.Object3D; ram: THREE.Object3D; m2: THREE.Object3D; pcie: THREE.Object3D; atx24: THREE.Object3D; cpu8: THREE.Object3D };
 }
 
@@ -55,6 +57,20 @@ const MBSTYLE: Record<string, MbStyle> = {
   x870e: { vrm: 'angular', heat: '#1d1f24', io: 'tall', rgb: true, m2: 'cover', print: 'cyber', ink: 'rgba(230,60,120,.35)', logo: 'ROG STRIX', logoInk: '#ff5aa0', slotDark: '#15161a', slotLight: '#8a8f99' },
 };
 const MB_DEFAULT: MbStyle = { vrm: 'block', heat: '#4a4f59', io: 'tall', print: 'traces', ink: 'rgba(150,165,190,.25)', logo: '', logoInk: '#fff', slotDark: '#15161a', slotLight: '#e9edf2' };
+
+/**
+ * Крепёжные отверстия платы (в её плоскости, от центра). Одни и те же точки
+ * рисуются на текстолите и получают винты на верстаке — раньше винты стояли
+ * в 12 мм от края, а отверстия были в 8 мм, и верхний левый уходил под кожух
+ * разъёмов. Верхнее левое — под кожухом, не в углу.
+ */
+export function mbHoles(p: MB): [number, number][] {
+  const [w, h] = MB_SIZE[p.form];
+  const st = MBSTYLE[p.id] ?? MB_DEFAULT;
+  const ioH = st.io === 'tall' ? Math.min(0.13, h * 0.45) : 0.07;
+  const e = 0.008;
+  return [[-w / 2 + e, h / 2 - 0.01 - ioH - 0.009], [w / 2 - e, h / 2 - e], [-w / 2 + e, -h / 2 + 0.022], [w / 2 - e, -h / 2 + 0.022]];
+}
 
 function mbTex(p: MB, st: MbStyle, w: number, h: number): THREE.Texture {
   return memo('mb' + p.id, () => {
@@ -97,7 +113,12 @@ function mbTex(p: MB, st: MbStyle, w: number, h: number): THREE.Texture {
       // крупная надпись серии — главная «подпись» платы
       if (st.logo) { g.fillStyle = st.logoInk; g.textAlign = 'right'; fitText(g, st.logo, W - 18, Hh * 0.93, W * 0.62, 46, 900); }
       g.fillStyle = light ? '#7d838c' : '#b8bcc4';
-      for (const [x, y] of [[16, 16], [W - 16, 16], [16, Hh - 16], [W - 16, Hh - 16], [W / 2, Hh / 2]]) { g.beginPath(); g.arc(x, y, 9, 0, Math.PI * 2); g.fill(); }
+      // крепёжные отверстия: металлическое кольцо и тёмная середина
+      for (const [hx, hy] of mbHoles(p)) {
+        const x = ((hx + w / 2) / w) * W, y = ((h / 2 - hy) / h) * Hh;
+        g.beginPath(); g.arc(x, y, 11, 0, Math.PI * 2); g.fill();
+        g.fillStyle = '#16171a'; g.beginPath(); g.arc(x, y, 5, 0, Math.PI * 2); g.fill(); g.fillStyle = light ? '#7d838c' : '#b8bcc4';
+      }
     });
   });
 }
@@ -199,7 +220,7 @@ export function buildBoard(p: MB): BoardModel {
   mergeTree(group);
   const mk = (x: number, y: number, z: number) => { const o = new THREE.Object3D(); o.position.set(x, y, z); group.add(o); return o; };
   return {
-    group, w, h,
+    group, w, h, holes: mbHoles(p),
     anchors: {
       cpu: mk(cpuX, cpuY, 0.0035),
       ram: mk(ramX, ramY, 0.006),
@@ -412,6 +433,8 @@ export function buildPSU(p: PSU): THREE.Group {
   decal(g, Math.min(0.13, D * 0.86), Math.min(0.13, D * 0.86), grillTex(st.grill, gInk), 0, -H / 2 - 0.0005, 0, Math.PI / 2, 0, 0);
   // рёбра на крышке (be quiet!) — видны сверху в корпусе
   if (st.ribs) for (let i = 0; i < 7; i++) add(g, box(W * 0.8, 0.0015, 0.003), std(shade(p.look.main, white ? 0.9 : 1.6), { roughness: 0.5 }), 0, H / 2 + 0.0008, -D * 0.35 + i * (D * 0.7) / 6);
+  // резьбовые отверстия под винты крепления (те же точки, что у винтов на верстаке)
+  for (const x of [-0.05, 0.05]) { add(g, cyl(0.0052, 0.0052, 0.0006, 16), std(shade(p.look.main, white ? 0.8 : 1.5), { metalness: 0.5, roughness: 0.4 }), x, H / 2 + 0.0003, D / 2 - 0.012); add(g, cyl(0.0022, 0.0022, 0.0008, 12), std('#0b0c0e'), x, H / 2 + 0.0004, D / 2 - 0.012); }
   // задняя панель: сетевой разъём и выключатель рядом (тёмный, как у всех настоящих)
   add(g, box(0.022, 0.016, 0.002), std('#111'), -0.045, 0.02, D / 2 + 0.001);
   add(g, box(0.009, 0.013, 0.004), std('#1d1f24', { roughness: 0.4 }), -0.045, -0.006, D / 2 + 0.002);

@@ -24,6 +24,8 @@ export interface KioskParts {
   shelfAnchor: THREE.Group;
   counterAnchor: THREE.Group;
   decor: THREE.Group[];
+  /** Неон снаружи по уровням «Неоновой вывески». */
+  neon: THREE.Group[];
   signText: (title: string) => void;
   /** Материал стен: его цвет = цвет покраски. */
   wall: THREE.MeshStandardMaterial;
@@ -466,13 +468,32 @@ export function buildKiosk(root: THREE.Group, inner: THREE.Light[]): KioskParts 
   add(clock, box(0.006, 0.07, 0.004), std('#1c1f23'), 0, 0.03, 0.013);
   add(clock, box(0.004, 0.09, 0.004), std('#ff8a5c'), 0.02, 0.0, 0.014, 0, 0, -1);
   // декор (улучшение «Уют» включает по уровням)
-  const d1 = new THREE.Group(); d1.position.set(0.5, 0.797, 2.05); root.add(d1);
+  // горшок — на левом краю компьютерного стола: справа стоят мышь и вентилятор
+  const d1 = new THREE.Group(); d1.position.set(-0.49, 0.797, 1.98); root.add(d1);
   add(d1, cyl(0.07, 0.055, 0.12, 16), std('#f2f0eb', { roughness: 0.6 }), 0, 0.06, 0);
-  for (let i = 0; i < 6; i++) { const a = (i / 6) * TAU; tube(d1, [V(0, 0.1, 0), V(Math.cos(a) * 0.08, 0.25, Math.sin(a) * 0.08), V(Math.cos(a) * 0.16, 0.3, Math.sin(a) * 0.16)], 0.012, std('#5d9a48'), 12, 5); }
+  for (let i = 0; i < 6; i++) { const a = (i / 6) * TAU; tube(d1, [V(0, 0.1, 0), V(Math.cos(a) * 0.07, 0.25, Math.sin(a) * 0.07), V(Math.cos(a) * 0.125, 0.3, Math.sin(a) * 0.125)], 0.012, std('#5d9a48'), 12, 5); }
   const d2 = new THREE.Group(); d2.position.set(K.x0 + 0.12, 2.25, 0.4); root.add(d2);
   const neon = canvasTex(512, 128, (g, w, h) => { g.clearRect(0, 0, w, h); g.strokeStyle = '#ff6fa8'; g.lineWidth = 8; g.shadowColor = '#ff6fa8'; g.shadowBlur = 20; g.font = '900 86px Rubik'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.strokeText('PC ♥', w / 2, h / 2); });
   add(d2, new THREE.PlaneGeometry(0.6, 0.15), own('#000', { map: neon, emissive: '#fff', emissiveMap: neon, emissiveIntensity: 3, transparent: true }), 0, 0, 0, 0, Math.PI / 2, 0, false);
   const decor: THREE.Group[] = [d1, d2];
+  /*
+   * «Неоновая вывеска» (улучшение sign) видна снаружи — на обшивке по бокам
+   * окна: 1-й уровень — «ОТКРЫТО», 2-й — «PC» с монитором. Раньше улучшение
+   * только добавляло клиентов, и купленного не было видно ни в игре, ни в меню.
+   */
+  const neonSign = (x: number, draw: (g: CanvasRenderingContext2D, w: number, h: number) => void, color: string): THREE.Group => {
+    const n = new THREE.Group(); n.position.set(x, 1.62, K.z0 - 0.072); n.rotation.y = Math.PI; root.add(n);
+    add(n, rbox(0.44, 0.26, 0.012, 0.004), std('#14161b', { roughness: 0.3, metalness: 0.2 }), 0, 0, -0.006, 0, 0, 0, false);
+    const t2 = canvasTex(512, 300, (g, w, h) => { g.clearRect(0, 0, w, h); g.strokeStyle = color; g.fillStyle = color; g.shadowColor = color; g.shadowBlur = 24; g.lineWidth = 9; g.lineJoin = 'round'; draw(g, w, h); });
+    add(n, new THREE.PlaneGeometry(0.42, 0.246), own('#000', { map: t2, emissive: '#fff', emissiveMap: t2, emissiveIntensity: 3, transparent: true, depthWrite: false }), 0, 0, 0.002, 0, 0, 0, false);
+    const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: canvasTex(128, 128, (g, w, h) => { const gr = g.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w / 2); gr.addColorStop(0, color + '66'); gr.addColorStop(1, color + '00'); g.fillStyle = gr; g.fillRect(0, 0, w, h); }), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+    halo.scale.set(0.8, 0.55, 1); halo.position.z = 0.01; n.add(halo);
+    n.userData.keep = true; n.visible = false;
+    return n;
+  };
+  const neonA = neonSign(-1.21, (g, w, h) => { g.font = '900 96px Rubik'; g.textAlign = 'center'; g.textBaseline = 'middle'; fitText(g, tr('ОТКРЫТО', 'OPEN'), w / 2, h / 2 - 30, w - 50, 110, 900); g.strokeRect(24, 24, w - 48, h - 48); g.font = '700 44px Rubik'; fitText(g, tr('сборка ПК', 'PC builds'), w / 2, h - 70, w - 120, 50, 700); }, '#ff5fa2');
+  const neonB = neonSign(1.21, (g, w) => { g.strokeRect(w / 2 - 120, 40, 240, 150); g.beginPath(); g.moveTo(w / 2, 190); g.lineTo(w / 2, 230); g.moveTo(w / 2 - 60, 240); g.lineTo(w / 2 + 60, 240); g.stroke(); g.textAlign = 'center'; g.textBaseline = 'middle'; fitText(g, 'PC', w / 2, 116, 200, 100, 900); }, '#4fe0ff');
+  const neonUp: THREE.Group[] = [neonA, neonB];
   // свет: одна точка под световой панелью
   // потолочный свет — тёплый и с быстрым спадом: центр светлый, углы уходят в тень
   const ceil = new THREE.PointLight('#ffcf94', 5.2, 4.6, 2); ceil.position.set(0, 2.3, 0.95); root.add(ceil); inner.push(ceil);
@@ -564,5 +585,5 @@ export function buildKiosk(root: THREE.Group, inner: THREE.Light[]): KioskParts 
   const glow = new THREE.Points(glowG, new THREE.PointsMaterial({ map: glowT, size: 0.08, sizeAttenuation: true, transparent: true, opacity: 0.55, depthWrite: false, blending: THREE.AdditiveBlending }));
   glow.renderOrder = 3; glow.userData.keep = true; root.add(glow);
 
-  return { bell, screen: { mesh: scr, tex: scrT, draw: drawScreen }, benchAnchor, shelfAnchor, counterAnchor, decor, signText, wall };
+  return { bell, screen: { mesh: scr, tex: scrT, draw: drawScreen }, benchAnchor, shelfAnchor, counterAnchor, decor, neon: neonUp, signText, wall };
 }

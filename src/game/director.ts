@@ -58,7 +58,8 @@ export class Director {
     this.clear();
     const p = buildPerson(look, seed);
     // облокачиваясь, ладони кладёт ровно на столешницу прилавка
-    p.st.restY = KIOSK.counterY + 0.025;
+    // ладони — на подоконник окна (он на 4,5 см выше прилавка): ниже рука проходила сквозь стену
+    p.st.restY = 0.97; p.st.restZ = KIOSK.z0;
     this.person = p; this.look = look;
     this.root.add(p.root);
     p.root.position.copy(ENTER[0]);
@@ -97,7 +98,7 @@ export class Director {
    * росту/ширине, и привязанный корпус перекашивало. Он живёт в мире и каждый
    * кадр ставится ровно перед клиентом — по его курсу, в натуральную величину.
    */
-  private handoff: { obj: THREE.Object3D; t: number; p0: THREE.Vector3; q0: THREE.Quaternion; s0: number; depth: number } | null = null;
+  private handoff: { obj: THREE.Object3D; t: number; p0: THREE.Vector3; q0: THREE.Quaternion; s0: number; depth: number; halfH: number; rz0: number } | null = null;
   leaveWith(obj: THREE.Object3D, mood: Mood, onGone?: () => void, depth = 0.22, grip = 0.2): void {
     const p = this.person;
     if (!p) { obj.removeFromParent(); onGone?.(); return; }
@@ -105,7 +106,8 @@ export class Director {
     p.st.leaning = false; p.st.talking = false; p.st.mood = mood;
     this.root.updateMatrixWorld(true);
     this.root.attach(obj);
-    this.handoff = { obj, t: 0, p0: obj.position.clone(), q0: obj.quaternion.clone(), s0: obj.scale.x, depth };
+    const size = new THREE.Box3().setFromObject(obj).getSize(new THREE.Vector3());
+    this.handoff = { obj, t: 0, p0: obj.position.clone(), q0: obj.quaternion.clone(), s0: obj.scale.x, depth, halfH: size.y / 2, rz0: p.root.position.z };
     // половина ширины корпуса в руках — в единицах тела (тело масштабировано по ширине)
     p.st.grip = (grip * obj.scale.x) / p.root.scale.x;
     p.st.carrying = true;
@@ -114,7 +116,7 @@ export class Director {
       p.st.walking = true;
       this.path = EXIT; this.seg = 0; this.state = 'out';
       this.onGone = onGone ?? null;
-    }, 1300);
+    }, 1750);
   }
 
   clear(): void {
@@ -180,17 +182,29 @@ export class Director {
     const p = this.person;
     const ho = this.handoff;
     if (ho && p) {
-      ho.t = Math.min(1, ho.t + dt / 0.95);
-      const e = ho.t < 0.5 ? 2 * ho.t * ho.t : 1 - Math.pow(-2 * ho.t + 2, 2) / 2;
+      const stepping = ho.t < 1;
+      ho.t = Math.min(1, ho.t + dt / 1.4);
+      const ease = (x: number) => { const c = Math.max(0, Math.min(1, x)); return c < 0.5 ? 2 * c * c : 1 - Math.pow(-2 * c + 2, 2) / 2; };
+      // клиент отступает на шаг: в руках у самого окна корпус стоял в стене ларька
+      if (stepping) p.root.position.z = ho.rz0 - 0.24 * ease(ho.t / 0.6);
       // цель: перед грудью, боком к себе (длинная сторона между ладонями)
       const rs = p.root.scale;
       const yaw = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), p.root.rotation.y);
       const off = new THREE.Vector3(0, 1.0 * rs.y, 0.3 * rs.z + ho.depth / 2).applyQuaternion(yaw);
       const tp = p.root.position.clone().add(off);
       const tq = yaw.clone().multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 2));
-      ho.obj.position.lerpVectors(ho.p0, tp, e);
-      ho.obj.position.y += Math.sin(e * Math.PI) * 0.1; // дуга: приподнял и к себе
-      ho.obj.quaternion.slerpQuaternions(ho.q0, tq, e);
+      /*
+       * Путь в три шага: поднять над подоконником (низ корпуса выше 0.97 м),
+       * вынести через окно, опустить к груди. По прямой корпус проходил сквозь
+       * стену под окном.
+       */
+      const hy = Math.max(tp.y, 0.97 + ho.halfH + 0.05);
+      const pA = new THREE.Vector3(ho.p0.x, hy, ho.p0.z), pB = new THREE.Vector3(tp.x, hy, tp.z);
+      const t = ho.t;
+      if (t < 0.3) ho.obj.position.lerpVectors(ho.p0, pA, ease(t / 0.3));
+      else if (t < 0.72) ho.obj.position.lerpVectors(pA, pB, ease((t - 0.3) / 0.42));
+      else ho.obj.position.lerpVectors(pB, tp, ease((t - 0.72) / 0.28));
+      ho.obj.quaternion.slerpQuaternions(ho.q0, tq, ease(t));
       ho.obj.scale.setScalar(ho.s0);
     }
     if (!p && ho) { ho.obj.removeFromParent(); this.handoff = null; }
@@ -278,8 +292,25 @@ export class Director {
       this.bubble.style.opacity = vis ? '1' : '0';
       const ui = document.getElementById('ui')!;
       const x = ((hp.x + 1) / 2) * ui.clientWidth, y = ((1 - hp.y) / 2) * ui.clientHeight;
-      this.bubble.style.left = Math.max(170, Math.min(ui.clientWidth - 170, x)) + 'px';
-      this.bubble.style.top = Math.max(150, y) + 'px';
+      /*
+       * Над головой места нет (низкий экран телефона лёжа) — пузырь встаёт
+       * сбоку от головы. Раньше его прижимало вниз, и текст ложился на лицо.
+       */
+      const bh = this.bubble.offsetHeight || 80, bw = this.bubble.offsetWidth || 260;
+      const hc = p.head.getWorldPosition(V()).project(this.camera);
+      const hx = ((hc.x + 1) / 2) * ui.clientWidth, hy = ((1 - hc.y) / 2) * ui.clientHeight;
+      const side = y - bh < 50;
+      this.bubble.classList.toggle('side', side);
+      if (side) {
+        const r = Math.abs(x - hx) + ui.clientHeight * 0.16; // примерно полголовы вбок
+        const right = hx + r + bw < ui.clientWidth - 8;
+        this.bubble.classList.toggle('left', !right);
+        this.bubble.style.left = (right ? hx + r : hx - r - bw) + 'px';
+        this.bubble.style.top = Math.max(50 + bh / 2, Math.min(ui.clientHeight - bh / 2 - 8, hy)) + 'px';
+      } else {
+        this.bubble.style.left = Math.max(170, Math.min(ui.clientWidth - 170, x)) + 'px';
+        this.bubble.style.top = Math.max(150, y) + 'px';
+      }
       const txt = this.bubbleText.slice(0, Math.floor(this.shown));
       const html = `<div class="who">${this.who}</div>${txt.replace(/</g, '&lt;')}`;
       if (this.bubble.innerHTML !== html) this.bubble.innerHTML = html;
