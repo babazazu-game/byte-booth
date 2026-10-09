@@ -26,6 +26,8 @@ export interface KioskParts {
   decor: THREE.Group[];
   /** Неон снаружи по уровням «Неоновой вывески». */
   neon: THREE.Group[];
+  /** Кофемашина на прилавке (улучшение «Кофемашина»). */
+  coffee: THREE.Group;
   signText: (title: string) => void;
   /** Материал стен: его цвет = цвет покраски. */
   wall: THREE.MeshStandardMaterial;
@@ -348,7 +350,7 @@ export function buildKiosk(root: THREE.Group, inner: THREE.Light[]): KioskParts 
   add(bell, new THREE.SphereGeometry(0.04, 24, 12, 0, TAU, 0, Math.PI / 2), metal('#d9dde2', 0.15), 0, 0.012, 0);
   add(bell, cyl(0.006, 0.006, 0.02, 8), metal('#9aa0a8'), 0, 0.06, 0);
   // терминал и кружка
-  const term = new THREE.Group(); term.position.set(0.68, K.counterY + 0.025, 0.26); term.rotation.y = -0.2; root.add(term);
+  const term = new THREE.Group(); term.position.set(0.6, K.counterY + 0.025, 0.27); term.rotation.y = -0.2; root.add(term);
   add(term, rbox(0.08, 0.035, 0.16, 0.01), std('#26282e'), 0, 0.018, 0);
   add(term, box(0.06, 0.002, 0.05), own('#000', { emissive: '#4fd1c0', emissiveIntensity: 1.2 }), 0, 0.037, -0.04);
   const mug = new THREE.Group(); mug.position.set(-0.74, K.counterY + 0.025, 0.24); root.add(mug);
@@ -412,10 +414,12 @@ export function buildKiosk(root: THREE.Group, inner: THREE.Light[]): KioskParts 
   // ── стеллаж: чёрный металл и дубовые полки ──
   const shelfAnchor = new THREE.Group(); root.add(shelfAnchor);
   for (const y of [0.05, 0.62, 1.12, 1.58, 2.02]) {
-    add(root, rbox(0.42, 0.025, 1.8, 0.004), oak, SHELF_X, y, 1.05);
-    add(root, box(0.012, 0.03, 1.8), steelBlack, SHELF_X - 0.21, y, 1.05);
+    // стеллаж начинается за краем прилавка (0.38): раньше передние стойки и полки
+    // заходили на прилавок у окна на 25 см и мешали кассе
+    add(root, rbox(0.42, 0.025, 1.5, 0.004), oak, SHELF_X, y, 1.2);
+    add(root, box(0.012, 0.03, 1.5), steelBlack, SHELF_X - 0.21, y, 1.2);
   }
-  for (const z of [0.13, 1.97]) for (const x of [SHELF_X - 0.2, SHELF_X + 0.19]) add(root, box(0.03, 2.1, 0.03), steelBlack, x, 1.05, z);
+  for (const z of [0.465, 1.97]) for (const x of [SHELF_X - 0.2, SHELF_X + 0.19]) add(root, box(0.03, 2.1, 0.03), steelBlack, x, 1.05, z);
   // ── стол с компьютером: белая столешница, чёрные ножки ──
   add(root, rbox(1.3, 0.035, 0.6, 0.006), std('#f2f0eb', { roughness: 0.5 }), 0, 0.78, 1.9);
   for (const x of [-0.6, 0.6]) for (const z of [1.65, 2.15]) add(root, box(0.035, 0.76, 0.035), steelBlack, x, 0.38, z);
@@ -494,6 +498,35 @@ export function buildKiosk(root: THREE.Group, inner: THREE.Light[]): KioskParts 
   const neonA = neonSign(-1.21, (g, w, h) => { g.font = '900 96px Rubik'; g.textAlign = 'center'; g.textBaseline = 'middle'; fitText(g, tr('ОТКРЫТО', 'OPEN'), w / 2, h / 2 - 30, w - 50, 110, 900); g.strokeRect(24, 24, w - 48, h - 48); g.font = '700 44px Rubik'; fitText(g, tr('сборка ПК', 'PC builds'), w / 2, h - 70, w - 120, 50, 700); }, '#ff5fa2');
   const neonB = neonSign(1.21, (g, w) => { g.strokeRect(w / 2 - 120, 40, 240, 150); g.beginPath(); g.moveTo(w / 2, 190); g.lineTo(w / 2, 230); g.moveTo(w / 2 - 60, 240); g.lineTo(w / 2 + 60, 240); g.stroke(); g.textAlign = 'center'; g.textBaseline = 'middle'; fitText(g, 'PC', w / 2, 116, 200, 100, 900); }, '#4fe0ff');
   const neonUp: THREE.Group[] = [neonA, neonB];
+  /*
+   * Кофемашина (улучшение «Кофемашина») — на правом конце прилавка у окна,
+   * справа от кассы: ближе к центру стоит ПК клиента при выдаче.
+   */
+  const coffee = new THREE.Group(); coffee.position.set(1.18, K.counterY + 0.025, -0.1); coffee.rotation.y = -0.25; root.add(coffee); // лицом к мастеру, в 3 см от удлинителя на стене
+  {
+    const body = std('#2b2e34', { roughness: 0.35, metalness: 0.3 }), chrome = metal('#d4d8de', 0.18), red = std('#c8402e', { roughness: 0.35 });
+    add(coffee, rbox(0.17, 0.03, 0.2, 0.008), body, 0, 0.015, 0);                 // поддон
+    add(coffee, rbox(0.15, 0.004, 0.11, 0.002), chrome, 0, 0.032, 0.035);          // решётка поддона
+    add(coffee, rbox(0.17, 0.26, 0.09, 0.012), red, 0, 0.16, -0.055);              // корпус сзади
+    add(coffee, rbox(0.17, 0.05, 0.2, 0.012), red, 0, 0.29, 0);                   // верх с головой
+    add(coffee, cyl(0.032, 0.028, 0.03, 20), chrome, 0, 0.25, 0.04);             // группа
+    add(coffee, box(0.012, 0.03, 0.06), body, 0.0, 0.245, 0.09);                  // ручка холдера
+    add(coffee, cyl(0.004, 0.004, 0.05, 8), chrome, 0.06, 0.24, 0.05);           // капучинатор
+    add(coffee, cyl(0.016, 0.016, 0.008, 16), chrome, -0.05, 0.31, 0.06, Math.PI / 2); // манометр
+    add(coffee, cyl(0.013, 0.013, 0.002, 16), own('#f4f1ea', { emissive: '#fff4e0', emissiveIntensity: 0.3 }), -0.05, 0.31, 0.065, Math.PI / 2);
+    for (let i = 0; i < 2; i++) add(coffee, cyl(0.007, 0.007, 0.006, 12), own('#111', { emissive: i ? '#6fe08a' : '#ffb347', emissiveIntensity: 1.6 }), 0.02 + i * 0.025, 0.29, 0.101, Math.PI / 2);
+    // чашка под группой и пара на поддоне
+    const cupM = phys('#f4f1ea', { roughness: 0.25, clearcoat: 0.5 });
+    add(coffee, new THREE.LatheGeometry([[0, 0], [0.022, 0], [0.026, 0.004], [0.028, 0.045], [0.025, 0.045], [0.023, 0.006], [0, 0.006]].map(([a, b]) => V2(a, b)), 20), cupM, 0, 0.034, 0.04);
+    add(coffee, cyl(0.024, 0.024, 0.003, 16), std('#5a3a22', { roughness: 0.3 }), 0, 0.074, 0.04);
+  }
+  {
+    // шнур кофемашины — к удлинителю на стене (он чуть левее и выше)
+    coffee.updateMatrixWorld(true);
+    const pts = [V(1.07, 1.12, -0.258), V(1.09, 1.04, -0.25), V(1.12, 0.99, -0.215), V(1.14, 0.98, -0.19)].map((p) => coffee.worldToLocal(p));
+    tube(coffee, pts, 0.003, std('#1b1c20', { roughness: 0.6 }), 20, 5).castShadow = false;
+  }
+  coffee.userData.keep = true; coffee.visible = false;
   // свет: одна точка под световой панелью
   // потолочный свет — тёплый и с быстрым спадом: центр светлый, углы уходят в тень
   const ceil = new THREE.PointLight('#ffcf94', 5.2, 4.6, 2); ceil.position.set(0, 2.3, 0.95); root.add(ceil); inner.push(ceil);
@@ -518,7 +551,7 @@ export function buildKiosk(root: THREE.Group, inner: THREE.Light[]): KioskParts 
   // контактные тени под предметами на прилавке: мягкие тёмные пятна
   const blobT = radial('rgba(10,6,4,0.55)', 'rgba(10,6,4,0)');
   const blobM = new THREE.MeshBasicMaterial({ map: blobT, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
-  for (const [x, z, r] of [[-0.52, -0.24, 0.12], [-0.74, 0.24, 0.12], [0.68, 0.26, 0.14]] as const) {
+  for (const [x, z, r] of [[-0.52, -0.24, 0.12], [-0.74, 0.24, 0.12], [0.6, 0.27, 0.14]] as const) {
     const b = new THREE.Mesh(new THREE.PlaneGeometry(r * 2, r * 2), blobM);
     b.rotation.x = -Math.PI / 2; b.position.set(x, K.counterY + 0.0255, z); b.renderOrder = 2; b.userData.keep = true; root.add(b);
   }
@@ -585,5 +618,5 @@ export function buildKiosk(root: THREE.Group, inner: THREE.Light[]): KioskParts 
   const glow = new THREE.Points(glowG, new THREE.PointsMaterial({ map: glowT, size: 0.08, sizeAttenuation: true, transparent: true, opacity: 0.55, depthWrite: false, blending: THREE.AdditiveBlending }));
   glow.renderOrder = 3; glow.userData.keep = true; root.add(glow);
 
-  return { bell, screen: { mesh: scr, tex: scrT, draw: drawScreen }, benchAnchor, shelfAnchor, counterAnchor, decor, neon: neonUp, signText, wall };
+  return { bell, screen: { mesh: scr, tex: scrT, draw: drawScreen }, benchAnchor, shelfAnchor, counterAnchor, decor, neon: neonUp, coffee, signText, wall };
 }

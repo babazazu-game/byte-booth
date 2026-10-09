@@ -200,6 +200,8 @@ export const EN: Record<string, string> = {
   'bench.gpuClose': 'Reassemble the GPU',
   'bench.gpuRepaste': 'New paste on the chip',
   'bench.dustLeft': 'Dust: {n}%',
+  'bench.dustSpots': 'spots left: {n}',
+  'bench.dustDone': 'Clean! Dust removed',
   'bench.removeHint': 'Tap a part in the case to remove it',
   'bench.confirmFinish': "The test hasn't passed yet. Pack it anyway?",
   'step.case': 'case',

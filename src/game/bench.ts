@@ -450,6 +450,11 @@ export class Bench {
     this.pickEl.classList.remove('hidden');
   }
 
+  /** Пятна, которые ещё видно (их и надо дочистить). */
+  private dustSpots(): Dust[] {
+    return [...this.rig.allDust(), ...(this.gpuLoose?.model.dust ?? [])].filter((d) => d.visible && d.userData.amount > 0.05);
+  }
+
   dustLevel(): number {
     const all: Dust[] = [...this.rig.allDust(), ...(this.gpuLoose?.model.dust ?? [])];
     return all.length ? all.reduce((s, d) => s + d.userData.amount, 0) / all.length : 0;
@@ -502,8 +507,9 @@ export class Bench {
     const selRam = this.sel && part(this.sel.looseId ?? this.s.inv.find((i) => i.uid === this.sel!.uid)?.id ?? 'mx6').cat === 'ram';
     this.hintEl.textContent = selRam ? t('bench.hint.ramSlot') : this.sel ? t('bench.hint.click') : this.tool === 'brush' ? t('bench.hint.dust') : this.tool === 'remove' ? t('bench.removeHint') : txt;
     const d = this.dustLevel();
-    this.dustEl.classList.toggle('hidden', d < 0.02);
-    this.dustEl.textContent = t('bench.dustLeft', { n: Math.round(d * 100) });
+    const spots = this.dustSpots().length;
+    this.dustEl.classList.toggle('hidden', d < 0.02 || !spots);
+    this.dustEl.textContent = t('bench.dustLeft', { n: Math.round(d * 100) }) + (spots ? ' · ' + t('bench.dustSpots', { n: spots }) : '');
   }
 
   /* ───────────── тест и завершение ───────────── */
@@ -727,7 +733,17 @@ export class Bench {
     if (now - this.lastBrush > 110) { sound.brush(); this.lastBrush = now; }
     const avg = this.dustLevel();
     S.setDust(this.s, avg);
-    if (avg < 0.12 && this.build) { this.build.dust = 0; }
+    /*
+     * Чистка засчитана — остатки убираем совсем: раньше засчитывалось по среднему,
+     * а отдельные пятна оставались, и было непонятно, где ещё «до 100%».
+     */
+    if (avg < 0.12 && this.build && this.build.dust !== 0) {
+      this.build.dust = 0;
+      for (const dd of [...this.rig.allDust(), ...(this.gpuLoose?.model.dust ?? [])]) setDust(dd, 0);
+      S.setDust(this.s, 0);
+      sound.success(); toast(t('bench.dustDone'), 'good');
+      this.tool = 'none'; this.refresh(); this.app.persist();
+    }
     this.updateHint();
     if (now % 7 < 1) this.app.persist();
   }
@@ -738,6 +754,14 @@ export class Bench {
     const running = this.running > 0;
     if (running) { this.running -= dt; if (this.running <= 0) sound.fan(false); }
     this.rig.update(dt, t, running);
+    // пыльные места мягко пульсируют тёплым, пока чистка не засчитана — видно, что осталось
+    const dustWork = this.order && this.build && (this.build.dust ?? 0) !== 0 && this.dustLevel() >= 0.12;
+    const pulse = dustWork ? 0.16 + 0.12 * Math.sin(t * 4.2) : 0; // < 0.3: не попадает в «свечение» сборки
+    for (const d of [...this.rig.allDust(), ...(this.gpuLoose?.model.dust ?? [])]) {
+      const m = d.material as THREE.MeshStandardMaterial;
+      if (!d.visible) continue;
+      if (pulse) { m.emissive.set('#ffa040'); m.emissiveIntensity = pulse * Math.min(1, d.userData.amount * 2); } else if (m.emissiveIntensity) m.emissiveIntensity = 0;
+    }
     for (const f of this.flights) {
       f.t += dt / f.dur;
       const k = Math.min(1, f.t), e = 1 - Math.pow(1 - k, 3);

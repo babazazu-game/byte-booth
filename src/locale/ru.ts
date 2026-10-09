@@ -214,6 +214,8 @@ export const RU: Record<string, string> = {
   'bench.gpuClose': 'Собрать видеокарту',
   'bench.gpuRepaste': 'Новая паста на чип',
   'bench.dustLeft': 'Пыль: {n}%',
+  'bench.dustSpots': 'осталось пятен: {n}',
+  'bench.dustDone': 'Чисто! Пыль убрана',
   'bench.removeHint': 'Нажми на деталь в корпусе, чтобы снять её',
   'bench.confirmFinish': 'Тест ещё не пройден. Всё равно упаковать?',
   'step.case': 'корпус',

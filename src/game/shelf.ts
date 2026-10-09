@@ -14,7 +14,7 @@ import { isRu } from '../render/kit.ts';
  */
 
 const LEVELS = [0.064, 0.634, 1.134, 1.594, 2.034];
-const Z0 = 0.17, Z1 = 1.93;
+const Z0 = 0.5, Z1 = 1.93; // стеллаж укорочен спереди — не заходит на прилавок
 const BIG = new Set(['case', 'psu', 'mb']);
 
 export class Shelf {

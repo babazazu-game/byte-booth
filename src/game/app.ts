@@ -191,6 +191,7 @@ export class App {
     this.world.decor.forEach((d, i) => (d.visible = i < dec));
     const neon = S.upVal(s, 'sign');
     this.world.neon.forEach((n, i) => (n.visible = i < neon));
+    this.world.coffee.visible = S.upVal(s, 'coffee') > 0;
     // покраска стен и коллекция статуэток на подставке
     this.world.wall.color.set(wallOf(s).hex);
     const slots = this.world.props.figSlots;

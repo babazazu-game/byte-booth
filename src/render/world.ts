@@ -37,6 +37,7 @@ export interface World {
   decor: THREE.Group[];
   /** Неон на фасаде — уровни «Неоновой вывески». */
   neon: THREE.Group[];
+  coffee: THREE.Group;
   fountainWater: THREE.Mesh;
   signText: (title: string) => void;
   props: Props;
@@ -362,7 +363,7 @@ export function buildWorld(scene: THREE.Scene): World {
   let phase = 0.2;
   const world: World = {
     root, sun, hemi, sky, lamps, lampBulbs: bulbs, inner, bell: k.bell, screen: k.screen,
-    shelfAnchor: k.shelfAnchor, benchAnchor: k.benchAnchor, counterAnchor: k.counterAnchor, decor: k.decor, neon: k.neon,
+    shelfAnchor: k.shelfAnchor, benchAnchor: k.benchAnchor, counterAnchor: k.counterAnchor, decor: k.decor, neon: k.neon, coffee: k.coffee,
     fountainWater: water, signText: k.signText, props, dusk: 0, wall: k.wall, sunYaw: 0,
     setDistrict(id: string) {
       if (!groups[id]) {
@@ -425,7 +426,7 @@ export function buildWorld(scene: THREE.Scene): World {
   const wp = V();
   root.traverse((o) => { if ((o as THREE.Mesh).isMesh) { o.getWorldPosition(wp); if (wp.z < -4.5 || Math.abs(wp.x) > 5) o.castShadow = false; } });
   // Узлы, которые меняются в игре, склейке не подлежат.
-  for (const o of [k.bell, k.benchAnchor, k.shelfAnchor, k.counterAnchor, ...k.decor, ...k.neon]) o.userData.keep = true;
+  for (const o of [k.bell, k.benchAnchor, k.shelfAnchor, k.counterAnchor, ...k.decor, ...k.neon, k.coffee]) o.userData.keep = true;
   flattenStatic(root);
   mergeTree(root);
   finalize(parkG);

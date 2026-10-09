@@ -102,6 +102,15 @@ async function runScene(app: App, scene: string): Promise<void> {
     for (let i = 0; i < 40; i++) app.debugStep(0.05);
     return;
   }
+  if (scene === 'clean') {
+    // заказ на чистку: ПК клиента с пылью на верстаке, панель снята
+    S.callCustomer(s, base, { kind: 'clean' }); const oc = s.pending!; S.acceptPending(s); S.startBench(s, oc.id);
+    if (s.bench && oc.build.panel !== false) S.togglePanel(s);
+    app.bench.sync(false); app.go('bench');
+    for (let i = 0; i < 40; i++) app.debugStep(0.05);
+    app.bench.refresh();
+    return;
+  }
   const o = order(); S.acceptPending(s);
   const sol = solve(o.req, S.level(s), (id) => S.buyPrice(s, id))!.build;
   // ?parts=mb:x870e,cpu:r7-9800x3d — подменить детали (проверка посадки на разных платах)

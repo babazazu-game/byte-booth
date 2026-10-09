@@ -74,8 +74,7 @@ export function buildProps(root: THREE.Group): Props {
     add(pg, cyl(0.0054, 0.005, 0.011, 10), eraser, 0, len + 0.013, 0);
   });
   // стопка тетрадей/инструкций (правый угол)
-  const st = new THREE.Group(); st.position.set(1.18, cy, 0.3); st.rotation.y = 0.25; root.add(st);
-  ['#3d5a80', '#e0c48a', '#9c4f3a', '#f1ece2'].forEach((c, i) => add(st, rbox(0.21, 0.016, 0.15, 0.003), std(c, { roughness: 0.8 }), (i % 2) * 0.008, 0.008 + i * 0.017, (i % 3) * 0.006).rotation.y = (i - 1.5) * 0.06);
+  // (стопка тетрадей с правого края убрана: там касса и кофемашина)
   // маленький робот-фигурка — характер мастера
   const bot = new THREE.Group(); bot.position.set(-0.9, cy, 0.33); bot.rotation.y = 0.5; root.add(bot);
   add(bot, rbox(0.05, 0.05, 0.04, 0.01), std('#e9e4d8', { roughness: 0.5 }), 0, 0.05, 0);
@@ -152,8 +151,9 @@ export function buildProps(root: THREE.Group): Props {
   // удлинитель на стене и провода вниз к прилавку
   add(ws, rbox(0.06, 0.2, 0.03, 0.006), std('#e9e5dc', { roughness: 0.6 }), -0.11, 1.12, 0.015);
   for (let i = 0; i < 3; i++) add(ws, box(0.018, 0.012, 0.004), std('#2a2d32'), -0.11, 1.18 - i * 0.05, 0.032);
-  for (const [dx, c] of [[-0.02, '#1b1c20'], [0.03, '#f2f0eb'], [0.07, '#1b1c20']] as const)
-    tube(ws, [V(-0.11, 1.18, 0.035), V(-0.11 + dx, 1.08, 0.06), V(-0.15 + dx * 2, 0.96, 0.12), V(-0.2 + dx * 3, 0.93, 0.2)], 0.003, std(c, { roughness: 0.6 }), 24, 5).castShadow = false;
+  // два провода — к кассе: вниз по стене левее места кофемашины и по прилавку к её задней стенке
+  for (const [o, c] of [[-0.012, '#1b1c20'], [0.012, '#f2f0eb']] as const)
+    tube(ws, [V(-0.11 + o, 1.16, 0.035), V(-0.15 + o, 1.02, 0.04), V(-0.19 + o, 0.94, 0.09), V(-0.21 + o, 0.932, 0.25), V(-0.23 + o, 0.932, 0.41)], 0.003, std(c, { roughness: 0.6 }), 24, 5).castShadow = false;
 
   // ── места для постеров (заполняются покупками по порядку) ──
   const posterSlots: THREE.Object3D[] = [];
@@ -185,7 +185,9 @@ export function buildProps(root: THREE.Group): Props {
   add(root, box(1.2, 0.006, 0.7), std('#fff', { map: rugT, roughness: 1 }), 0, 0.012, 1.1, 0, 0, 0, false);
   // ── кассовый аппарат на прилавке ──
   // Касса стоит клавишами и экраном к МАСТЕРУ: на экране — сколько денег в кассе.
-  const reg = new THREE.Group(); reg.position.set(0.92, 0.925, 0.14); reg.rotation.y = Math.PI - 0.45; root.add(reg);
+  // касса — левее стойки стеллажа (x 1.05, z 0.13 — она проходит сквозь край прилавка), у окна —
+  // место кофемашины, ещё левее у окна — ПК на выдачу
+  const reg = new THREE.Group(); reg.position.set(0.875, 0.925, 0.245); reg.rotation.y = Math.PI; root.add(reg);
   add(reg, rbox(0.3, 0.07, 0.24, 0.015), std('#e9e5dc', { roughness: 0.5 }), 0, 0.035, 0);
   add(reg, rbox(0.26, 0.06, 0.14, 0.012), std('#d8d3c8', { roughness: 0.5 }), 0, 0.09, -0.02, -0.35, 0, 0);
   const keysM = std('#3a3f47', { roughness: 0.5 });
