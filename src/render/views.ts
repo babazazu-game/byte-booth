@@ -46,6 +46,8 @@ export class Views {
     this.go(z);
     return z;
   }
+  /** Телефон: куда сдвинуть кадр верстака, чтобы корпус не прятался под кнопками. */
+  phone: 'portrait' | 'landscape' | null = null;
   setFocus(point: THREE.Vector3 | null, dist = 0.45): void { this.focus = point ? { point: point.clone(), dist } : null; }
   /** Сдвиг взгляда от указателя: −1..1 по каждой оси. */
   pointer(x: number, y: number): void { this.lookOff.set(x, y); }
@@ -80,6 +82,17 @@ export class Views {
         const yaw = this.orbitYaw, pitch = 0.42 + this.orbitPitch;
         tl = center.clone();
         tp = V(center.x + Math.cos(yaw) * Math.cos(pitch) * dist, center.y + Math.sin(pitch) * dist, center.z - Math.sin(yaw) * Math.cos(pitch) * dist);
+        /*
+         * Телефон: интерфейс верстака занимает низ (вертикально) или правый
+         * край (горизонтально). Сдвигаем камеру вместе с целью — корпус
+         * уезжает в свободную часть кадра, угол обзора тот же.
+         */
+        if (this.phone) {
+          const fwd = V(0, 0, 0).subVectors(tl, tp).normalize();
+          const right = fwd.clone().cross(V(0, 1, 0)).normalize();
+          const sh = this.phone === 'portrait' ? V(0, -0.17, 0).addScaledVector(fwd, -0.12) : right.multiplyScalar(0.11).add(V(0, -0.03, 0));
+          tl.add(sh); tp.add(sh);
+        }
       } else {
         // лёгкое «оглядывание»
         const right = V(0, 0, 0).subVectors(tl, tp).cross(V(0, 1, 0)).normalize();

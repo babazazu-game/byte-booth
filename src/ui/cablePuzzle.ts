@@ -1,7 +1,7 @@
 import { h, modal } from './dom.ts';
 import { t } from '../i18n.ts';
 import { sound } from '../audio/audio.ts';
-import { shuffle, slide, solved, trace, SIZE, N, E, S, W, type Board, type Tile, type Wire } from '../logic/puzzle.ts';
+import { shuffle, turn, solved, trace, SIZE, N, E, S, W, type Board, type Tile, type Wire } from '../logic/puzzle.ts';
 
 /**
  * Окно «Правильная прокладка кабелей»: пятнашки 3×3 из кусков кабеля.
@@ -44,19 +44,24 @@ function tileSvg(tile: Tile, lit: boolean): string {
 }
 
 /**
- * Открыть пятнашки. `onDone(true)` — собрано, `onDone(false)` — «как попало».
+ * Открыть «Правильную прокладку кабелей»: нажатие поворачивает плитку на 90°.
+ * `onDone(true)` — кабели уложены, `onDone(false)` — «как попало».
  */
 export function openCablePuzzle(seed: number, onDone: (tidy: boolean) => void, bonus = 0): void {
   const b: Board = shuffle(seed);
   // клетка ужимается под экран: на телефоне в альбомной ориентации окно иначе не влезало
-  const CELL = Math.round(Math.max(60, Math.min(92, (innerHeight - 300) / 3.1, (innerWidth - 190) / 3.1))), GAP = 4, SZ = SIZE * CELL + (SIZE - 1) * GAP;
+  // низкий экран (телефон лёжа): поле слева, текст справа — клетка считается от высоты
+  const low = innerHeight < 560;
+  const CELL = Math.round(low ? Math.max(44, Math.min(70, (innerHeight - 200) / 3.3)) : Math.max(60, Math.min(92, (innerHeight - 300) / 3.1, (innerWidth - 190) / 3.1))), GAP = 4, SZ = SIZE * CELL + (SIZE - 1) * GAP;
   const grid = h('div', { class: 'cp-grid', style: `width:${SZ}px;height:${SZ}px` });
-  const els = new Map<Tile, HTMLElement>();
-  b.cells.forEach((tile) => {
-    if (!tile) return;
-    const el = h('button', { class: 'cp-tile live', style: `width:${CELL}px;height:${CELL}px`, 'aria-label': tile.wire ? t('cab.' + tile.wire) : '' });
-    el.addEventListener('click', (e) => { e.stopPropagation(); move(b.cells.indexOf(tile)); });
-    els.set(tile, el); grid.append(el);
+  // плитки стоят на местах; поворот — CSS-вращение (spin растёт, чтобы с 270° на 0° не крутилось назад)
+  const spin = b.rot.slice();
+  const els = b.cells.map((tile, i) => {
+    const r = Math.floor(i / SIZE), c = i % SIZE;
+    const el = h('button', { class: 'cp-tile live' + (tile.wire ? '' : ' fixed'), style: `width:${CELL}px;height:${CELL}px;left:${c * (CELL + GAP)}px;top:${r * (CELL + GAP)}px`, 'aria-label': tile.wire ? t('cab.' + tile.wire) : '' });
+    el.addEventListener('click', (e) => { e.stopPropagation(); press(i); });
+    grid.append(el);
+    return el;
   });
   // выходы трасс: сверху над левой колонкой — процессор, справа — плата и видеокарта
   const outs: Record<Wire, HTMLElement> = {
@@ -75,17 +80,15 @@ export function openCablePuzzle(seed: number, onDone: (tidy: boolean) => void, b
     const lit = new Set<number>();
     for (const w of Object.keys(tr) as Wire[]) { tr[w].cells.forEach((i) => lit.add(i)); outs[w].classList.toggle('on', tr[w].done); }
     b.cells.forEach((tile, i) => {
-      if (!tile) return;
-      const el = els.get(tile)!;
-      const r = Math.floor(i / SIZE), c = i % SIZE;
-      el.style.transform = `translate(${c * (CELL + GAP)}px,${r * (CELL + GAP)}px)`;
-      el.innerHTML = `<svg viewBox="0 0 100 100" width="${CELL}" height="${CELL}">${tileSvg(tile, lit.has(i))}</svg>`;
+      els[i].style.transform = `rotate(${spin[i] * 90}deg)`;
+      els[i].innerHTML = `<svg viewBox="0 0 100 100" width="${CELL}" height="${CELL}">${tileSvg(tile, lit.has(i))}</svg>`;
     });
     movesEl.textContent = t('cab.moves', { n: b.moves });
   };
 
-  const move = (i: number) => {
-    if (finished || !slide(b, i)) return;
+  const press = (i: number) => {
+    if (finished || !turn(b, i)) return;
+    spin[i]++;
     sound.cable();
     draw();
     if (solved(b)) {
@@ -93,21 +96,11 @@ export function openCablePuzzle(seed: number, onDone: (tidy: boolean) => void, b
       board.classList.add('win');
       sound.success();
       movesEl.textContent = t('cab.done');
-      window.removeEventListener('keydown', keys, true);
       setTimeout(() => { close(); onDone(true); }, 1100);
     }
   };
-  // стрелки двигают плитку В пустую клетку (как в классических пятнашках)
-  const keys = (e: KeyboardEvent) => {
-    const em = b.cells.indexOf(null), r = Math.floor(em / SIZE), c = em % SIZE;
-    const map: Record<string, number> = { ArrowUp: r < SIZE - 1 ? em + SIZE : -1, ArrowDown: r > 0 ? em - SIZE : -1, ArrowLeft: c < SIZE - 1 ? em + 1 : -1, ArrowRight: c > 0 ? em - 1 : -1 };
-    if (!(e.code in map)) return;
-    e.preventDefault(); e.stopPropagation();
-    if (map[e.code] >= 0) move(map[e.code]);
-  };
-  window.addEventListener('keydown', keys, true);
   draw();
   const close = modal(t('cab.title'), [h('p', { class: 'cp-hint' }, t('cab.hint')), ...(bonus > 0 ? [h('p', { class: 'cp-bonus' }, t('cab.bonusEst', { n: '$' + bonus }))] : []), board, movesEl], [
-    { label: t('cab.skip'), cls: 'ghost', act: () => { finished = true; window.removeEventListener('keydown', keys, true); onDone(false); } },
+    { label: t('cab.skip'), cls: 'ghost', act: () => { finished = true; onDone(false); } },
   ]);
 }

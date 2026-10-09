@@ -23,6 +23,13 @@ export class Director {
   person: Person | null = null;
   look: PersonLook | null = null;
   state: 'none' | 'in' | 'at' | 'out' = 'none';
+  /**
+   * Окошко свободно: никого нет, или уходящий клиент уже вышел из кадра окна
+   * (ушёл вправо за x > 2.3). Раньше ждали, пока он дойдёт до конца маршрута —
+   * игрок сидел секунд восемь перед пустым окном. Новый клиент просто
+   * заменяет ушедшего (spawn убирает его, но он уже не виден).
+   */
+  get free(): boolean { return this.state === 'none' || (this.state === 'out' && !!this.person && this.person.root.position.x > 2.3); }
   private path: THREE.Vector3[] = [];
   private seg = 0;
   private heading = Math.PI / 2;

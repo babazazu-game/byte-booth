@@ -80,7 +80,7 @@ export class Hud {
     this.actions.innerHTML = '';
     if (this.app.views.zone !== 'window' || this.app.dialogOpen) return;
     const d = this.app.director;
-    if (d.state === 'none') {
+    if (d.free) {
       const ready = s.orders.filter((o) => o.state === 'ready');
       for (const o of ready) this.actions.append(btn([icon('box'), t('hud.deliver', { name: this.app.custName(o) })], () => this.app.callBack(o.id), 'teal live'));
       if (s.visitsToday < S.visitsMax(s)) this.actions.append(btn([h('span', { class: 'key' }, '␣'), icon('bell'), t('hud.callNext')], () => this.app.callNext(), 'primary live' + (s.tutorial === 0 ? ' pulse' : '')));

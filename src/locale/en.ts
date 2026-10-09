@@ -296,9 +296,9 @@ export const EN: Record<string, string> = {
   'err.maxed': 'Max level',
 
   'cab.title': 'Proper cable management',
-  'cab.hint': 'Slide the cable pieces into the empty cell so all three runs reach their connectors from the PSU. Neat cables mean bigger tips.',
+  'cab.hint': 'Tap cable pieces to rotate them. Connect all three cables from the PSU to their connectors — connected pieces light up. Neat cables mean bigger tips.',
   'cab.skip': 'Just plug it in',
-  'cab.moves': 'Moves: {n}',
+  'cab.moves': 'Turns: {n}',
   'cab.done': 'Cables neatly routed!',
   'cab.bonus': 'Neat cables: tips +40%',
   'cab.cpu': 'CPU 8-pin',
@@ -565,6 +565,9 @@ export const EN: Record<string, string> = {
   'loss.psu': 'a burned PSU',
   'cab.bonusEst': 'Finish it for about {n} extra in tips.',
   'cab.again': 'Route cables ≈ +{n}',
+  'bench.more': 'More',
+  'site.fitCat': 'For the order',
+  'site.fitEmpty': 'No build order yet — take one at the window and fitting parts will show up here.',
   'tut.skip': 'Skip tutorial',
 
   'ad.double': 'Double the tip for an ad',

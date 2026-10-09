@@ -4,7 +4,7 @@ import { part, type Case, type MB, type CPU, type GPU, type RAM, type SSD, type 
 import type { Build, SlotKey } from '../../logic/compat.ts';
 import { add, std, phys, metal, own, rbox, box, cyl, extrude, rrPath, canvasTex, decal, tube, fitText, inkFor, shade, mergeTree, V, TAU } from '../kit.ts';
 import { buildFan, hubTex, type Fan } from './fan.ts';
-import { buildBoard, buildCPU, buildPaste, buildRAM, buildSSD, buildPSU, buildCooler, type BoardModel, type CoolerModel } from './board.ts';
+import { RAM_PITCH, buildBoard, buildCPU, buildPaste, buildRAM, buildSSD, buildPSU, buildCooler, type BoardModel, type CoolerModel } from './board.ts';
 import { buildGPU, type GpuModel } from './gpu.ts';
 import { makeDust, setDust, type Dust } from './dust.ts';
 
@@ -283,8 +283,9 @@ export class PcRig {
     for (const m of this.ramZones) m.removeFromParent();
     this.ramZones = [];
     for (let i = 0; i < slots; i++) {
-      const m = new THREE.Mesh(box(0.0085, 0.14, 0.045), this.zoneMat.clone());
-      m.position.copy(bd.anchors.ram.position).add(V(i * 0.009, 0, 0.022));
+      // зона нажатия шире самого слота — по ней попадают пальцем
+      const m = new THREE.Mesh(box(RAM_PITCH * 0.95, 0.14, 0.05), this.zoneMat.clone());
+      m.position.copy(bd.anchors.ram.position).add(V(i * RAM_PITCH, 0, 0.022));
       m.userData.zone = 'ramSlot'; m.userData.ramSlot = i; m.userData.free = !idx.includes(i); m.visible = false;
       bd.group.add(m); this.ramZones.push(m);
     }

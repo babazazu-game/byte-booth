@@ -343,7 +343,7 @@ export class App {
     const el = this.site.el, sc = this.views.pcScreen;
     // На низком экране (телефон лёжа) магазин «в мониторе» выходил крошечным —
     // там он обычной панелью во весь экран (стиль .site без .inmon).
-    const compact = this.uiRoot.clientHeight < 560;
+    const compact = this.uiRoot.clientHeight < 560 || this.uiRoot.clientWidth < 700;
     const on = !compact && !this.views.menu && this.views.zone === 'pc' && !!sc;
     el.classList.toggle('inmon', on);
     // 3D-экран под открытым магазином прячем: его эмиссия просвечивала сквозь
@@ -450,7 +450,7 @@ export class App {
 
   callNext(): void {
     const s = this.state!;
-    if (this.director.state !== 'none') return;
+    if (!this.director.free) return;
     // Очередь у окна: сначала тот, кто принёс ПК обратно, потом те, чей заказ
     // готов (приходят забирать сами), и только потом — новый клиент.
     const ret = S.dueReturn(s);
@@ -493,7 +493,7 @@ export class App {
   /** Отладка (?debug=1): позвать клиента с заданным видом заказа. */
   debugCustomer(kind: 'build' | 'upgrade' | 'clean', preset = 'fhd'): void {
     const s = this.state!;
-    if (this.director.state !== 'none') return;
+    if (!this.director.free) return;
     S.callCustomer(s, (id) => part(id).price, { kind, preset });
     const o = s.pending;
     if (o) this.director.spawn(o.cust.look, o.cust.seed, () => this.offer());
@@ -573,7 +573,7 @@ export class App {
   callBack(orderId: number): void {
     const s = this.state!;
     const o = s.orders.find((x) => x.id === orderId);
-    if (!o || this.director.state !== 'none') return;
+    if (!o || !this.director.free) return;
     sound.deskBell();
     this.dialogOpen = true;
     this.showPickup(o);
@@ -781,7 +781,7 @@ export class App {
 
   closeDay(): void {
     const s = this.state!;
-    if (this.director.state !== 'none') return;
+    if (!this.director.free) return;
     confirmBox(t('day.closeConfirm', { n: S.rent(s) }), t('hud.closeDay'), () => this.endDay());
   }
 
@@ -898,7 +898,7 @@ export class App {
       if (e.code === 'KeyD' || e.code === 'ArrowRight') this.turn(1);
       const m = /^Digit([1-4])$/.exec(e.code);
       if (m) this.go((['window', 'bench', 'pc', 'shelf'] as Zone[])[Number(m[1]) - 1]);
-      if (this.views.zone === 'window' && e.code === 'Space' && this.director.state === 'none' && !this.dialogOpen) { e.preventDefault(); this.callNext(); }
+      if (this.views.zone === 'window' && e.code === 'Space' && this.director.free && !this.dialogOpen) { e.preventDefault(); this.callNext(); }
     });
   }
 
@@ -908,7 +908,7 @@ export class App {
     const r = cv.getBoundingClientRect();
     const ray = new THREE.Raycaster();
     ray.setFromCamera(new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1), this.engine.camera);
-    if (ray.intersectObject(this.world.bell, true).length && this.director.state === 'none' && !this.dialogOpen) {
+    if (ray.intersectObject(this.world.bell, true).length && this.director.free && !this.dialogOpen) {
       const s = this.state!;
       if (s.visitsToday < S.visitsMax(s)) this.callNext(); else { sound.deskBell(); toast(t('err.dayOver')); }
     }
@@ -919,6 +919,11 @@ export class App {
   resizeNow(): void {
     const p = this.engine.renderer.domElement.parentElement;
     if (p) this.engine.resize(p.clientWidth || 1, p.clientHeight || 1, Math.min(window.devicePixelRatio || 1, 2));
+    this.setLayout(this.uiRoot.clientWidth, this.uiRoot.clientHeight);
+  }
+  /** Раскладка под телефон: вертикально / горизонтально / обычная. */
+  setLayout(W: number, H: number): void {
+    this.views.phone = H < 560 ? 'landscape' : W < 700 ? 'portrait' : null;
   }
 
   /**
@@ -953,8 +958,8 @@ export class App {
     // Клиент ушёл — кнопки у окошка («Позвать», «Закрыть смену») перерисовываем
     // всегда, а не только в колбэке ухода: после последней выдачи кнопка
     // «Закрыть смену» иногда не загоралась, пока игрок не заходил в магазин.
-    const ds = this.director.state;
-    if (ds !== this.lastDirState) { this.lastDirState = ds; if (ds === 'none' && !this.views.menu) { this.dialogOpen = false; this.refresh(); } }
+    const ds = this.director.free ? 'free' : this.director.state;
+    if (ds !== this.lastDirState) { this.lastDirState = ds; if (ds === 'free' && !this.views.menu) { this.dialogOpen = false; this.refresh(); } }
     this.bench.update(t, dt);
     this.world.update(t, dt);
     // живые статуэтки: машущая кошка, переливающийся мини-ПК

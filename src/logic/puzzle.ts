@@ -1,18 +1,16 @@
 /**
- * «Правильная прокладка кабелей» — пятнашки 3×3 из кусков кабеля.
+ * «Правильная прокладка кабелей» — плитки 3×3, каждая на своём месте, но
+ * повёрнута. Нажатие поворачивает плитку на 90°; цель — чтобы все три кабеля
+ * дошли от гнёзд блока питания (снизу) до своих разъёмов.
  *
- * Блок питания внизу, у него три модульных гнезда (под колонками 0, 1, 2).
- * Собранная раскладка — три аккуратных трассы:
+ * Раньше были пятнашки со сдвигом плиток — автор ни разу не смог их собрать.
+ * Поворот читается сразу: видно, какой кусок «смотрит не туда».
+ *
+ * Собранная раскладка — три трассы:
  *   - CPU 8-pin: из гнезда 0 прямо вверх по левой колонке к процессору;
  *   - 24-pin: из гнезда 1 вверх и поворот вправо, к разъёму платы справа;
  *   - питание видеокарты: из гнезда 2 сразу поворот вправо.
- * Две клетки сверху справа без кабеля: одна пустая (по ней двигают),
- * вторая — «заглушка». Они взаимозаменяемы, как и два одинаковых куска
- * CPU-кабеля, поэтому победа — «каждый кусок кабеля стоит на месте трассы»,
- * а не «каждая плитка на своём номере»: иначе игрок собирал рисунок
- * правильно, а пазл не засчитывался.
- *
- * Логика чистая (без DOM): перемешивание, ход, проверка, трассировка.
+ * Две клетки сверху справа — заглушки. Логика чистая (без DOM).
  */
 
 import { Rng } from './rng.ts';
@@ -23,9 +21,9 @@ export type Wire = 'cpu' | 'atx' | 'gpu';
 export interface Tile { wire: Wire | null; ends: number }
 
 export const SIZE = 3;
-/** Решённое поле, по строкам сверху вниз; null — пустая клетка. */
-export const SOLVED: (Tile | null)[] = [
-  { wire: 'cpu', ends: N | S }, { wire: null, ends: 0 }, null,
+/** Решённое поле, по строкам сверху вниз. */
+export const SOLVED: Tile[] = [
+  { wire: 'cpu', ends: N | S }, { wire: null, ends: 0 }, { wire: null, ends: 0 },
   { wire: 'cpu', ends: N | S }, { wire: 'atx', ends: S | E }, { wire: 'atx', ends: W | E },
   { wire: 'cpu', ends: N | S }, { wire: 'atx', ends: N | S }, { wire: 'gpu', ends: S | E },
 ];
@@ -37,54 +35,40 @@ export const ROUTES: Record<Wire, { port: number; out: { side: 'top' | 'right'; 
   gpu: { port: 2, out: { side: 'right', at: 2 } },
 };
 
-export interface Board { cells: (Tile | null)[]; moves: number }
+/** rot — сколько раз плитка повёрнута на 90° по часовой относительно правильного положения. */
+export interface Board { cells: Tile[]; rot: number[]; moves: number }
 
-const key = (t: Tile | null) => (t && t.wire ? t.wire + t.ends : '');
-const nbrs = (i: number): number[] => {
-  const r = Math.floor(i / SIZE), c = i % SIZE, out: number[] = [];
-  if (r > 0) out.push(i - SIZE);
-  if (r < SIZE - 1) out.push(i + SIZE);
-  if (c > 0) out.push(i - 1);
-  if (c < SIZE - 1) out.push(i + 1);
-  return out;
-};
+/** Повернуть набор концов на 90° по часовой: верх→право→низ→лево. */
+export const rotEnds = (e: number, k = 1): number => { let x = e; for (let i = 0; i < ((k % 4) + 4) % 4; i++) x = ((x << 1) | (x >> 3)) & 15; return x; };
+/** Текущие концы плитки с учётом поворота. */
+export const endsAt = (b: Board, i: number): number => rotEnds(b.cells[i].ends, b.rot[i]);
 
-/**
- * Перемешать случайными ХОДАМИ от собранного поля: так пазл всегда решаем
- * (случайная перестановка пятнашек нерешаема в половине случаев).
- * `steps` — сложность: 14–22 хода дают задачу секунд на 20–40.
- */
-export function shuffle(seed: number, steps = 18): Board {
+/** Перемешать: каждой плитке с кабелем — случайный поворот (минимум три «не так»). */
+export function shuffle(seed: number): Board {
   const r = new Rng(seed);
-  const cells = SOLVED.slice();
-  let empty = cells.indexOf(null), prev = -1;
-  for (let k = 0; k < steps || solved({ cells, moves: 0 }); k++) {
-    const opts = nbrs(empty).filter((i) => i !== prev);
-    const j = r.pick(opts);
-    cells[empty] = cells[j]; cells[j] = null;
-    prev = empty; empty = j;
+  const b: Board = { cells: SOLVED.slice(), rot: SOLVED.map(() => 0), moves: 0 };
+  for (let tries = 0; tries < 50; tries++) {
+    b.rot = SOLVED.map((t) => (t.wire ? r.int(0, 3) : 0));
+    const wrong = b.cells.filter((t, i) => t.wire && endsAt(b, i) !== t.ends).length;
+    if (wrong >= 3) break;
   }
-  return { cells, moves: 0 };
+  return b;
 }
 
-/** Сдвинуть плитку в пустую клетку, если она рядом. */
-export function slide(b: Board, i: number): boolean {
-  const e = b.cells.indexOf(null);
-  if (!nbrs(e).includes(i)) return false;
-  b.cells[e] = b.cells[i]; b.cells[i] = null;
+/** Повернуть плитку на 90°. Заглушки не крутятся. */
+export function turn(b: Board, i: number): boolean {
+  if (!b.cells[i].wire) return false;
+  b.rot[i] = (b.rot[i] + 1) % 4;
   b.moves++;
   return true;
 }
 
 export function solved(b: Board): boolean {
-  return b.cells.every((t, i) => key(t) === key(SOLVED[i]));
+  return b.cells.every((t, i) => !t.wire || endsAt(b, i) === t.ends);
 }
 
 /**
- * Какие клетки уже соединены со своим гнездом БП — для подсветки «ток идёт»:
- * игрок видит, сколько трассы уже правильно, и пятнашки не превращаются
- * в перебор вслепую. Возвращает индексы клеток по каждому кабелю и признак
- * «дошёл до разъёма».
+ * Какие клетки уже соединены со своим гнездом БП — для подсветки «ток идёт».
  */
 export function trace(b: Board): Record<Wire, { cells: number[]; done: boolean }> {
   const res = {} as Record<Wire, { cells: number[]; done: boolean }>;
@@ -94,10 +78,10 @@ export function trace(b: Board): Record<Wire, { cells: number[]; done: boolean }
     const cells: number[] = [];
     let done = false;
     for (let guard = 0; guard < 9; guard++) {
-      const t = b.cells[i];
-      if (!t || t.wire !== w || !(t.ends & from)) break;
+      const t = b.cells[i], ends = endsAt(b, i);
+      if (!t.wire || t.wire !== w || !(ends & from)) break;
       cells.push(i);
-      const out = t.ends & ~from;
+      const out = ends & ~from;
       const r = Math.floor(i / SIZE), c = i % SIZE;
       if (out === N && r === 0) { done = R.out.side === 'top' && R.out.at === c; break; }
       if (out === E && c === SIZE - 1) { done = R.out.side === 'right' && R.out.at === r; break; }

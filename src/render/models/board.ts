@@ -20,6 +20,11 @@ function memo(key: string, make: () => THREE.Texture): THREE.Texture {
   return t;
 }
 
+/**
+ * Шаг слотов памяти. В жизни ~9 мм, но пальцем на телефоне в такой слот не
+ * попасть — в игре раздвинуто до 12 мм (автор).
+ */
+export const RAM_PITCH = 0.012;
 export const MB_SIZE: Record<MB['form'], [number, number]> = { ATX: [0.244, 0.305], mATX: [0.244, 0.244], ITX: [0.17, 0.17] };
 
 export interface BoardModel {
@@ -112,8 +117,8 @@ export function buildBoard(p: MB): BoardModel {
   for (let i = 0; i < nSlots; i++) {
     // второй и четвёртый (рекомендуемые, A2/B2) — светлые, остальные чёрные: так пары
     // одного цвета читаются на любой плате (цвет акцента у некоторых плат серый)
-    add(group, rbox(0.006, 0.136, 0.006, 0.001), i % 2 ? std('#e9edf2', { roughness: 0.4 }) : std('#15161a', { roughness: 0.5 }), ramX + i * 0.009, ramY, 0.003);
-    add(group, box(0.006, 0.006, 0.008), std('#e6e2da'), ramX + i * 0.009, ramY + 0.07, 0.004);
+    add(group, rbox(0.006, 0.136, 0.006, 0.001), i % 2 ? std('#e9edf2', { roughness: 0.4 }) : std('#15161a', { roughness: 0.5 }), ramX + i * RAM_PITCH, ramY, 0.003);
+    add(group, box(0.006, 0.006, 0.008), std('#e6e2da'), ramX + i * RAM_PITCH, ramY + 0.07, 0.004);
   }
   // 24-pin и 8-pin
   const atx = V(w / 2 - 0.01, ramY + 0.01, 0.006);
@@ -213,7 +218,7 @@ export function buildPaste(): { group: THREE.Group; set(state: 'none' | 'old' | 
  * Планки в слотах платы. idx — номера занятых слотов (шаг 0.009 от первого):
  * пара встаёт в A2/B2 (1 и 3), как велит инструкция к плате.
  */
-export function buildRAM(p: RAM, idx: number[] = [0, 2], pitch = 0.009): THREE.Group {
+export function buildRAM(p: RAM, idx: number[] = [0, 2], pitch = RAM_PITCH): THREE.Group {
   const g = new THREE.Group();
   const label = memo('ram' + p.id, () => canvasTex(512, 96, (c, w, h) => {
     c.fillStyle = p.look.main; c.fillRect(0, 0, w, h);

@@ -29,7 +29,7 @@ export class Site {
   /** Название магазина — обновляется при смене языка (раньше оставалось «Мегабайт» в EN). */
   private titleEl!: HTMLElement;
   tab: Tab = 'shop';
-  cat: Cat | 'all' = 'all';
+  cat: Cat | 'all' | 'fit' = 'all';
   private recFor: number | null = null;
 
   constructor(private app: App) {
@@ -100,8 +100,9 @@ export class Site {
     const s = this.app.state!;
     const rec = this.recommended();
     const cats = h('div', { class: 'cats' });
-    for (const c of ['all', ...CATS] as (Cat | 'all')[]) {
-      const b = h('button', { class: 'live ' + (this.cat === c ? 'on' : '') }, c === 'all' ? t('site.all') : t('cat.' + c));
+    // «✓ К заказу» — первой: только то, что подходит к сборке на верстаке или к заказу (Codex)
+    for (const c of ['fit', 'all', ...CATS] as (Cat | 'all' | 'fit')[]) {
+      const b = h('button', { class: 'live ' + (this.cat === c ? 'on' : '') + (c === 'fit' ? ' fitcat' : '') }, c === 'all' ? t('site.all') : c === 'fit' ? '✓ ' + t('site.fitCat') : t('cat.' + c));
       b.addEventListener('click', () => { sound.tab(); this.cat = c; this.render(); });
       cats.append(b);
     }
@@ -119,13 +120,16 @@ export class Site {
         btn([icon('cart'), t('tut.buyAll', { n: money(total) })], () => { for (const id of todo) if (S.buy(s, id, q(id))) break; sound.coin(); this.app.persist(); this.app.refresh(); this.app.tutorialCheck(); }, 'primary small pulse')));
     }
     if (s.tutorial >= 99 && S.activeOrders(s).some((o) => o.kind === 'build' && o.state !== 'ready')) {
-      const link = h('button', { class: 'tutbuy live', style: 'width:100%;border:0;cursor:pointer;text-align:left' }, h('div', { class: 'grow' }, t('help.nudge')));
+      const link = h('button', { class: 'tutbuy nudge live', style: 'width:100%;border:0;cursor:pointer;text-align:left' }, h('div', { class: 'grow' }, t('help.nudge')));
       link.addEventListener('click', () => { sound.tab(); this.tab = 'guide'; this.render(); });
       this.body.append(link);
     }
     const lvl = S.level(s);
     const bench = S.benchOrder(s);
     const newsCats = todayNews(s);
+    // на телефоне спецпредложения — в конце списка: они вытесняли обычные детали с первого экрана
+    const phone = !!this.app.views.phone;
+    const specials = () => {
     // Объявления частников (видеокарты сильно дешевле — на свой страх и риск)
     if (this.cat === 'all' || this.cat === 'gpu') (s.deals ?? []).forEach((d, i) => {
       if (d.sold) return;
@@ -150,7 +154,10 @@ export class Site {
         h('div', { class: 'price' }, h('b', {}, money(B.price)),
           btn([icon('box'), t('box.open')], () => this.openBox(id), 'primary small', locked ? { disabled: true } : {}))));
     }
-    const list = ALL.filter((p) => this.cat === 'all' || p.cat === this.cat)
+    };
+    if (!phone) specials();
+    const fit = this.fitIds();
+    const list = ALL.filter((p) => this.cat === 'all' || (this.cat === 'fit' ? fit.has(p.id) : p.cat === this.cat))
       .sort((a, b) => Number(rec.has(b.id)) - Number(rec.has(a.id)) || CATS.indexOf(a.cat) - CATS.indexOf(b.cat) || a.price - b.price);
     for (const p of list) {
       const locked = p.rep > lvl;
@@ -181,6 +188,19 @@ export class Site {
           h('div', { style: 'display:flex;align-items:center;gap:6px' }, spark(hist), h('span', { class: 'chg ' + (chg > 0 ? 'up' : chg < 0 ? 'down' : '') }, `${chg > 0 ? '+' : ''}${chg}%`)),
           buyBtn)));
     }
+    if (this.cat === 'fit' && !list.length) this.body.append(h('p', { class: 'sp' }, t('site.fitEmpty')));
+    if (phone) specials();
+  }
+
+  /** Что подходит к заказу: к сборке на верстаке (можно поставить сейчас) или к ближайшему заказу на сборку. */
+  private fitIds(): Set<string> {
+    const s = this.app.state!;
+    const out = new Set<string>();
+    const bench = S.benchOrder(s);
+    if (bench?.build.case) { for (const p of ALL) if (p.cat !== 'paste' && p.rep <= S.level(s) && canInstall(bench.build, p.id).ok) out.add(p.id); return out; }
+    const o = (bench && bench.kind === 'build' ? bench : null) ?? S.activeOrders(s).find((x) => x.kind === 'build' && x.state === 'active');
+    if (o) { const sol = solve(o.req, S.level(s), (id) => S.buyPrice(s, id)); if (sol) for (const k of ['case', 'mb', 'cpu', 'cooler', 'ram', 'ssd', 'gpu', 'psu'] as const) out.add(sol.build[k]!); }
+    return out;
   }
 
   private openBox(id: S.BoxId): void {

@@ -61,9 +61,17 @@ export function buildProps(root: THREE.Group): Props {
   const cup = new THREE.Group(); cup.position.set(-0.98, cy, 0.3); root.add(cup);
   add(cup, new THREE.CylinderGeometry(0.035, 0.032, 0.1, 18, 1, true), std('#e7b84a', { roughness: 0.6, side: THREE.DoubleSide }), 0, 0.05, 0);
   add(cup, cyl(0.032, 0.032, 0.004, 18), std('#e7b84a'), 0, 0.002, 0);
-  ['#e2334a', '#3fb6a8', '#2f6fd6', '#f2c94c', '#1b1c20'].forEach((c, i) => {
-    const a = i * 1.3, tl = add(cup, cyl(0.006, 0.007, 0.13, 8), std(c, { roughness: 0.5 }), Math.cos(a) * 0.015, 0.11, Math.sin(a) * 0.015);
-    tl.rotation.set(Math.sin(a) * 0.25, 0, Math.cos(a) * 0.25);
+  // Карандаши с ластиками — «веером» из центра дна: низ внутри стакана, наклон
+  // наружу. Раньше они стояли со смещением и наклоном внутрь и протыкали стенку.
+  const ferrule = std('#c9ccd2', { metalness: 0.7, roughness: 0.35 }), eraser = std('#f08aa0', { roughness: 0.8 });
+  ['#e2334a', '#3fb6a8', '#2f6fd6', '#f2c94c', '#5e8a4c'].forEach((c, i) => {
+    const a = i * 1.26, tilt = 0.12 + (i % 2) * 0.07;
+    const pg = new THREE.Group(); pg.position.set(Math.cos(a) * 0.006, 0.006, Math.sin(a) * 0.006);
+    pg.rotation.set(Math.sin(a) * tilt, 0, -Math.cos(a) * tilt); cup.add(pg);
+    const len = 0.125 + (i % 3) * 0.012;
+    add(pg, cyl(0.0055, 0.0055, len, 6), std(c, { roughness: 0.5 }), 0, len / 2, 0);
+    add(pg, cyl(0.0058, 0.0058, 0.008, 10), ferrule, 0, len + 0.004, 0);
+    add(pg, cyl(0.0054, 0.005, 0.011, 10), eraser, 0, len + 0.013, 0);
   });
   // стопка тетрадей/инструкций и коробочка с винтиками (правый угол)
   const st = new THREE.Group(); st.position.set(1.2, cy, 0.33); st.rotation.y = 0.25; root.add(st);
@@ -156,7 +164,9 @@ export function buildProps(root: THREE.Group): Props {
   // Места выбраны там, где постер видно из рабочих зон: по бокам окна, на левой
   // стене над перфопанелью (видно от окошка и с верстака) и по бокам монитора
   // (видно, когда открываешь магазин). На задней стене выше монитора их не было видно вовсе.
-  for (const [x, y, z, ry, w, hh] of [[-1.16, 1.98, -0.293, 0, 0.28, 0.4], [1.16, 2.1, -0.293, 0, 0.24, 0.34], [-1.333, 1.75, 0.0, Math.PI / 2, 0.24, 0.34], [0.45, 1.18, 2.093, Math.PI, 0.17, 0.25], [-0.45, 1.18, 2.093, Math.PI, 0.17, 0.25], [-1.333, 2.15, 1.0, Math.PI / 2, 0.22, 0.32]] as const) {
+  // у окна — строго между пробковой доской/полочкой и верхней полкой (низ полки 2.18):
+  // раньше верх постеров заходил в полку
+  for (const [x, y, z, ry, w, hh] of [[-1.16, 1.96, -0.293, 0, 0.26, 0.36], [1.16, 2.0, -0.293, 0, 0.2, 0.28], [-1.333, 1.75, 0.0, Math.PI / 2, 0.24, 0.34], [0.45, 1.18, 2.093, Math.PI, 0.17, 0.25], [-0.45, 1.18, 2.093, Math.PI, 0.17, 0.25], [-1.333, 2.15, 1.0, Math.PI / 2, 0.22, 0.32]] as const) {
     const o = new THREE.Object3D(); o.position.set(x, y, z); o.rotation.y = ry; o.userData.w = w; o.userData.h = hh; root.add(o); posterSlots.push(o);
   }
   // ── ступенчатая подставка для коллекционных статуэток (левый угол прилавка) ──

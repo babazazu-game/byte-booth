@@ -416,8 +416,8 @@
   .menu .btns { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 2px; }
 }
 
-/* магазин на низком экране: вкладки и категории — одной строкой с прокруткой */
-@media (max-height: 560px) {
+/* магазин на телефоне: вкладки и категории — одной строкой с прокруткой */
+@media (max-height: 560px), (max-width: 700px) {
   .site:not(.inmon) { top: calc(4px + var(--safe-t)); bottom: calc(var(--tap) + 16px + var(--safe-b)); border-width: 4px; }
   .site .ph { flex-wrap: nowrap; padding-top: 4px; }
   .site .ph h3 { display: none; }
@@ -425,4 +425,115 @@
   .site .tabs button { white-space: nowrap; min-height: 38px; }
   .site .cats { display: flex; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; gap: 4px; }
   .site .cats button { white-space: nowrap; flex: none; }
+}
+
+/* поворотные плитки кабелей: стоят на местах, крутятся на 90° */
+.cp-tile { transition: transform .16s ease-out; }
+.cp-tile.fixed { cursor: default; }
+.cp-tile.fixed:hover { filter: none; }
+
+/* ответы клиенту на узком экране: текст переносится, кнопки не вылезают за край */
+.choices .btn { max-width: 100%; white-space: normal; text-align: left; }
+@media (max-width: 560px) {
+  .choices { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .choices .btn { padding-left: 1.2em; font-size: .92em; min-height: 48px; }
+}
+
+/* ── Телефон (узкий или низкий экран): компактнее всё, что занимает место ── */
+@media (max-width: 560px), (max-height: 560px) {
+  /* магазин: в строке картинка, название, цена и кнопка — влезает в 2–3 раза больше товаров */
+  .site .row { grid-template-columns: 40px 1fr auto; gap: 6px; padding: 5px 6px; margin-bottom: 3px; }
+  .site .row img, .site .row .boxic { width: 40px; height: 30px; font-size: 16px; }
+  .site .row .nm { font-size: .86em; line-height: 1.15; }
+  .site .row .sp { font-size: .7em; line-height: 1.2; }
+  .site .row .tags { margin-top: 2px; gap: 3px; }
+  .site .row .tags .tag { font-size: 10px; padding: 1px 4px; }
+  .site .price svg, .site .price .chg { display: none; }
+  .site .price .btn { min-height: 36px; padding: 0 .7em; font-size: .85em; }
+  .site .price b { font-size: .92em; }
+  /* верстак: кнопки и лоток мельче, PC остаётся виден */
+  .bench-left .btn, .bench-right .btn { min-height: 40px; font-size: .8em; padding-left: 1.25em; }
+  .bench-right .btn:not(.small) { min-height: 44px; font-size: .88em; }
+  .bench-left, .bench-right { gap: 6px; }
+  .bench-power .btn { min-height: 40px; font-size: .8em; }
+  .titem { width: 92px; min-height: 70px; font-size: .66em; padding: 4px; }
+  .titem img { width: 52px; height: 32px; }
+  .tray .items { max-height: 150px; gap: 6px; }
+}
+
+/* ── Верстак на телефоне ──
+   Подписи клавиш (Q, W, T…) на телефоне бесполезны — прячем. Лоток деталей —
+   одна лента с прокруткой пальцем вбок. */
+@media (max-width: 700px), (max-height: 560px) {
+  .tray .btn .key, .actions .btn .key, .choices .btn .key { display: none; }
+  .tray .items { flex-wrap: nowrap; justify-content: flex-start; overflow-x: auto; overflow-y: hidden; max-height: none; touch-action: pan-x; scrollbar-width: none; padding: 5px; }
+  .titem { width: 86px; min-height: 66px; }
+  .bench-left .btn, .bench-right .btn, .bench-power .btn { padding-left: .8em; padding-right: .8em; }
+}
+  .bench-left .btn, .bench-right .btn, .bench-power .btn { min-height: 36px; font-size: .74em; }
+}
+
+/* ── Верстак на телефоне: одна главная кнопка + «Ещё», лента деталей ── */
+.bench-phone { display: none; }
+@media (max-width: 700px), (max-height: 560px) {
+  .bench-left, .bench-right, .bench-power { display: none !important; }
+  .bench-phone { display: flex; gap: 8px; justify-content: center; width: 100%; }
+  .bench-phone .btn { min-height: 52px; font-size: .95em; }
+  .bench-phone .btn.main { flex: 1; max-width: 300px; justify-content: center; }
+  .bench-phone .btn.more { flex: none; padding: 0 1em; }
+  .bench-phone .dots { font-size: 1.4em; line-height: 1; margin-right: .2em; }
+  .sheet { display: grid; gap: 8px; }
+  .sheet .btn { min-height: 52px; justify-content: flex-start; }
+}
+@media (max-width: 700px) and (min-height: 561px) {
+  .tray { top: auto; height: 190px; bottom: calc(var(--tap) + 20px + var(--safe-b)); }
+  .bench-bottom { gap: 8px; }
+}
+@media (max-height: 560px) {
+  .tray { top: calc(52px + var(--safe-t)); bottom: calc(var(--tap) + 16px + var(--safe-b)); }
+  .bench-bottom { left: auto; right: 0; top: 0; bottom: auto; width: 240px; align-items: stretch; gap: 8px; }
+  .bench-phone { flex-direction: column; }
+  .bench-phone .btn.main { max-width: none; }
+  .tray .items { max-height: none; flex-wrap: wrap; justify-content: flex-end; max-height: 170px; overflow-y: auto; touch-action: pan-y; }
+  .titem { width: 74px; min-height: 58px; }
+}
+
+/* мини-игра на низком экране: поле слева, подсказка и кнопка справа (Codex: поле уходило под низ окна) */
+@media (max-height: 560px) {
+  .modal:has(.cp-board) { width: min(760px, 100%); }
+  .modal:has(.cp-board) h2 { padding-top: 10px; font-size: 1em; }
+  .modal:has(.cp-board) .mb { display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto 1fr; column-gap: 18px; align-items: start; }
+  .modal:has(.cp-board) .cp-board { grid-column: 1; grid-row: 1 / 4; margin: 26px 92px 48px 0; }
+  .modal:has(.cp-board) .cp-hint { grid-column: 2; font-size: 13px; margin: 0 0 6px; }
+  .modal:has(.cp-board) .cp-bonus, .modal:has(.cp-board) .cp-moves { grid-column: 2; text-align: left; }
+  .modal:has(.cp-board) .mf { padding-bottom: 12px; }
+}
+
+/* магазин на телефоне: без рекламы справки; лёжа — товары в две колонки */
+.site .cats button.fitcat { font-weight: 800; }
+@media (max-width: 700px), (max-height: 560px) {
+  .site .tutbuy.nudge { display: none; }
+}
+@media (max-height: 560px) {
+  .site .pb { display: grid; grid-template-columns: 1fr 1fr; column-gap: 6px; align-content: start; }
+  .site .pb > :not(.row) { grid-column: 1 / -1; }
+}
+/* навигация на телефоне: стрелки не нужны (есть зоны), ответы клиенту — с промежутком 8 px */
+@media (max-width: 700px), (max-height: 560px) {
+  .nav > button:first-child, .nav > button:last-child { display: none; }
+  .choices { gap: 8px; }
+}
+/* подписи зон на телефоне — мелко под значком (Codex: значки без подписей непонятны) */
+@media (max-width: 700px), (max-height: 560px) {
+  .nav button { flex-direction: column; justify-content: center; gap: 1px; padding: 4px 8px; min-width: 70px; }
+  .nav .lbl { display: block !important; font-size: 10px; line-height: 1; }
+  .nav button .key { display: none; }
+}
+/* категории на телефоне прилипают ровно к верху списка (со смещением −10 px прятались под шапку) */
+@media (max-width: 700px), (max-height: 560px) {
+  .site .cats { top: 0; margin-top: 0; padding-top: 6px; }
+}
+@media (max-height: 560px) {
+  /* в сетке прокручиваемая полоса категорий сжималась до нуля по высоте */
+  .site .pb > .cats { min-height: 54px; }
 }

@@ -77,6 +77,9 @@ async function boot(): Promise<void> {
     w.app = app;
     // модели — для отладочной витрины
     void import('./render/debugModels.ts').then((m) => { w.models = m; });
+    // ?shot=<сцена> — служебная сцена для скриншотов (см. devShots.ts)
+    const shot = new URLSearchParams(location.search).get('shot');
+    if (shot) setTimeout(() => { void import('./devShots.ts').then((m) => m.runShot(app, shot)); }, 1500);
   }
 }
 
@@ -92,6 +95,7 @@ function watchSize(app: App, parent: HTMLElement): void {
     last = { w, h, dpr };
     if (w <= 0 || h <= 0) return;
     app.engine.resize(w, h, dpr);
+    app.setLayout(w, h);
   };
   sync();
   if (typeof ResizeObserver !== 'undefined') new ResizeObserver(sync).observe(parent);

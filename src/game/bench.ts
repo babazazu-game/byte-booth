@@ -9,7 +9,7 @@ import { canInstall, runTest, SLOT_OF, type Build, type SlotKey, type TestResult
 import * as S from '../logic/state.ts';
 import { evaluate } from '../logic/orders.ts';
 import { t, money, lang } from '../i18n.ts';
-import { h, btn, icon, thumb, toast, confirmBox } from '../ui/dom.ts';
+import { h, btn, icon, thumb, toast, confirmBox, modal } from '../ui/dom.ts';
 import { openGuide } from '../ui/guide.ts';
 import { openCablePuzzle } from '../ui/cablePuzzle.ts';
 import { sound } from '../audio/audio.ts';
@@ -71,7 +71,9 @@ export class Bench {
     this.flowEl = h('div', { class: 'bench-right' });
     this.powerEl = h('div', { class: 'bench-power' });
     this.itemsEl = h('div', { class: 'items live' });
-    this.el = h('div', { class: 'tray hidden' }, this.toolsEl, this.flowEl, h('div', { class: 'bench-bottom' }, this.powerEl, this.itemsEl));
+    // на телефоне вместо россыпи кнопок — одна главная по шагу и «Ещё» (Codex: девять кнопок поверх корпуса)
+    this.phoneBar = h('div', { class: 'bench-phone' });
+    this.el = h('div', { class: 'tray hidden' }, this.toolsEl, this.flowEl, h('div', { class: 'bench-bottom' }, this.phoneBar, this.powerEl, this.itemsEl));
     this.hintEl = h('div', { class: 'hint hidden' });
     this.dustEl = h('div', { class: 'dustbar chip hidden' });
     this.pickEl = h('div', { class: 'panel live hidden', style: 'left:50%;top:50%;transform:translate(-50%,-50%);width:min(560px,calc(100% - 20px));max-height:calc(100% - 220px)' });
@@ -81,6 +83,7 @@ export class Bench {
     app.uiRoot.append(this.el, this.hintEl, this.dustEl, this.pickEl, this.popEl, this.testEl);
   }
 
+  private phoneBar: HTMLElement;
   /** Всплывашка «Снять деталь» у места нажатия. */
   private popEl: HTMLElement;
   private hidePop(): void { this.popEl.classList.add('hidden'); }
@@ -152,12 +155,13 @@ export class Bench {
       const g = new THREE.Group();
       add(g, cyl(0.0045, 0.0045, 0.002, 16), metal('#c9ccd2', 0.25), 0, 0, 0, Math.PI / 2);
       add(g, box(0.006, 0.0014, 0.0008), own('#33363d'), 0, 0, 0.0012);
-      const ring = add(g, new THREE.TorusGeometry(0.011, 0.0018, 8, 24), own('#000', { emissive: '#4fd1c0', emissiveIntensity: 3, transparent: true, opacity: 0.9 }), 0, 0, 0.002);
+      const ring = add(g, new THREE.TorusGeometry(0.014, 0.0022, 8, 24), own('#000', { emissive: '#4fd1c0', emissiveIntensity: 3, transparent: true, opacity: 0.9 }), 0, 0, 0.002);
       ring.userData.ring = true;
       // Кольцо видно сквозь детали: винты кулера, например, прячутся под башней,
       // и игрок не понимал, куда нажимать.
       (ring.material as THREE.Material).depthTest = false; ring.renderOrder = 10;
-      const hit = add(g, new THREE.SphereGeometry(0.02, 8, 6), own('#fff', { transparent: true, opacity: 0, depthWrite: false }));
+      // зона нажатия винта крупная (4 см): на телефоне в мелкий винт пальцем не попасть
+      const hit = add(g, new THREE.SphereGeometry(0.04, 8, 6), own('#fff', { transparent: true, opacity: 0, depthWrite: false }));
       hit.userData.screwHit = true;
       this.root.add(g);
       g.position.copy(this.root.worldToLocal(p.clone()));
@@ -215,9 +219,11 @@ export class Bench {
     this.hotkeys.clear();
     const step = this.nextStep();
     /** Клавиша с подписью горячей клавиши; `next` — подсветка «это следующий шаг». */
+    const acts: { ic: string; label: string; fn: () => void; cls: string; next: boolean }[] = [];
     const key = (code: string, legend: string, ic: string, label: string, fn: () => void, cls = '', next = false): HTMLButtonElement => {
       const el = btn([h('span', { class: 'key' }, legend), icon(ic), label], fn, cls + (next ? ' next' : ''));
       this.hotkeys.set(code, fn);
+      acts.push({ ic, label, fn, cls, next });
       return el;
     };
     const toggleTool = (tl: Tool, hintKey: string) => () => { this.tool = this.tool === tl ? 'none' : tl; this.sel = null; if (this.tool === tl) toast(t(hintKey)); this.refresh(); };
@@ -250,7 +256,10 @@ export class Bench {
       cab('cab8', '8', t('bench.cab8'), !!b.cpu);
       cab('cabGpu', '9', t('bench.cabGpu'), !!b.gpu);
       // пятнашки по желанию: пропустил — можно вернуться кнопкой
-      if (o.kind === 'build' && b.cab24 && b.cab8 && b.cabGpu && !b.tidy && b.tidyAsked) this.powerEl.append(btn([icon('cable'), t('cab.again', { n: '$' + this.tidyBonus() })], () => this.openTidy(), 'small teal'));
+      if (o.kind === 'build' && b.cab24 && b.cab8 && b.cabGpu && !b.tidy && b.tidyAsked) {
+        this.powerEl.append(btn([icon('cable'), t('cab.again', { n: '$' + this.tidyBonus() })], () => this.openTidy(), 'small teal'));
+        acts.push({ ic: 'cable', label: t('cab.again', { n: '$' + this.tidyBonus() }), fn: () => this.openTidy(), cls: 'teal', next: false });
+      }
     }
     // ── справа: процесс ──
     this.flowEl.append(
@@ -259,6 +268,7 @@ export class Bench {
       key('KeyH', 'H', 'book', t('help.tab'), () => openGuide(), 'ghost small'),
       btn([icon('aside'), t('bench.shelve')], () => { S.shelveBench(s); this.app.persist(); this.sync(false); this.app.refresh(); }, 'ghost small'),
     );
+    acts.push({ ic: 'aside', label: t('bench.shelve'), fn: () => { S.shelveBench(s); this.app.persist(); this.sync(false); this.app.refresh(); }, cls: 'ghost', next: false });
     // ── лоток деталей ──
     const items: HTMLElement[] = [];
     for (const id of s.loose) items.push(this.trayItem(id, { looseId: id }, true));
@@ -286,7 +296,25 @@ export class Bench {
     const want = this.nextStep();
     if (!items.length && ['case', 'mb', 'cpu', 'cooler', 'ram', 'ssd', 'gpu', 'psu'].includes(want)) items.push(h('div', { class: 'chip' }, t('bench.noParts')));
     this.itemsEl.append(...items);
+    this.renderPhoneBar(acts);
     this.updateHint();
+  }
+
+  /**
+   * Телефон: одна главная кнопка — то, что нужно сделать СЕЙЧАС (подсвеченный
+   * шаг: нужный кабель, тест, закрыть панель, готово), и «⋯ Ещё» со списком
+   * всех действий крупными строками.
+   */
+  private renderPhoneBar(acts: { ic: string; label: string; fn: () => void; cls: string; next: boolean }[]): void {
+    this.phoneBar.innerHTML = '';
+    const main = acts.find((a) => a.next);
+    if (main) this.phoneBar.append(btn([icon(main.ic), main.label], main.fn, 'primary main'));
+    const more = btn([h('span', { class: 'dots' }, '⋯'), t('bench.more')], () => {
+      let close = () => {};
+      const list = h('div', { class: 'sheet' }, ...acts.map((a) => btn([icon(a.ic), a.label], () => { close(); a.fn(); }, (a.cls.includes('primary') || a.cls.includes('dark') ? a.cls : '') + (a.next ? ' next' : ''))));
+      close = modal(t('bench.more'), [list], [{ label: t('site.close'), cls: 'ghost' }], { dismissable: true });
+    }, 'more');
+    this.phoneBar.append(more);
   }
 
   private trayItem(id: string, ref: { uid?: number; looseId?: string }, loose: boolean, used = false): HTMLElement {
@@ -338,8 +366,34 @@ export class Bench {
     this.app.persist();
     this.sync(true);
     this.app.views.setFocus(null);
+    this.focusScrews();
     this.app.refresh();
     this.app.tutorialCheck();
+  }
+
+  /** Есть незакрученные винты — камера мягко подъезжает к ним; закрутил все — отъезжает. */
+  private focusScrews(): void {
+    const left = this.screws.filter((s) => !s.done);
+    if (!left.length) { this.app.views.setFocus(null); return; }
+    const c = V();
+    for (const s of left) c.add(s.mesh.getWorldPosition(V()));
+    this.app.views.setFocus(c.multiplyScalar(1 / left.length), 0.55);
+  }
+
+  /**
+   * Ближайший к пальцу объект по ЭКРАНУ (в пределах maxPx): на телефоне в
+   * винт или слот точно не попасть, поэтому засчитываем касание рядом.
+   */
+  private nearestOnScreen(objs: THREE.Object3D[], x: number, y: number, maxPx = 32): THREE.Object3D | null {
+    const r = this.app.engine.renderer.domElement.getBoundingClientRect();
+    let best: THREE.Object3D | null = null, bd = maxPx;
+    for (const o of objs) {
+      const p = o.getWorldPosition(V()).project(this.app.engine.camera);
+      if (p.z > 1) continue;
+      const d = Math.hypot(r.left + ((p.x + 1) / 2) * r.width - x, r.top + ((1 - p.y) / 2) * r.height - y);
+      if (d < bd) { bd = d; best = o; }
+    }
+    return best;
   }
 
   private act(err: string | null, ok?: () => void): void {
@@ -544,7 +598,8 @@ export class Bench {
   pointerMove(e: PointerEvent): void {
     if (!this.drag) return;
     const dx = e.clientX - this.drag.x, dy = e.clientY - this.drag.y;
-    if (Math.abs(dx) + Math.abs(dy) > 6) this.drag.moved = true;
+    // 10 px: на телефоне палец «дрожит», и при 6 px нажатие часто превращалось в поворот камеры
+    if (Math.abs(dx) + Math.abs(dy) > 10) this.drag.moved = true;
     if (this.drag.brushing) { this.brushAt(e.clientX, e.clientY); return; }
     if (this.drag.moved) {
       const v = this.app.views;
@@ -566,15 +621,20 @@ export class Bench {
     // винты — в первую очередь
     const hits = this.ray.intersectObjects(this.screws.filter((s) => !s.done).map((s) => s.mesh), true);
     const sh = hits.find((hh) => hh.object.userData.screwHit);
-    if (sh) {
-      const sc = this.screws.find((s) => s.mesh === sh.object.parent);
-      if (sc) { sc.done = true; sc.spin = 0.001; sound.screw(); this.refresh(); this.app.tutorialCheck(); }
+    const near = sh ? sh.object.parent : this.nearestOnScreen(this.screws.filter((s) => !s.done).map((s) => s.mesh), x, y);
+    if (near) {
+      const sc = this.screws.find((s) => s.mesh === near);
+      if (sc) { sc.done = true; sc.spin = 0.001; sound.screw(); this.focusScrews(); this.refresh(); this.app.tutorialCheck(); }
       return;
     }
     if (this.sel) {
       const cat = part(this.sel.looseId ?? this.s.inv.find((i) => i.uid === this.sel!.uid)?.id ?? 'mx6').cat;
       // память — в тот свободный слот, по которому нажали
-      if (cat === 'ram') { const rs = this.rig.ramSlotHit(this.ray); if (rs !== null) { this.install(rs); return; } }
+      if (cat === 'ram') {
+        let rs = this.rig.ramSlotHit(this.ray);
+        if (rs === null) { const z = this.nearestOnScreen(this.rig.ramZones.filter((m) => m.userData.free), x, y, 30); if (z) rs = z.userData.ramSlot as number; }
+        if (rs !== null) { this.install(rs); return; }
+      }
       const z = this.rig.zones[SLOT_OF[cat as Cat]];
       if (z && cat !== 'ram' && this.ray.intersectObject(z, false).length) { this.install(); return; }
       this.sel = null; this.app.views.setFocus(null); this.refresh();
