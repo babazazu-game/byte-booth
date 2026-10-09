@@ -470,8 +470,6 @@
   .titem { width: 86px; min-height: 66px; }
   .bench-left .btn, .bench-right .btn, .bench-power .btn { padding-left: .8em; padding-right: .8em; }
 }
-  .bench-left .btn, .bench-right .btn, .bench-power .btn { min-height: 36px; font-size: .74em; }
-}
 
 /* ── Верстак на телефоне: одна главная кнопка + «Ещё», лента деталей ── */
 .bench-phone { display: none; }
