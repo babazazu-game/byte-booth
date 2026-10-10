@@ -162,7 +162,8 @@ function solveVia(req: Req, rep: number, price: (id: string) => number, rgbVia: 
 
 // С какого уровня репутации пресет может прийти — пресет должен быть решаем
 // каталогом этого уровня (проверяется прогоном `npm run sim`).
-const PRESET_REP: Record<string, number> = { office: 1, esports: 1, fhd: 2, mini: 3, qhd: 2, stream: 3, uhd: 5, work: 5 };
+// QHD — с 3-й репутации: на 2-й нужного железа ещё нет (балл 57 < 62, аудит Codex)
+const PRESET_REP: Record<string, number> = { office: 1, esports: 1, fhd: 2, mini: 3, qhd: 3, stream: 3, uhd: 5, work: 5 };
 
 export function pickArch(rng: Rng, rep: number, only: Arch[] | null = null): Arch {
   const pool = (Object.keys(ARCHS) as Arch[]).filter((a) => ARCHS[a].minRep <= rep);
@@ -260,7 +261,9 @@ function makeUpgrade(rng: Rng, id: number, rep: number, day: number, cust: Custo
     const pickG = ok[Math.min(1, ok.length - 1)];
     req.score = gameScore({ ...b, gpu: pickG.id }) - 2;
     req.ram = 0; req.ssd = 0;
-    partCost = basePrice(ok[0].id);
+    // оплата — от той же карты, по которой поставлена цель (раньше от самой дешёвой,
+    // которая цели могла не достигать)
+    partCost = basePrice(pickG.id);
   } else if (upCat === 'ram') {
     const mb = g.mb(b)!;
     // апгрейд памяти: удвоить объём одинаковыми планками в пределах слотов платы

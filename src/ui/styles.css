@@ -649,3 +649,5 @@
 .bubble.side { transform: translate(0, -50%); max-width: min(300px, 40vw); }
 .bubble.side:after { left: -9px; top: 50%; bottom: auto; margin: -8px 0 0 0; transform: rotate(135deg) skew(8deg, 8deg); }
 .bubble.side.left:after { left: auto; right: -9px; transform: rotate(-45deg) skew(8deg, 8deg); }
+/* телефон стоя: под верхней строкой, справа — не налезает на «Репутацию» */
+@media (max-width: 700px) and (min-height: 561px) { .fps { top: calc(18px + var(--safe-t)); right: calc(52px + var(--safe-r, 0px)); font-size: 9.5px; padding: 3px 4px; z-index: 30; } }

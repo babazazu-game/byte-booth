@@ -29,6 +29,7 @@ async function runScene(app: App, scene: string): Promise<void> {
   app.persist = () => {};
   app.saveSettings = () => {};
   if (scene === 'menu') return;
+  if (scene === 'tut') { app.play(true); for (let i = 0; i < 60; i++) app.debugStep(0.05); return; }
   if (scene === 'lineup') {
     // витрина деталей одной категории: ?shot=lineup&cat=mb|psu|gpu|cooler|ram|case
     const THREE = await import('three');
@@ -48,7 +49,7 @@ async function runScene(app: App, scene: string): Promise<void> {
       else if (cat === 'gpu') { o = M.buildGPU(p as never).group; o.rotation.x = 0.5; }
       else if (cat === 'cooler') { o = M.buildCooler(p as never).group; o.rotation.x = 0.3; o.rotation.y = 0.5; }
       else if (cat === 'ram') { o = M.buildRAM(p as never, [0]); o.rotation.y = -1.25; o.rotation.x = 0.15; }
-      else { const r = new M.PcRig(); r.sync({ case: p.id, panel: false } as never); r.update(0, 0, false); o = r.group; o.rotation.y = -0.6; }
+      else { const r = new M.PcRig(); r.sync({ case: p.id, panel: false } as never); r.update(0, 0, false); o = r.group; o.rotation.y = Math.PI - 0.55; }
       list.push({ obj: o, name: p.brand + ' ' + p.name });
     }
     const n = list.length, cols = Math.ceil(Math.sqrt(n * 1.6)), rows = Math.ceil(n / cols);

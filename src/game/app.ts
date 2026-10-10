@@ -285,8 +285,8 @@ export class App {
   private fpsEl: HTMLElement | null = null;
   private fpsAcc = 0; private fpsN = 0;
   private tickFps(dt: number): void {
-    // счётчик FPS — только если включён в настройках (по умолчанию выключен)
-    if (this.settings.fps !== true) { this.fpsEl?.remove(); this.fpsEl = null; return; }
+    // счётчик FPS по умолчанию включён — автор замеряет на телефонах
+    if (this.settings.fps === false) { this.fpsEl?.remove(); this.fpsEl = null; return; }
     if (!this.fpsEl) { this.fpsEl = document.createElement('div'); this.fpsEl.className = 'fps'; this.uiRoot.append(this.fpsEl); }
     this.fpsAcc += dt; this.fpsN++;
     if (this.fpsAcc < 0.5) return;

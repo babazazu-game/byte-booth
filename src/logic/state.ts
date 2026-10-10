@@ -37,12 +37,12 @@ export type BoxId = keyof typeof BOXES;
 export type UpId = 'shelf' | 'slots' | 'sign' | 'coffee' | 'analytics' | 'wholesale' | 'decor' | 'solder';
 
 export const UPGRADES: Record<UpId, { prices: number[]; values: number[] }> = {
-  shelf: { prices: [450, 1400], values: [14, 24, 40] },
-  slots: { prices: [600, 1800], values: [2, 3, 4] },
+  shelf: { prices: [350, 1000], values: [14, 24, 40] },
+  slots: { prices: [350, 900], values: [2, 3, 4] },
   sign: { prices: [500, 1600], values: [0, 1, 2] },
   coffee: { prices: [350], values: [0, 1] },
   analytics: { prices: [700], values: [0, 1] },
-  wholesale: { prices: [1200, 3200], values: [0, 0.05, 0.1] },
+  wholesale: { prices: [900, 2200], values: [0, 0.05, 0.1] },
   decor: { prices: [250, 700], values: [0, 1, 2] },
   // паяльная станция: открывает ремонт неисправных деталей за деньги (без мини-игр)
   solder: { prices: [600], values: [0, 1] },
@@ -162,7 +162,7 @@ export const upVal = (s: GameState, id: UpId): number => UPGRADES[id].values[s.u
 export const capacity = (s: GameState): number => upVal(s, 'shelf');
 export const slotsMax = (s: GameState): number => upVal(s, 'slots');
 export const visitsMax = (s: GameState): number => Math.max(1, 3 + upVal(s, 'sign') + Math.floor(level(s) / 3) + (s.buzz?.day === s.day ? s.buzz.n : 0));
-export const rent = (s: GameState): number => Math.round((30 + level(s) * 12 + s.up.shelf * 10) * districtOf(s).rentK);
+export const rent = (s: GameState): number => Math.round((30 + level(s) * 9 + s.up.shelf * 10) * districtOf(s).rentK);
 export const buyPrice = (s: GameState, id: string): number => priceOf(s.market, id, upVal(s, 'wholesale'));
 export const activeOrders = (s: GameState): Order[] => s.orders.filter((o) => o.state === 'active' || o.state === 'bench' || o.state === 'ready');
 /**
@@ -293,7 +293,7 @@ export function callCustomer(s: GameState, basePrice: (id: string) => number, fo
   const r = rngOf(s);
   // Касса почти пуста (всё ушло в ларёк) — чаще приходят на чистку: для неё
   // детали не нужны, только паста, и игрок может заработать на закупку.
-  if (!forced && s.cash < 120 && s.day >= 2 && r.chance(0.7)) forced = { kind: 'clean' };
+  if (!forced && s.cash < 450 && s.day >= 2 && r.chance(0.85)) forced = { kind: 'clean' };
   const o = makeOrder(r, s.nextOrder++, level(s), s.day, basePrice, forced, districtOf(s));
   s.pending = o;
   if (!forced && o.kind === 'build') {
@@ -632,7 +632,8 @@ export function deliver(s: GameState, orderId: number, opt: { discount?: number;
     o.returnAt = s.day + 1;
   } else {
     s.today.stars.push(ev.stars);
-    s.xp = Math.max(0, s.xp + ev.xp);
+    // чистка — вполовину опыта: иначе репутация (и аренда) обгоняли деньги
+    s.xp = Math.max(0, s.xp + (o.kind === 'clean' ? Math.round(ev.xp * 0.5) : ev.xp));
   }
   if (o.blogger && !o.returned) {
     // Обзор выходит завтра: хорошая сборка — очередь к ларьку, плохая — отток.
@@ -740,6 +741,8 @@ export function startNextDay(s: GameState): void {
   const r = rngOf(s);
   marketNextDay(s.market, r);
   s.day++;
+  // совсем без денег и без пасты — поставщик дарит пробник: хватит на одну чистку
+  if (s.cash < 8 && s.pasteUses <= 0) s.pasteUses = 1;
   // Объявления частников: видеокарта на 40–55% дешевле рынка. Чаще всего это
   // перешитая подделка — но иногда и правда выгодная сделка.
   s.deals = [];

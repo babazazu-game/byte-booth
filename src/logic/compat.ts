@@ -310,7 +310,7 @@ export function buildCost(b: Build, price: (id: string) => number): number {
   let s = 0;
   for (const k of ['case', 'mb', 'cpu', 'cooler', 'ram', 'ssd', 'gpu', 'psu'] as const) {
     const id = b[k];
-    if (id) s += price(id);
+    if (id) s += price(id) * (k === 'ram' ? (b.ramN ?? 1) : 1); // планок бывает несколько
   }
   return s;
 }

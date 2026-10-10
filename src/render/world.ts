@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { add, std, phys, own, rbox, box, cyl, sph, canvasTex, mulberry32, mergeTree, flattenStatic, V, V2, TAU } from './kit.ts';
 import { buildProps, type Props } from './props.ts';
 import { buildKiosk } from './kiosk.ts';
-import { buildBlock, buildCenter } from './districts.ts';
+import { buildBlock, buildCenter, BACKDROPS } from './districts.ts';
 
 /**
  * Мир: ларёк (внутри и снаружи) и парк напротив.
@@ -258,6 +258,7 @@ function buildPark(root: THREE.Group, lamps: THREE.PointLight[], bulbs: THREE.Me
   streetT.colorSpace = THREE.SRGBColorSpace;
   const streetM = new THREE.MeshBasicMaterial({ map: streetT, color: '#b3aca2', transparent: true, alphaTest: 0.35, depthWrite: true, fog: true });
   const streetM2 = streetM.clone(); streetM2.map = streetT.clone(); streetM2.map.wrapS = THREE.RepeatWrapping; streetM2.map.repeat.x = -1; streetM2.map.needsUpdate = true;
+  for (const x of [streetM, streetM2]) { x.userData.base = x.color.clone(); BACKDROPS.push(x); }
   // Панели чередуются «прямая / зеркальная»: на стыке края совпадают, и улица
   // тянется без обрыва в обе стороны (раньше были две — край был виден).
   for (let k = -5; k <= 6; k++) {
@@ -368,7 +369,7 @@ export function buildWorld(scene: THREE.Scene): World {
   const fog = new THREE.Fog('#d6e4ee', 18, 70);
   scene.fog = fog;
   const skyMat = sky.material as THREE.ShaderMaterial;
-  const c1 = new THREE.Color(), c2 = new THREE.Color(), c3 = new THREE.Color();
+  const c1 = new THREE.Color(), c2 = new THREE.Color(), c3 = new THREE.Color(), nightC = new THREE.Color('#3a4462');
   // p < 0 — предрассветная ночь: с неё начинается новый день, и «восход» видно
   const keys = [
     { p: -0.3, top: '#141c38', mid: '#2c3352', low: '#a8687a', sun: '#ff8a5a', si: 0.35, h: 0.03 },
@@ -428,6 +429,10 @@ export function buildWorld(scene: THREE.Scene): World {
       world.dusk = Math.min(1, Math.max(0, (phase - 0.5) / 0.4, -phase / 0.3));
       for (const l of lamps) l.intensity = night * 14;
       for (const m of bulbs) m.emissiveIntensity = night * 5;
+      // рисованные дома не освещаются сценой — вечером приглушаем их к сумеречно-синему
+      // сами (раньше ночью город за окном оставался дневным)
+      const dk = Math.min(1, world.dusk) * 0.72;
+      for (const m of [...BACKDROPS, ...farMats]) { if (!m.userData.base) m.userData.base = m.color.clone(); m.color.copy(m.userData.base as THREE.Color).lerp(nightC, dk); }
     },
     update(t: number, dt: number) {
       (water.material as THREE.MeshPhysicalMaterial).color.setHSL(0.56, 0.55, 0.55 + Math.sin(t * 2) * 0.02);

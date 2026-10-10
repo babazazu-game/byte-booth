@@ -32,10 +32,10 @@ export const DISTRICTS: Record<DistrictId, District> = {
   park: { id: 'park', minRep: 1, cost: 0, rentK: 1, payK: 1, archs: null, kinds: null },
   // Спальный район: семьи, пенсионеры, школьники. Денег меньше, зато много
   // апгрейдов и чисток старых компьютеров, аренда дешевле.
-  block: { id: 'block', minRep: 3, cost: 2500, rentK: 0.8, payK: 0.92, archs: ['dad', 'grandma', 'student', 'teen', 'office', 'gamer', 'gamergirl', 'builder', 'schoolkid'], kinds: [0.42, 0.33, 0.25] },
+  block: { id: 'block', minRep: 3, cost: 1500, rentK: 0.8, payK: 0.97, archs: ['dad', 'grandma', 'student', 'teen', 'office', 'gamer', 'gamergirl', 'builder', 'schoolkid'], kinds: [0.42, 0.33, 0.25] },
   // Деловой центр: офисы и богатые клиенты. Дорогие сборки и щедрые чаевые,
   // но аренда кусается, а заказы капризнее (чаще «надёжный», «тихий», «белый»).
-  center: { id: 'center', minRep: 5, cost: 8000, rentK: 1.7, payK: 1.25, archs: ['boss', 'designer', 'coder', 'office', 'streamer', 'crypto', 'oligarch'], kinds: [0.72, 0.23, 0.05] },
+  center: { id: 'center', minRep: 5, cost: 6500, rentK: 1.7, payK: 1.25, archs: ['boss', 'designer', 'coder', 'office', 'streamer', 'crypto', 'oligarch'], kinds: [0.72, 0.23, 0.05] },
 };
 export const DISTRICT_IDS = Object.keys(DISTRICTS) as DistrictId[];
 

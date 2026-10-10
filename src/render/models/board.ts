@@ -485,18 +485,21 @@ export function buildCooler(p: Cooler, radiatorAt?: THREE.Vector3): CoolerModel 
       const fins = new THREE.InstancedMesh(box(finW, finL, 0.0006), finM, n);
       for (let i = 0; i < n; i++) { dm.position.set(sx, 0, 0.03 + i * 0.0033); dm.updateMatrix(); fins.setMatrixAt(i, dm.matrix); }
       fins.castShadow = true; group.add(fins);
-      add(group, rbox(finW + 0.004, finL + 0.004, 0.006, 0.003), dual && noctua ? metal('#d4d8de', 0.25) : std(p.look.main, { metalness: 0.3, roughness: 0.4 }), sx, 0, H - 0.002);
+      // AG400 — без крышки: сверху видны рёбра и медные концы трубок; у остальных крышка
+      if (!small) add(group, rbox(finW + 0.004, finL + 0.004, 0.006, 0.003), dual && noctua ? metal('#d4d8de', 0.25) : std(p.look.main, { metalness: 0.3, roughness: 0.4 }), sx, 0, H - 0.002);
+      // AK400 — светлая полоса по крышке
+      if (p.id === 'ak400') add(group, box(0.008, finL * 0.9, 0.002), std(p.look.accent, { roughness: 0.4 }), sx + finW * 0.28, 0, H + 0.0015);
     }
     const pipeM = noctua ? metal('#d4d8de', 0.22) : copper;
     for (const [dy, dx] of [[-0.03, -0.012], [-0.01, 0.012], [0.01, -0.012], [0.03, 0.012]]) {
       for (const sx of stacks) {
         tube(group, [V(dx * 0.5, dy * 0.4, 0.01), V(sx * 0.6 + dx, dy, 0.03), V(sx + dx, dy, H)], 0.003, pipeM, 16, 8);
-        add(group, new THREE.SphereGeometry(0.003, 10, 6), pipeM, sx + dx, dy, H);
+        add(group, small ? cyl(0.0032, 0.0032, 0.006, 10) : new THREE.SphereGeometry(0.003, 10, 6), pipeM, sx + dx, dy, H + (small ? 0.001 : 0), small ? Math.PI / 2 : 0);
       }
     }
     // Ширина наклейки — вдоль рёбер (после поворота на 90°): текст идёт по длинной
     // стороне. Раньше стороны были перепутаны, и надпись сжималась вчетверо.
-    decal(group, finL * 0.8, finW - 0.004, capTex, stacks[stacks.length - 1], 0, H + 0.0012, 0, 0, Math.PI / 2);
+    if (!small) decal(group, finL * 0.8, finW - 0.004, capTex, stacks[stacks.length - 1], 0, H + 0.0012, 0, 0, Math.PI / 2);
     const brown = noctua;
     const R = small ? 0.044 : 0.056;
     const fanAt = (x: number) => {

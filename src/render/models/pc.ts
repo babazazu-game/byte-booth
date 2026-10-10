@@ -154,12 +154,22 @@ export class PcRig {
       if (pattern === 'square') for (let y = 5; y < h; y += 11) for (let x = 5; x < w; x += 11) g.fillRect(x, y, 7, 7);
       if (pattern === 'slots') for (const x0 of [12, w - 40]) for (let y = 20; y < h - 20; y += 14) g.fillRect(x0, y, 28, 6);
       if (pattern === 'tri') for (let y = 0; y < h; y += 14) for (let x = 0; x < w; x += 14) { const up = ((x + y) / 14) % 2 === 0; g.beginPath(); g.moveTo(x + 2, up ? y + 12 : y + 2); g.lineTo(x + 12, up ? y + 12 : y + 2); g.lineTo(x + 7, up ? y + 3 : y + 11); g.fill(); }
-      if (pattern === 'hex') for (let y = 8; y < h; y += 13) for (let x = 8 + ((y / 13) % 2) * 7.5; x < w; x += 15) { g.beginPath(); for (let k = 0; k < 6; k++) { const a = (k * Math.PI) / 3; g.lineTo(x + 5.5 * Math.cos(a), y + 5.5 * Math.sin(a)); } g.fill(); }
+      // Pop Mini Air — крупные соты (её главный признак), видно издалека
+      if (pattern === 'hex') for (let y = 14; y < h; y += 26) for (let x = 14 + ((y / 26) % 2) * 15; x < w; x += 30) { g.beginPath(); for (let k = 0; k < 6; k++) { const a = (k * Math.PI) / 3; g.lineTo(x + 12 * Math.cos(a), y + 12 * Math.sin(a)); } g.fill(); }
     }, { srgb: false });
     const fm = pattern === 'glass'
       ? add(B, new THREE.PlaneGeometry(W - 0.032, H - 0.07), phys('#6f8796', { roughness: 0.05, transparent: true, opacity: 0.14, depthWrite: false }), 0, 0, -D / 2 - 0.006)
       : add(B, new THREE.PlaneGeometry(W - 0.032, H - 0.07), new THREE.MeshStandardMaterial({ color: c.look.main, alphaMap: holes, alphaTest: 0.5, alphaToCoverage: true, side: THREE.DoubleSide, roughness: 0.55 }), 0, 0, -D / 2 - 0.006);
     fm.castShadow = false;
+    // узнаваемые детали фронта: CH560 — светящиеся полосы акцента по бокам,
+    // H5 Flow — сплошная плашка сверху с логотипом, CC560 — полоска снизу
+    const accM = own(c.look.accent, { emissive: c.look.accent, emissiveIntensity: 0.8 });
+    if (c.id === 'ch560') for (const sx of [-1, 1]) add(B, box(0.004, H - 0.09, 0.003), accM, sx * (W / 2 - 0.022), 0, -D / 2 - 0.0075);
+    if (c.id === 'h5flow') {
+      add(B, box(W - 0.03, 0.07, 0.004), shell, 0, H / 2 - 0.07, -D / 2 - 0.0075);
+      add(B, box(0.03, 0.004, 0.002), accM, 0, H / 2 - 0.07, -D / 2 - 0.0098);
+    }
+    if (c.id === 'cc560') add(B, box(W - 0.06, 0.004, 0.003), accM, 0, -H / 2 + 0.05, -D / 2 - 0.0075);
     // нижняя крышка спереди с логотипом
     // Крышка кончается в 6 см от блока питания: в этом зазоре поднимается кабель
     // видеокарты. При D − 0.2 зазора не было, и кабель шёл сквозь крышку.
