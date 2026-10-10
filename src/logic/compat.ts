@@ -152,7 +152,8 @@ export function canRemove(b: Build, slot: SlotKey): Verdict {
     gpu: () => !!b.cabGpu,
     psu: () => !!(b.cab24 || b.cab8 || b.cabGpu),
   };
-  if (b.panel) return NO('why.panelClosed');
+  // корпус снимается и с закрытой панелью — внутри него к этому моменту пусто
+  if (b.panel && slot !== 'case') return NO('why.panelClosed');
   if (blockers[slot]?.()) return NO('why.removeOrder');
   return OK;
 }

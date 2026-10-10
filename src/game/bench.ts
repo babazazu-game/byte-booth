@@ -5,7 +5,7 @@ import { buildGPU, type GpuModel } from '../render/models/gpu.ts';
 import { setDust, type Dust } from '../render/models/dust.ts';
 import { add, own, cyl, metal, box, V } from '../render/kit.ts';
 import { part, type Cat, type GPU, colorName } from '../logic/parts.ts';
-import { canInstall, runTest, SLOT_OF, type Build, type SlotKey, type TestResult } from '../logic/compat.ts';
+import { canInstall, canRemove, runTest, SLOT_OF, type Build, type SlotKey, type TestResult } from '../logic/compat.ts';
 import * as S from '../logic/state.ts';
 import { evaluate } from '../logic/orders.ts';
 import { t, money, lang } from '../i18n.ts';
@@ -663,7 +663,8 @@ export class Bench {
         while (o && !o.userData.slot) o = o.parent;
         if (o) { slot = o.userData.slot as SlotKey; break; }
       }
-      if (slot && slot !== 'case') this.removeSlot(slot);
+      // корпус тоже снимается (клиент принёс чёрный, а просил белый) — когда он пуст
+      if (slot) this.removeSlot(slot);
       return;
     }
     /*
@@ -672,7 +673,7 @@ export class Bench {
      * (W), и игроки не находили, как вернуть кулер обратно.
      */
     const ps = this.slotAt();
-    if (ps && ps !== 'case' && ps !== 'paste' && this.order.build[ps]) {
+    if (ps && ps !== 'paste' && this.order.build[ps] && (ps !== 'case' || canRemove(this.order.build, 'case').ok)) {
       const p = part(this.order.build[ps] as string);
       this.popEl.innerHTML = '';
       this.popEl.append(h('div', { class: 'nm' }, p.brand + ' ' + p.name),

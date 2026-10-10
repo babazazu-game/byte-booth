@@ -150,9 +150,11 @@ export class PcRig {
     // Крышка кончается в 6 см от блока питания: в этом зазоре поднимается кабель
     // видеокарты. При D − 0.2 зазора не было, и кабель шёл сквозь крышку.
     const coverD = D - 0.25;
-    add(B, rbox(W - 0.012, 0.09, coverD, 0.004), shell, 0, -H / 2 + 0.055, -D / 2 + coverD / 2 + 0.01);
+    // в мини-корпусе крышка ниже: длинная видеокарта висит там низко и врезалась в неё
+    const coverH = this.coverH = c.size === 'mini' ? 0.052 : 0.09;
+    add(B, rbox(W - 0.012, coverH, coverD, 0.004), shell, 0, -H / 2 + 0.01 + coverH / 2, -D / 2 + coverD / 2 + 0.01);
     const logo = canvasTex(512, 128, (g, w, h) => { g.clearRect(0, 0, w, h); g.fillStyle = inkFor(c.look.main); g.textBaseline = 'middle'; fitText(g, c.brand.toUpperCase(), 16, h / 2, w * 0.68, 64, 900); g.fillStyle = c.look.accent; g.fillRect(w - 140, 44, 110, 9); g.fillRect(w - 140, 66, 70, 9); });
-    decal(B, Math.min(0.16, coverD * 0.85), 0.04, logo, W / 2 - 0.0055, -H / 2 + 0.055, -D / 2 + coverD / 2 + 0.01, 0, Math.PI / 2, 0);
+    decal(B, Math.min(0.16, coverD * 0.85), Math.min(0.04, coverH * 0.7), logo, W / 2 - 0.0055, -H / 2 + 0.01 + coverH / 2, -D / 2 + coverD / 2 + 0.01, 0, Math.PI / 2, 0);
     // вентиляторы корпуса: спереди и сзади
     const nFront = c.size === 'mini' ? 2 : 3;
     const fanLogo = hubTex(c.brand.split(' ')[0].toUpperCase().slice(0, 9), '#f3f3f5', '#2a2f3a', '');
@@ -251,7 +253,7 @@ export class PcRig {
     this.place('psu', b.psu, () => {
       const g = buildPSU(part(b.psu!) as PSU);
       // В мини-корпусе — компактный блок (как SFX): полноразмерный упирался в видеокарту
-      const k = this.caseRef?.size === 'mini' ? 0.8 : 1;
+      const k = this.caseRef?.size === 'mini' ? 0.75 : 1;
       g.scale.setScalar(k); g.userData.k = k;
       const dims = (g.userData.dims as number[]).map((v) => v * k);
       g.position.set(0, -this.H / 2 + 0.01 + dims[1] / 2, this.D / 2 - 0.02 - dims[2] / 2);
@@ -389,7 +391,7 @@ export class PcRig {
            * Раньше он вылезал из отверстия в крышке, и не было видно, что он от БП.
            */
           const dims = (psu.userData.dims as number[]).map((v) => v * ((psu.userData.k as number) ?? 1));
-          const coverTop = -this.H / 2 + 0.1;
+          const coverTop = -this.H / 2 + 0.01 + this.coverH;
           const psuTop = -this.H / 2 + 0.01 + dims[1];
           const top = Math.max(coverTop, psuTop);
           const xo = Math.min(end.x + 0.03, this.W / 2 - 0.012);
@@ -471,13 +473,15 @@ export class PcRig {
   private covers: { m: THREE.Mesh; y: number }[] = [];
   private ioShield: THREE.Mesh | null = null;
   private caseRef: Case | null = null;
+  /** Высота нижней крышки корпуса (у мини-корпуса ниже). */
+  private coverH = 0.09;
   private rearGeo(): { io: number[]; fan: number[]; slots: number[]; psu: number[] } {
     const W = this.W, H = this.H, mini = this.caseRef?.size === 'mini';
     const ioH = mini ? 0.125 : 0.165;
     const io = [-W / 2 + 0.016, -W / 2 + 0.062, H / 2 - 0.035 - ioH, H / 2 - 0.035];
     const r = 0.052, fx = Math.max(0, io[1] + 0.006 + r);
     const fan = [fx, H / 2 - 0.09, r];
-    const pk = mini ? 0.8 : 1; // компактный БП в мини-корпусе
+    const pk = mini ? 0.75 : 1; // компактный БП в мини-корпусе (как в place('psu'))
     const psuTop = -H / 2 + 0.01 + 0.086 * pk;
     let top = io[2] - 0.006;
     if (this.board) {
