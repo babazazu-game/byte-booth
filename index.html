@@ -1,0 +1,177 @@
+<!doctype html>
+<!--
+  СТАРТОВАЯ РАЗМЕТКА ДЛЯ ИГРЫ ПОД ЯНДЕКС.ИГРЫ.
+
+  Копировать в новую игру целиком и менять только помеченные места:
+  название, цвета и фигуру на экране загрузки. Всё остальное здесь стоит
+  не «по вкусу», а по конкретным граблям — каждая помечена комментарием
+  и пунктом правил площадки.
+
+  Движок не важен: файл одинаково годится и для Phaser, и для Three.js.
+  Разница только в том, что игра положит в `#game`, — холст 2D или WebGL.
+-->
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <!--
+    `viewport-fit=cover` — обязателен: без него safe-area на телефонах
+    с вырезом отдаёт нули, и раскладка считает края экрана не там, где они
+    есть. `maximum-scale=1` и `user-scalable=no` убирают двойной тап,
+    который иначе зумит игру вместо хода.
+  -->
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>Железный ларёк · Byte Booth</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect x=%224%22 y=%223%22 width=%2224%22 height=%2226%22 rx=%224%22 fill=%22%23ff8a5c%22/%3E%3Ccircle cx=%2216%22 cy=%2216%22 r=%227%22 fill=%22%232a1a10%22/%3E%3C/svg%3E">
+
+  <!--
+    SDK площадки.
+
+    Путь ИМЕННО `/sdk.js`, от корня, и это единственное исключение из правила
+    «только относительные пути» (п. 1.7). Файл подставляет сама площадка
+    на своём домене; абсолютная ссылка на yandex.ru — сторонний ресурс,
+    которого в архиве быть не должно.
+
+    Подключается СИНХРОННО и БЕЗ каких-либо условий: гард вида
+    `if (top === self)` ломает инициализацию на черновике в консоли.
+    Локально файла нет, `window.YaGames` останется пустым, и каркас сам
+    перейдёт на язык браузера — 404 в консоли при разработке это нормально.
+  -->
+  <script src="/sdk.js"></script>
+
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      /* fixed + dvh — из-за адресной строки.
+         У обычных 100% высота считается по БОЛЬШОМУ вьюпорту, то есть по
+         экрану без адресной строки. Пока строка видна, низ холста физически
+         находится под ней — так на телефоне срезало нижний ряд интерфейса.
+         100dvh — динамическая высота, всегда равная видимой области.
+         Строка со 100% оставлена запасным вариантом для браузеров постарше. */
+      position: fixed;
+      width: 100%;
+      height: 100%;
+      height: 100dvh;
+      overflow: hidden;
+      background: #2a1a10;          /* ЦВЕТ ФОНА ИГРЫ */
+      /* Блокируем swipe-to-refresh и прокрутку (п. 1.10.2).
+         `touch-action: none` на html/body — сознательно, хотя в общем случае
+         так делать не стоит: он душит прокрутку на iOS. Если весь интерфейс
+         нарисован на холсте, прокручивать нечего, а жест «потянуть вниз для
+         обновления» посреди партии — прямое нарушение. Если в игре ЕСТЬ
+         прокручиваемые DOM-экраны, эту строку надо убрать. */
+      overscroll-behavior: none;
+      touch-action: manipulation;
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      -webkit-touch-callout: none;
+    }
+    #game { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+    #game canvas { display: block; position: absolute; top: 0; left: 0; touch-action: none; }
+
+    /*
+      ЭКРАН ЗАГРУЗКИ — РАЗМЕТКОЙ, А НЕ СЦЕНОЙ.
+
+      Он обязан появиться раньше движка. Игра ждёт SDK (язык нужен до первого
+      кадра, п. 2.14), потом поднимает движок, потом грузит ассеты — и всё это
+      время рисовать нечем. На телефоне отсюда и берётся пустой фон
+      на несколько секунд. Разметка же рисуется браузером сразу, ещё до
+      единой строчки JS.
+
+      Управляется из `yg-core`: splashProgress / splashCaption / splashHide.
+    */
+    #splash {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 5vmin;
+      background: #2a1a10;          /* ТОТ ЖЕ ЦВЕТ, ЧТО У ФОНА */
+      z-index: 10;
+      transition: opacity .32s ease;
+    }
+    #splash.done { opacity: 0; pointer-events: none; }
+
+    /* ФИГУРА ИГРЫ. Рисуется разметкой намеренно: ждать загрузки картинки
+       на экране загрузки было бы странно. Заменить на свою. */
+    #splash-mark {
+      width: 22vmin;
+      height: 22vmin;
+      max-width: 140px;
+      max-height: 140px;
+      border-radius: 42% 58% 54% 46% / 48% 44% 56% 52%;
+      background: radial-gradient(circle at 34% 30%, #ffb38a, #ff8a5c 55%, #e2674f); border-radius: 22% !important;
+      box-shadow: 0 .8vmin 0 rgba(74, 55, 40, .18);
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { transform: scale(1) rotate(-3deg); }
+      50%      { transform: scale(1.08) rotate(3deg); }
+    }
+    /* Уважаем системную настройку «меньше движения». */
+    @media (prefers-reduced-motion: reduce) {
+      #splash-mark { animation: none; }
+    }
+
+    #splash-bar {
+      width: 56vmin;
+      max-width: 360px;
+      height: 2.6vmin;
+      min-height: 12px;
+      max-height: 18px;
+      border-radius: 999px;
+      background: rgba(255, 220, 190, .18);
+      overflow: hidden;
+    }
+    #splash-fill {
+      width: 0;
+      height: 100%;
+      border-radius: 999px;
+      background: #ff8a5c;          /* АКЦЕНТНЫЙ ЦВЕТ ИГРЫ */
+      transition: width .2s ease;
+    }
+    #splash-text {
+      font: 700 clamp(14px, 3.2vmin, 22px)/1.2 system-ui, sans-serif;
+      color: #fbead6;
+      letter-spacing: .02em;
+      /* Пусто до тех пор, пока не известен язык: подписать сначала не тем
+         языком, а через секунду переписать — ровно то, за что площадка
+         делает замечание по п. 2.14. Полоса всё это время уже идёт. */
+      min-height: 1.2em;
+    }
+  </style>
+  <script type="module" crossorigin src="./assets/index.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index.css">
+</head>
+<body>
+  <div id="game"></div>
+  <div id="ui"></div>
+
+  <div id="splash">
+    <div id="splash-mark"></div>
+    <div id="splash-bar"><div id="splash-fill"></div></div>
+    <div id="splash-text"></div>
+  </div>
+
+  <script>
+    /*
+      Жесты браузера, которые ломают игру, гасятся ДО загрузки движка.
+
+      Контекстное меню по долгому нажатию, выделение текста протяжкой и
+      прокрутка страницы пальцем — всё это на холсте выглядит как сбой
+      управления. Ставится здесь, а не в игре: до появления движка проходит
+      секунда-другая, и попасть в неё пальцем вполне можно.
+    */
+    document.addEventListener('contextmenu', (e) => e.preventDefault());
+    document.addEventListener('selectstart', (e) => e.preventDefault());
+    // touchmove НЕ гасим целиком: в игре есть прокручиваемые DOM-списки (магазин, склад).
+    // Холст гасит жесты сам через touch-action: none.
+  </script>
+
+  <!-- ТОЧКА ВХОДА ИГРЫ -->
+</body>
+</html>
