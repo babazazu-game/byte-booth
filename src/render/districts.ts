@@ -23,7 +23,7 @@ export function backdrop(g: THREE.Group, file: string, tint = '#b3aca2'): void {
   const t = new THREE.TextureLoader().load(file);
   t.colorSpace = THREE.SRGBColorSpace;
   const m = new THREE.MeshBasicMaterial({ map: t, color: tint, transparent: true, alphaTest: 0.35, depthWrite: true, fog: true });
-  const m2 = m.clone(); m2.map = t.clone(); m2.map.wrapS = THREE.RepeatWrapping; m2.map.repeat.x = -1; m2.map.needsUpdate = true;
+  const m2 = m.clone(); m2.map = t.clone(); m2.map.wrapS = THREE.ClampToEdgeWrapping; m2.map.repeat.x = -1; m2.map.offset.x = 1; m2.map.needsUpdate = true;
   for (const x of [m, m2]) { x.userData.base = x.color.clone(); BACKDROPS.push(x); }
   // прямые и зеркальные копии по очереди — без обрыва по краям
   for (let k = -5; k <= 6; k++) {

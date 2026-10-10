@@ -199,7 +199,7 @@ function buildPark(root: THREE.Group, lamps: THREE.PointLight[], bulbs: THREE.Me
   const streetT = new THREE.TextureLoader().load('assets/tex/street.webp');
   streetT.colorSpace = THREE.SRGBColorSpace;
   const streetM = new THREE.MeshBasicMaterial({ map: streetT, color: '#b3aca2', transparent: true, alphaTest: 0.35, depthWrite: true, fog: true });
-  const streetM2 = streetM.clone(); streetM2.map = streetT.clone(); streetM2.map.wrapS = THREE.RepeatWrapping; streetM2.map.repeat.x = -1; streetM2.map.needsUpdate = true;
+  const streetM2 = streetM.clone(); streetM2.map = streetT.clone(); streetM2.map.wrapS = THREE.ClampToEdgeWrapping; streetM2.map.repeat.x = -1; streetM2.map.offset.x = 1; streetM2.map.needsUpdate = true; // зеркало без Repeat: иначе на стыке «подтекал» противоположный край — мерцающая полоса
   for (const x of [streetM, streetM2]) { x.userData.base = x.color.clone(); BACKDROPS.push(x); }
   // Панели чередуются «прямая / зеркальная»: на стыке края совпадают, и улица
   // тянется без обрыва в обе стороны (раньше были две — край был виден).
@@ -257,9 +257,9 @@ function buildBackdrop(root: THREE.Group, r: () => number, tileT: THREE.Texture,
   // дома за дорогой (фон меню) — тот же рисованный задник улицы, развёрнутый
   // к камере меню: единый стиль с видом из окна вместо серых коробок
   const bt = new THREE.TextureLoader().load('assets/tex/street.webp');
-  bt.colorSpace = THREE.SRGBColorSpace; bt.wrapS = THREE.RepeatWrapping;
+  bt.colorSpace = THREE.SRGBColorSpace; bt.wrapS = THREE.ClampToEdgeWrapping;
   for (let i = 0; i < 2; i++) {
-    const t2 = i ? bt.clone() : bt; if (i) { t2.repeat.x = -1; t2.needsUpdate = true; }
+    const t2 = i ? bt.clone() : bt; if (i) { t2.repeat.x = -1; t2.offset.x = 1; t2.needsUpdate = true; }
     far.push(new THREE.MeshBasicMaterial({ map: t2, color: '#c9c2b8', transparent: true, alphaTest: 0.35, fog: true }));
   }
   // Камера меню ездит вдоль ларька: две панели кончались, и был виден обрыв.
@@ -341,9 +341,9 @@ export function buildWorld(scene: THREE.Scene): World {
       curDistrict = id;
       // дома за ларьком (фон меню) — тот же задник, что у района
       const file = id === 'park' ? 'assets/tex/street.webp' : `assets/tex/street_${id}.webp`;
-      const t = (farTex[id] ??= (() => { const x = new THREE.TextureLoader().load(file); x.colorSpace = THREE.SRGBColorSpace; x.wrapS = THREE.RepeatWrapping; return x; })());
+      const t = (farTex[id] ??= (() => { const x = new THREE.TextureLoader().load(file); x.colorSpace = THREE.SRGBColorSpace; x.wrapS = THREE.ClampToEdgeWrapping; return x; })());
       farMats[0].map = t;
-      const t2 = t.clone(); t2.repeat.x = -1; t2.needsUpdate = true; farMats[1].map = t2;
+      const t2 = t.clone(); t2.repeat.x = -1; t2.offset.x = 1; t2.needsUpdate = true; farMats[1].map = t2;
       for (const m of farMats) m.needsUpdate = true;
     },
     setPhase(p: number) {

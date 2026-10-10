@@ -82,6 +82,9 @@ const PAL: Record<Season, { fol: string[]; dark: string; flowers: string[] }> = 
   winter: { fol: ['#dfe8ee', '#eef3f6', '#f7fafc', '#ffffff'], dark: '#6f8a8e', flowers: ['#ffffff', '#e8f0f6', '#d8e6f0'] },
   spring: { fol: ['#f4b6c8', '#f8c9d6', '#fbe0e8', '#ffffff'], dark: '#86b858', flowers: ['#ffffff', '#ff9ab8', '#ffe08a'] },
 };
+// листва перекрашивается сезоном — mergeTree не должен запекать её цвет в вершины
+for (const m of [...FOL, FOL_DARK, ...FLOWERS]) m.userData.dyn = true;
+
 export function setSeason(s: Season): void {
   const p = PAL[s];
   FOL.forEach((m, i) => m.color.set(p.fol[i]));

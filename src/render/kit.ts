@@ -254,18 +254,39 @@ export function mergeTree(root: THREE.Object3D): void {
       }
       if (!m.isMesh || (m as unknown as THREE.InstancedMesh).isInstancedMesh || m.children.length || m.userData.keep || m.userData.zone || m.userData.dust || m.userData.slot || Array.isArray(m.material) || !m.visible) continue;
       const g = m.geometry;
-      const k = [(m.material as THREE.Material).uuid, Object.keys(g.attributes).sort().join(','), g.index ? 'i' : 'n', m.castShadow ? 'c' : '', m.receiveShadow ? 'r' : '', m.renderOrder].join('|');
+      const mt = m.material as THREE.MeshStandardMaterial;
+      /*
+       * Простые материалы (только цвет, без текстур и свечения) склеиваются
+       * НЕЗАВИСИМО от цвета: цвет уходит в вершины, материал общий по
+       * шероховатости/металличности. Так сотня «цветных» мешей ларька — это
+       * десяток вызовов отрисовки, а не сотня (FPS).
+       */
+      const plain = mt.type === 'MeshStandardMaterial' && !mt.map && !mt.emissiveMap && !mt.normalMap && !mt.alphaMap && !mt.roughnessMap
+        && !mt.transparent && !mt.vertexColors && mt.opacity === 1 && !mt.alphaTest && !mt.polygonOffset && !mt.userData.dyn
+        && (mt.emissive.getHex() === 0 || mt.emissiveIntensity === 0) && !g.attributes.color;
+      m.userData.vc = plain;
+      const mk = plain ? ['vc', mt.roughness, mt.metalness, mt.side, mt.flatShading ? 'f' : ''].join(':') : mt.uuid;
+      const k = [mk, Object.keys(g.attributes).sort().join(','), g.index ? 'i' : 'n', m.castShadow ? 'c' : '', m.receiveShadow ? 'r' : '', m.renderOrder].join('|');
       let arr = groups.get(k);
       if (!arr) groups.set(k, (arr = []));
       arr.push(m);
     }
     for (const arr of groups.values()) {
       if (arr.length < 2) continue;
-      const geos = arr.map((m) => { m.updateMatrix(); const g = m.geometry.clone(); g.applyMatrix4(m.matrix); g.clearGroups(); return g; });
+      const vc = !!arr[0].userData.vc;
+      // цвета разные — склеиваем с цветом в вершинах; один цвет — как раньше
+      const multi = vc && new Set(arr.map((m) => (m.material as THREE.MeshStandardMaterial).color.getHex())).size > 1;
+      const geos = arr.map((m) => {
+        m.updateMatrix(); const g = m.geometry.clone(); g.applyMatrix4(m.matrix); g.clearGroups();
+        if (multi) { const c = (m.material as THREE.MeshStandardMaterial).color, n = g.attributes.position.count, a = new Float32Array(n * 3); for (let i = 0; i < n; i++) { a[i * 3] = c.r; a[i * 3 + 1] = c.g; a[i * 3 + 2] = c.b; } g.setAttribute('color', new THREE.BufferAttribute(a, 3)); }
+        return g;
+      });
       const merged = mergeGeometries(geos, false);
       geos.forEach((g) => g.dispose());
       if (!merged) continue;
-      const mesh = new THREE.Mesh(merged, arr[0].material);
+      const m0 = arr[0].material as THREE.MeshStandardMaterial;
+      const mat = multi ? std('#ffffff', { vertexColors: true, roughness: m0.roughness, metalness: m0.metalness, side: m0.side, flatShading: m0.flatShading }) : m0;
+      const mesh = new THREE.Mesh(merged, mat);
       mesh.castShadow = arr[0].castShadow; mesh.receiveShadow = arr[0].receiveShadow; mesh.renderOrder = arr[0].renderOrder;
       for (const m of arr) node.remove(m);
       node.add(mesh);
