@@ -561,6 +561,26 @@ export function buildKiosk(root: THREE.Group, inner: THREE.Light[]): KioskParts 
   halo.scale.set(0.55, 0.55, 1); halo.position.set(0, -0.06, 0); pend.add(halo);
   const pool = new THREE.Mesh(new THREE.PlaneGeometry(1.9, 1.1), new THREE.MeshBasicMaterial({ map: radial('rgba(255,186,110,0.42)', 'rgba(255,170,90,0)'), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, polygonOffset: true, polygonOffsetFactor: -3 }));
   pool.rotation.x = -Math.PI / 2; pool.position.set(-0.08, K.counterY + 0.026, 0.18); pool.renderOrder = 2; pool.userData.keep = true; root.add(pool);
+  // следы обжитости на прилавке: круги от кружки, полоска скотча, потёртость у края
+  {
+    const wearT = canvasTex(512, 256, (g, w, h) => {
+      g.clearRect(0, 0, w, h);
+      g.strokeStyle = 'rgba(60,30,12,.28)';
+      for (const [x, y, r] of [[118, 150, 26], [142, 162, 25]] as const) { g.lineWidth = 3; g.beginPath(); g.arc(x, y, r, 0.3, Math.PI * 1.9); g.stroke(); }
+      g.fillStyle = 'rgba(240,226,180,.55)'; g.save(); g.translate(330, 70); g.rotate(-0.25); g.fillRect(-36, -9, 72, 18); g.restore();
+      const gr = g.createLinearGradient(0, h - 50, 0, h); gr.addColorStop(0, 'rgba(255,240,215,0)'); gr.addColorStop(1, 'rgba(255,240,215,.16)');
+      g.fillStyle = gr; g.fillRect(40, h - 50, w - 80, 50);
+    });
+    const wm = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.8), new THREE.MeshBasicMaterial({ map: wearT, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }));
+    wm.rotation.x = -Math.PI / 2; wm.position.set(-0.45, K.counterY + 0.0256, 0.0); wm.renderOrder = 2; wm.userData.keep = true; root.add(wm);
+  }
+  // такие же тёплые пятна под лампой верстака и у монитора: тёплые рабочие
+  // зоны, остальное — спокойнее (разбор Codex: «нужен световой центр»)
+  for (const [x, y, z, w, d, op] of [[BENCH.x + 0.05, 0.9, 1.0, 0.9, 1.3, 0.75], [0, 0.799, 1.85, 1.1, 0.55, 0.55]] as const) {
+    const pl = new THREE.Mesh(new THREE.PlaneGeometry(w, d), (pool.material as THREE.MeshBasicMaterial).clone());
+    (pl.material as THREE.MeshBasicMaterial).opacity = op;
+    pl.rotation.x = -Math.PI / 2; pl.position.set(x, y + 0.001, z); pl.renderOrder = 2; pl.userData.keep = true; root.add(pl);
+  }
   // контактные тени под предметами на прилавке: мягкие тёмные пятна
   const blobT = radial('rgba(10,6,4,0.55)', 'rgba(10,6,4,0)');
   const blobM = new THREE.MeshBasicMaterial({ map: blobT, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });

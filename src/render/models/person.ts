@@ -50,6 +50,7 @@ function headGeometry(skin: string): THREE.BufferGeometry {
   g.rotateY(-Math.PI / 2);
   const p = g.attributes.position as THREE.BufferAttribute, n = V(), col: number[] = [];
   const skinC = new THREE.Color(skin), blushC = new THREE.Color(skin).lerp(new THREE.Color('#ee7a6c'), 0.55), c = new THREE.Color();
+  const warmC = new THREE.Color(skin).lerp(new THREE.Color('#e0705a'), 0.4);
   for (let i = 0; i < p.count; i++) {
     n.fromBufferAttribute(p, i).normalize();
     const low = Math.max(0, -n.y);
@@ -59,7 +60,19 @@ function headGeometry(skin: string): THREE.BufferGeometry {
     x += Math.sign(n.x) * ch * 0.012; z += ch * 0.02;
     p.setXYZ(i, x, y, z);
     const b = Math.exp(-(((n.y + 0.2) ** 2) / 0.01 + ((Math.abs(n.x) - 0.55) ** 2) / 0.018)) * Math.max(0, n.z);
-    c.copy(skinC).lerp(blushC, Math.min(1, b * 0.9)); col.push(c.r, c.g, c.b);
+    c.copy(skinC).lerp(blushC, Math.min(1, b * 0.9));
+    /*
+     * Объём лица цветом вершин (разбор Codex: лица «пластиковые»): мягкая тень
+     * в глазницах и под подбородком, светлее лоб, теплее виски у ушей.
+     * Ничего не стоит — это те же цвета вершин, без нового света.
+     */
+    const sock = Math.exp(-(((n.y - 0.2) ** 2) / 0.012 + ((Math.abs(n.x) - 0.3) ** 2) / 0.02)) * Math.max(0, n.z);
+    const chin = Math.max(0, -n.y - 0.45) * 1.6;
+    const brow = Math.exp(-(((n.y - 0.5) ** 2) / 0.04 + (n.x ** 2) / 0.08)) * Math.max(0, n.z);
+    const temple = Math.exp(-((Math.abs(n.x) - 0.92) ** 2) / 0.02) * Math.max(0, 1 - Math.abs(n.y) * 1.5);
+    c.lerp(warmC, Math.min(1, temple * 0.35));
+    c.multiplyScalar(1 - sock * 0.13 - Math.min(0.2, chin * 0.2) + brow * 0.06);
+    col.push(c.r, c.g, c.b);
   }
   g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
   g.computeVertexNormals();

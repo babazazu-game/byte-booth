@@ -45,6 +45,30 @@ export function buildProps(root: THREE.Group): Props {
     const m = add(root, rbox(s, hgt, s * 0.8, 0.008, 2), std('#fff', { map: t, roughness: 0.9 }), x, y + hgt / 2, z, 0, (i - 1.5) * 0.15, 0);
     m.receiveShadow = true;
   });
+  // ── постоянный запас на дальнем краю стеллажа: склад не выглядит пустым ──
+  // (купленные детали ставятся ближе, до z 1.62 — см. shelf.ts)
+  {
+    const LV = [0.064, 0.634, 1.134, 1.594, 2.034], SX = 1.25;
+    const labels: (() => string)[] = [() => tr('КАБЕЛИ', 'CABLES'), () => tr('ВИНТЫ', 'SCREWS'), () => tr('ВЕНТИЛЯТОРЫ', 'FANS'), () => tr('ТЕРМОПАСТА', 'PASTE'), () => tr('ЗАПЧАСТИ', 'SPARES'), () => tr('ВОЗВРАТ', 'RETURNS')];
+    const plastic = [std('#3d5a80', { roughness: 0.6 }), std('#e2674f', { roughness: 0.6 }), std('#2f6f6b', { roughness: 0.6 })];
+    LV.forEach((y, li) => {
+      const room = (LV[li + 1] ?? 2.5) - y - 0.03;
+      if (li % 2 === 0) {
+        // картонные коробки с надписями, стопкой
+        const h1 = Math.min(0.22, room * 0.55), w1 = 0.26;
+        const m1 = add(root, rbox(0.34, h1, w1, 0.006, 2), std('#fff', { map: kraftTex(70 + li, labels[li % 6], h1 / 0.34), roughness: 0.9 }), SX + 0.02, y + 0.0125 + h1 / 2, 1.78, 0, Math.PI / 2 + 0.05, 0);
+        m1.receiveShadow = true;
+        if (room > 0.32) add(root, rbox(0.26, 0.12, 0.2, 0.006, 2), std('#fff', { map: kraftTex(80 + li, labels[(li + 2) % 6], 0.46), roughness: 0.9 }), SX + 0.03, y + 0.0125 + h1 + 0.06, 1.8, 0, Math.PI / 2 - 0.08, 0);
+      } else {
+        // пластиковые ящики с мелочёвкой
+        for (let k = 0; k < 2; k++) {
+          const z = 1.7 + k * 0.15;
+          add(root, rbox(0.3, 0.1, 0.13, 0.01, 2), plastic[(li + k) % 3], SX + 0.02, y + 0.0125 + 0.05, z);
+          add(root, box(0.26, 0.004, 0.1), std('#2a2d32', { roughness: 0.9 }), SX + 0.02, y + 0.0125 + 0.092, z, 0, 0, 0, false);
+        }
+      }
+    });
+  }
   // ── мусорка с мятой бумагой ──
   // ── мелочи на прилавке: мастерская должна «рассказывать историю» ──
   const cy = 0.925; // верх столешницы
