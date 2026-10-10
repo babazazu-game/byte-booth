@@ -634,6 +634,17 @@ export function buildKiosk(root: THREE.Group, inner: THREE.Light[]): KioskParts 
     strip(K.h, 0.26, V(x - s * 0.003, K.h / 2, iz1 - 0.13), new THREE.Euler(0, -s * Math.PI / 2, s * Math.PI / 2));
     strip(K.h, 0.26, V(x - s * 0.13, K.h / 2, iz1 - 0.003), new THREE.Euler(0, Math.PI, -s * Math.PI / 2));
   }
+  // стена с окном: у пола и потолка, вертикальные углы
+  for (const [y, flip] of [[0.012 + 0.16, 0], [top - 0.16, Math.PI]] as const) strip(iw, 0.32, V(0, y, iz0 + 0.003), new THREE.Euler(0, 0, flip));
+  strip(iw, 0.36, V(0, 0.013, iz0 + 0.18), new THREE.Euler(-Math.PI / 2, 0, 0));
+  for (const s of [-1, 1]) {
+    const x = s < 0 ? ix0 : ix1;
+    strip(K.h, 0.26, V(x - s * 0.003, K.h / 2, iz0 + 0.13), new THREE.Euler(0, -s * Math.PI / 2, -s * Math.PI / 2));
+    strip(K.h, 0.26, V(x - s * 0.13, K.h / 2, iz0 + 0.003), new THREE.Euler(0, 0, s * Math.PI / 2));
+  }
+  // тень от прилавка на пол под ним и под полкой над окном на стену
+  strip(2.6, 0.5, V(0, 0.014, 0.6), new THREE.Euler(-Math.PI / 2, 0, Math.PI));
+  strip(2.4, 0.22, V(0, 2.07, iz0 + 0.004), new THREE.Euler(0, 0, Math.PI));
   const aoMesh = new THREE.Mesh(mergeGeometries(aoParts, false)!, aoM);
   aoMesh.renderOrder = 2; aoMesh.userData.keep = true; aoMesh.castShadow = false; aoMesh.receiveShadow = false;
   root.add(aoMesh);

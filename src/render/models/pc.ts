@@ -115,6 +115,20 @@ export class PcRig {
     const tray = white ? shell : std(lift(c.look.main, 1.55), { roughness: 0.6 });
     const fanFrame = white ? c.look.main : lift(c.look.main, 2.1);
     add(B, rbox(0.006, H, D, 0.004), tray, -W / 2 + 0.003, 0, 0);
+    /*
+     * Глубина внутри корпуса (разбор Codex): мягкое затемнение по краям поддона
+     * платы и у дна — как будто свет в углы не доходит. Две плоскости с одной
+     * маленькой текстурой-«виньеткой», без нового света.
+     */
+    const vig = canvasTex(64, 64, (g, w, h) => {
+      g.clearRect(0, 0, w, h);
+      const gr = g.createRadialGradient(w / 2, h / 2, w * 0.22, w / 2, h / 2, w * 0.72);
+      gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, `rgba(0,0,0,${white ? 0.32 : 0.5})`);
+      g.fillStyle = gr; g.fillRect(0, 0, w, h);
+    });
+    const vigM = new THREE.MeshBasicMaterial({ map: vig, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
+    const vt = add(B, new THREE.PlaneGeometry(D - 0.01, H - 0.01), vigM, -W / 2 + 0.0065, 0, 0, 0, Math.PI / 2, 0, false); vt.renderOrder = 2;
+    const vb = add(B, new THREE.PlaneGeometry(W - 0.01, D - 0.01), vigM, 0, -H / 2 + 0.0105, 0, -Math.PI / 2, 0, 0, false); vb.renderOrder = 2;
     add(B, rbox(W, 0.008, D, 0.004), shell, 0, H / 2 - 0.004, 0);
     add(B, rbox(W, 0.01, D, 0.004), shell, 0, -H / 2 + 0.005, 0);
     for (const [x, z] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) add(B, cyl(0.013, 0.015, 0.012, 20), dark, x * (W / 2 - 0.025), -H / 2 - 0.006, z * (D / 2 - 0.05));
