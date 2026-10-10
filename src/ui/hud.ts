@@ -155,12 +155,13 @@ export class Hud {
     const s = this.app.state!;
     const st = o.state === 'ready' ? t('ord.ready') : o.state === 'bench' ? t('ord.onBench') : t('ord.day', { n: o.day });
     const card = h('div', { class: `ocard ${o.state}` },
-      h('div', { class: 'h' }, h('span', {}, `${o.blogger ? '🎥 ' : ''}${t('ord.' + o.kind)} · ${this.app.custName(o)}`), h('span', {}, money(o.pay + o.haggle))),
+      h('div', { class: 'h' }, h('span', {}, `${o.blogger ? '🎥 ' : ''}${o.trait ? { hurry: '⏱ ', grumpy: '😤 ', fickle: '📞 ' }[o.trait] : ''}${t('ord.' + o.kind)} · ${this.app.custName(o)}`), h('span', {}, money(o.pay + o.haggle))),
       h('div', { class: 'm' }, `${t('preset.' + o.req.preset)} · ${st}${o.rework ? ' · ⟲ ' + t('ord.rework') : ''}`));
     if (open) {
       const ul = h('ul');
       for (const l of this.reqLines(o)) ul.append(h('li', { class: (l.ok === true ? 'ok' : l.ok === false ? 'no' : '') + (l.main ? ' main' : '') }, (l.ok === true ? '✓ ' : l.ok === false ? '✗ ' : '• ') + l.text + (l.main ? ' ★' : '')));
       card.append(ul);
+      if (o.trait) card.append(h('div', { class: 'trait' }, t('trait.hint.' + o.trait)));
       const row = h('div', { style: 'display:flex;gap:6px;margin-top:6px;flex-wrap:wrap' });
       if (o.state === 'active' && s.bench === null) row.append(btn(t('ord.toBench'), () => { const e = S.startBench(s, o.id); if (!e) { this.app.persist(); this.app.go('bench'); this.app.bench.sync(false); this.app.refresh(); this.app.tutorialCheck(); } }, 'primary small'));
       if (o.state !== 'ready') row.append(btn(t('ord.cancel'), () => confirmBox(t('ord.cancelConfirm'), t('ord.cancel'), () => { S.cancelOrder(s, o.id); this.app.persist(); this.app.bench.sync(false); this.app.refresh(); }), 'small ghost'));

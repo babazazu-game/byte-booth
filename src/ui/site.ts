@@ -10,6 +10,7 @@ import { sound } from '../audio/audio.ts';
 import { guideBody } from './guide.ts';
 import { DISTRICTS, DISTRICT_IDS, LEGEND_REP } from '../logic/districts.ts';
 import * as D from '../logic/daily.ts';
+import * as A from '../logic/achievements.ts';
 import { WALLS, FIGS, POSTERS, ownedWalls, wallOf, paintWall, buyFig, buyPoster } from '../logic/collect.ts';
 
 /**
@@ -213,7 +214,7 @@ export class Site {
     const s = this.app.state!;
     const err = S.buy(s, id, 1);
     if (err) { toast(t(err), 'bad'); return; }
-    sound.key(); setTimeout(() => sound.coin(), 60);
+    sound.key(); setTimeout(() => sound.coin(), 60); setTimeout(() => sound.thud(), 260);
     toast(`${part(id).brand} ${part(id).name} · ${money(-S.buyPrice(s, id))}`);
     this.app.persist();
     this.app.refresh();
@@ -272,6 +273,18 @@ export class Site {
         h('div', { class: 'price' }, h('b', {}, '+' + money(tk.reward)), h('span', { class: 'sp' }, '+' + tk.xp + ' ' + t('bonus.xp')))));
     }
     this.app.persist();
+    // достижения
+    const got = s.ach ?? [];
+    this.body.append(h('h4', { class: 'sect' }, t('ach.title') + ` · ${got.length}/${A.ACHS.length}`),
+      h('div', { class: 'achs' }, ...A.ACHS.map((a) => {
+        const v = Math.min(a.need, a.value(s)), done = got.includes(a.id);
+        return h('div', { class: 'ach' + (done ? ' done' : '') },
+          h('div', { class: 'ai' }, a.icon),
+          h('div', { class: 'nm' }, t('ach.' + a.id)),
+          h('div', { class: 'sp' }, t('ach.' + a.id + '.d')),
+          h('div', { class: 'repbar' }, h('i', { style: `width:${Math.round((v / a.need) * 100)}%` })),
+          h('div', { class: 'sp' }, done ? '✓ ' + t('ach.done') : (a.need >= 1000 ? money(v) + ' / ' + money(a.need) : v + ' / ' + a.need) + (a.reward ? ' · +' + money(a.reward) : '')));
+      })));
     // финальная цель
     const sh = D.shopState(s);
     const req = (ok: boolean, txt: string) => h('div', { class: 'kv' }, h('span', {}, txt), h('b', { style: `color:${ok ? '#3f9a5a' : '#d2462f'}` }, ok ? '✓' : '✗'));

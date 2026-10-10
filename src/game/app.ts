@@ -16,6 +16,7 @@ import { sound } from '../audio/audio.ts';
 import { t, variant, nameOf, money, lang } from '../i18n.ts';
 import * as S from '../logic/state.ts';
 import * as D from '../logic/daily.ts';
+import * as A from '../logic/achievements.ts';
 import { part, partOrNull } from '../logic/parts.ts';
 import { ARCHS, makeLook } from '../logic/customers.ts';
 import { buildPerson } from '../render/models/person.ts';
@@ -434,6 +435,10 @@ export class App {
     if (!s || this.views.menu) return;
     this.syncReturns();
     this.world.props.setCash(s.cash);
+    // клиент-«передумал» позвонил: показать один раз
+    for (const o of s.orders) if (o.changedNew) { o.changedNew = false; sound.ring(); toast('📞 ' + t('trait.fickleCall', { name: this.custName(o) }), 'good'); }
+    // достижения: награда и фанфара
+    for (const a of A.checkAch(s)) { sound.badge(); toast(`${a.icon} ${t('ach.got')}: ${t('ach.' + a.id)}${a.reward ? ' · +' + money(a.reward) : ''}`, 'good'); this.persist(); }
     this.hud.render();
     this.site.render();
     this.bench.refresh();
@@ -488,6 +493,8 @@ export class App {
     const ready = s.orders.find((x) => x.state === 'ready');
     if (ready) { this.callBack(ready.id); return; }
     sound.deskBell();
+    // срочный заказ ещё не выдан — часы тикают
+    if (s.orders.some((x) => x.trait === 'hurry' && (x.state === 'active' || x.state === 'bench') && x.day === s.day)) setTimeout(() => sound.tick(), 500);
     const first = s.day === 1 && s.nextOrder === 1;
     const err = S.callCustomer(s, (id) => part(id).price, first ? { arch: 'gamer', kind: 'build', preset: 'office' } : undefined);
     if (err) { toast(t(err), 'bad'); return; }
@@ -540,6 +547,7 @@ export class App {
     if (r.vendor) extras.push(t('extra.vendor', { v: r.vendor === 'amd' ? 'AMD' : 'Intel' }));
     if (r.reliable) extras.push(t('extra.reliable'));
     if (r.main) extras.push(t('main.' + r.main));
+    if (o.trait) extras.push(variant('trait.say.' + o.trait, undefined, seed));
     if (o.brought?.length) extras.push(t('extra.brought', { list: [...new Set(o.brought)].map((id) => t('step.' + part(id).cat) + ' ' + part(id).name).join(', ') }));
     const hello = o.blogger ? t('blog.intro') : o.regular ? variant(o.regular.stars >= 4 ? 'greet.regularGood' : 'greet.regularBad', undefined, seed) : variant('greet.' + o.cust.arch, undefined, seed);
     return [hello, need, ...extras, variant('ask.budget', { n: (o.pay + o.haggle).toLocaleString('en-US') }, seed)].join(' ');
@@ -578,7 +586,7 @@ export class App {
     const o = s.pending; if (!o) return;
     const err = S.acceptPending(s);
     if (err) { toast(t(err === 'err.slotsFull' ? 'dlg.slotsFull' : err), 'bad'); return; }
-    sound.paper();
+    sound.paper(); sound.stamp();
     this.director.setMood('smile');
     this.director.say(variant('reply.accept'), this.custName(o));
     this.hideChoices();
@@ -687,6 +695,8 @@ export class App {
     const wonBefore = s.won;
     const ev = S.deliver(s, o.id, opt);
     if (!ev) return;
+    sound.printer();
+    if (o.late) setTimeout(() => toast(t('trait.late', { n: money(o.late!) }), 'bad'), 1200);
     this.persist();
     // плохую сборку клиент на месте не замечает — радуется сдержанно и уходит
     const bad = ev.stars <= 2;
@@ -828,6 +838,7 @@ export class App {
   private endDay(): void {
     const s = this.state!;
     const st = S.endDay(s);
+    sound.shutter(true);
     this.phaseTo = 1; this.phaseSpeed = 0.18;
     sound.cash();
     this.persist();
@@ -859,6 +870,7 @@ export class App {
     await new Promise((r) => setTimeout(r, 900));
     await interstitialBetweenLevels();
     S.startNextDay(s);
+    setTimeout(() => sound.shutter(false), 300);
     this.persist();
     this.phaseNow(-0.3);
     this.phaseTo = this.phase(); this.phaseSpeed = 0.09;
@@ -960,10 +972,10 @@ export class App {
     ray.setFromCamera(new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1), this.engine.camera);
     const P = this.world.props;
     // радио на полке — следующий трек
-    if (ray.intersectObject(P.radio, true).length) { sound.nextRadio(); P.radio.scale.setScalar(1.08); setTimeout(() => P.radio.scale.setScalar(1), 140); return; }
+    if (ray.intersectObject(P.radio, true).length) { sound.nextRadio(); if (this.state) { A.bump(this.state, 'radio'); this.refresh(); } P.radio.scale.setScalar(1.08); setTimeout(() => P.radio.scale.setScalar(1), 140); return; }
     // паутина — убрать (её видно, только если появилась)
     if (P.spider.visible && ray.intersectObject(P.spider, true).length) {
-      P.spider.visible = false; sound.brush(); this.state!.cash += 5; floatyCash(this, e.clientX, e.clientY); this.persist(); this.refresh();
+      P.spider.visible = false; sound.brush(); sound.squeak(); A.bump(this.state!, 'cobweb'); this.state!.cash += 5; floatyCash(this, e.clientX, e.clientY); this.persist(); this.refresh();
       toast(t('spider.gone'), 'good'); return;
     }
     if (ray.intersectObject(this.world.bell, true).length && this.director.free && !this.dialogOpen) {
@@ -1026,6 +1038,8 @@ export class App {
     this.engine.shadowEvery = pp ? 1 : 8;
     if (this.bench.shadowDirty) { this.engine.shadowDirty = true; this.bench.shadowDirty = false; }
     // паутина появляется сама — в среднем раз в 3 минуты игры, в случайном углу
+    // кофемашина иногда варит кофе (если куплена и смотрим в окно)
+    if (!this.views.menu && this.world.coffee.visible && this.views.zone === 'window' && Math.random() < dt / 70) sound.brew();
     if (!this.views.menu && !this.world.props.spider.visible && Math.random() < dt / 180) this.world.props.showSpider((Math.random() * 4) | 0);
     // живые статуэтки: машущая кошка, переливающийся мини-ПК
     for (const slot of this.world.props.figSlots) for (const c of slot.children) (c.userData.tick as ((t: number) => void) | undefined)?.(t);

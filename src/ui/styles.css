@@ -670,3 +670,12 @@
 button.chip.rep { cursor: pointer; text-align: left; }
 .chip.rep .repn { font-size: .78em; }
 .modal .kv.got { opacity: .55; }
+
+/* достижения во вкладке «Бонусы» */
+.site .achs { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
+.site .ach { background: #fff; border: 1px solid #dde3ec; border-radius: 6px; padding: 7px; font-size: 12px; filter: grayscale(.85); opacity: .75; }
+.site .ach.done { filter: none; opacity: 1; border-color: #9fd3ad; background: #f1faf3; }
+.site .ach .ai { font-size: 22px; }
+.site .ach .nm { font-weight: 800; }
+.site .ach .repbar { height: 5px; margin: 4px 0; background: #e3e8ef; border-radius: 3px; border: 0; overflow: hidden; }
+.hud-orders .trait, .ocard .trait { margin-top: 4px; font-size: .8em; color: #8a5a10; background: #fff6d8; border-radius: 4px; padding: 3px 6px; }

@@ -50,8 +50,24 @@ export interface Req {
 
 export interface Customer { arch: Arch; nameIdx: number; seed: number; look: PersonLook }
 
+/**
+ * Характер клиента:
+ * - hurry — «нужно сегодня»: платит на 15% больше, но если не выдать в тот же
+ *   день, срежет 30% оплаты;
+ * - grumpy — ворчун: за 5★ вдвое больше чаевых, за 4★ не даёт ничего, плохая
+ *   работа бьёт по репутации сильнее;
+ * - fickle — передумал: позвонит и добавит пожелание, доплатит 10%.
+ */
+export type Trait = 'hurry' | 'grumpy' | 'fickle';
+
 export interface Order {
   id: number;
+  trait?: Trait;
+  /** Сколько срезал торопыга за опоздание. */
+  late?: number;
+  /** fickle уже позвонил и поменял заказ; changedNew — ещё не показали игроку. */
+  changed?: boolean;
+  changedNew?: boolean;
   kind: Kind;
   cust: Customer;
   req: Req;
@@ -228,7 +244,11 @@ function makeBuild(rng: Rng, id: number, rep: number, day: number, cust: Custome
   // наценка ниже (симуляция tools/econ_sim.ts: деньги копились быстрее, чем их было куда тратить)
   const k = rng.range(1.25, 1.45) * ARCHS[cust.arch].budgetK;
   const pay = Math.round((cost * k) / 10) * 10;
-  return { id, kind: 'build', cust, req, pay, haggle: 0, state: 'active', build: {}, day };
+  // характер — с 2-й репутации, примерно у каждого четвёртого
+  let trait: Trait | undefined;
+  if (rep >= 2) { const q = rng.next(); trait = q < 0.1 ? 'hurry' : q < 0.18 ? 'grumpy' : q < 0.25 ? 'fickle' : undefined; }
+  const pay2 = trait === 'hurry' ? Math.round((pay * 1.15) / 10) * 10 : pay;
+  return { id, kind: 'build', cust, req, pay: pay2, haggle: 0, state: 'active', build: {}, day, trait };
 }
 
 function makeUpgrade(rng: Rng, id: number, rep: number, day: number, cust: Customer, basePrice: (id: string) => number, presetId: string): Order | null {

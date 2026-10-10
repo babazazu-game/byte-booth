@@ -14,6 +14,7 @@ import { makeOrder, evaluate, repLevel, type Order, type Evaluation, type Kind }
 import { type Arch, makeLook } from './customers.ts';
 import { Rng } from './rng.ts';
 import { progress, type Daily } from './daily.ts';
+import { bump, type StatKey } from './achievements.ts';
 import { DISTRICTS, DISTRICT_IDS, MOVE_BACK, LEGEND_REP, type District, type DistrictId } from './districts.ts';
 
 export interface Item {
@@ -141,6 +142,9 @@ export interface GameState {
   daily?: Daily;
   /** Куплен «Свой магазин» — игра пройдена (можно продолжать). */
   shopOwned?: boolean;
+  /** Счётчики для достижений и открытые достижения (achievements.ts). */
+  stats?: Partial<Record<StatKey, number>>;
+  ach?: string[];
 }
 
 const freshDay = (): DayStats => ({ income: 0, tips: 0, spent: 0, sold: 0, rent: 0, served: 0, stars: [] });
@@ -296,6 +300,13 @@ export function callCustomer(s: GameState, basePrice: (id: string) => number, fo
   if (s.pending) return 'err.busyWindow';
   if (s.visitsToday >= visitsMax(s)) return 'err.dayOver';
   const r = rngOf(s);
+  // клиент, который передумал: звонит, пока ждёт свой ПК, и добавляет пожелание
+  const fk = s.orders.find((x) => x.trait === 'fickle' && !x.changed && (x.state === 'active' || x.state === 'bench'));
+  if (fk && r.chance(0.5)) {
+    fk.changed = true; fk.changedNew = true;
+    if (!fk.req.rgb) fk.req.rgb = true; else if (!fk.req.white) fk.req.white = true; else fk.req.silent = true;
+    fk.pay = Math.round((fk.pay * 1.1) / 10) * 10;
+  }
   // Касса почти пуста (всё ушло в ларёк) — чаще приходят на чистку: для неё
   // детали не нужны, только паста, и игрок может заработать на закупку.
   if (!forced && s.cash < 450 && s.day >= 2 && r.chance(0.85)) forced = { kind: 'clean' };
@@ -616,8 +627,14 @@ export function deliver(s: GameState, orderId: number, opt: { discount?: number;
   o.result = ev;
   o.state = 'done';
   // повторная выдача после возврата — деньги уже были уплачены
-  const pay = o.returned ? 0 : Math.max(0, o.pay + o.haggle - (opt.discount ?? 0) + (opt.extra ?? 0));
-  const tip = ev.stars >= 4 && !o.returned && !opt.noTip ? ev.tip : 0;
+  // торопыга: не успели в тот же день — срезает 30%
+  const late = o.trait === 'hurry' && s.day > o.day && !o.returned ? Math.round((o.pay + o.haggle) * 0.3) : 0;
+  if (late) addLoss(s, 'loss.late', late);
+  const pay = o.returned ? 0 : Math.max(0, o.pay + o.haggle - (opt.discount ?? 0) + (opt.extra ?? 0) - late);
+  // ворчун: за 5★ чаевые вдвое, за 4★ — ничего
+  const tipBase = o.trait === 'grumpy' ? (ev.stars >= 5 ? ev.tip * 2 : 0) : ev.tip;
+  const tip = ev.stars >= 4 && !o.returned && !opt.noTip ? tipBase : 0;
+  o.late = late;
   // неиспользованные детали клиент забирает с собой
   s.inv = s.inv.filter((it) => it.owner !== o.id);
   o.paid = (o.paid ?? 0) + pay;
@@ -646,7 +663,7 @@ export function deliver(s: GameState, orderId: number, opt: { discount?: number;
   } else {
     s.today.stars.push(ev.stars);
     // чистка — вполовину опыта: иначе репутация (и аренда) обгоняли деньги
-    s.xp = Math.max(0, s.xp + (o.kind === 'clean' ? Math.round(ev.xp * 0.5) : ev.xp));
+    s.xp = Math.max(0, s.xp + (o.kind === 'clean' ? Math.round(ev.xp * 0.5) : ev.xp) - (o.trait === 'grumpy' && ev.stars <= 3 ? 5 : 0));
   }
   if (o.blogger && !o.returned) {
     // Обзор выходит завтра: хорошая сборка — очередь к ларьку, плохая — отток.
@@ -657,6 +674,17 @@ export function deliver(s: GameState, orderId: number, opt: { discount?: number;
     s.market.news.push({ day: s.day + 1, key: good ? 'news.blogGood' : bad ? 'news.blogBad' : 'news.blogOk', kind: good ? 'start' : bad ? 'fake' : 'flavor' });
   }
   if (o.kind === 'build' && !o.returned) s.built++;
+  // счётчики достижений
+  if (!o.returned) {
+    if (o.kind === 'build' && ev.stars >= 5) bump(s, 'build5');
+    if (o.kind === 'build' && ev.stars >= 4 && o.build.case && part(o.build.case).cat === 'case' && (part(o.build.case) as { color?: string }).color === 'white') bump(s, 'white');
+    if (o.kind === 'clean' && ev.stars >= 4) bump(s, 'clean');
+    if (o.build.tidy && ev.stars >= 3) bump(s, 'tidy');
+    if (o.trait === 'grumpy' && ev.stars >= 5) bump(s, 'grumpy5');
+    if (o.trait === 'hurry' && !o.late && ev.stars >= 4) bump(s, 'hurryOk');
+    if (o.trait === 'fickle' && o.changed && ev.stars >= 4) bump(s, 'fickleOk');
+    if (o.blogger && ev.stars >= 4) bump(s, 'blogGood');
+  }
   if (!s.won && isLegend(s)) s.won = true;
   return { ...ev, payout: pay, tip };
 }
@@ -745,6 +773,8 @@ export function endDay(s: GameState): DayStats {
   s.cash -= r;
   s.today.rent = r;
   const stats = s.today;
+  // дни подряд без минуса в кассе
+  if (s.cash >= 0) { bump(s, 'noMinus'); s.stats!.noMinusBest = Math.max(s.stats!.noMinusBest ?? 0, s.stats!.noMinus ?? 0); } else if (s.stats) s.stats.noMinus = 0;
   // Посетитель у окна, с которым не договорились, уходит.
   s.pending = null;
   return stats;

@@ -297,6 +297,31 @@ class Sound {
     for (let i = 0; i < 9; i++) this.bellTone(t + 0.15 + Math.random() * 0.35, 3000 + Math.random() * 3000, 0.03, 0.15, o, [1, 2.7], [1, 0.4]);
   }
   coin(): void { if (!this.ok()) return; const t = this.now(), o = this.out('sfx', 0, 0.3); this.bellTone(t, 2637, 0.08, 0.35, o, [1, 2.4], [1, 0.3]); this.bellTone(t + 0.08, 3520, 0.07, 0.4, o, [1, 2.4], [1, 0.3]); }
+  /* ── звуки мира (разбор автора: каких ещё нет) ── */
+  /** Рольставня ларька: вниз (закрыли смену) или вверх (утро). */
+  shutter(down: boolean): void {
+    if (!this.ok()) return; const t = this.now(), o = this.out('sfx', 0, 0.2);
+    for (let i = 0; i < 16; i++) this.burst(t + i * 0.045, down ? 900 - i * 25 : 500 + i * 25, 3, 0.06, 0.035, o);
+    this.burst(t, 300, 0.7, 0.08, 0.8, o, 'lowpass');
+    this.tone(t + 0.75, 90, 0.18, 0.15, o, 'sine', 55);
+  }
+  /** Чековый принтер при выдаче заказа. */
+  printer(): void { if (!this.ok()) return; const t = this.now(), o = this.out('sfx', 0.3, 0.1); for (let i = 0; i < 12; i++) this.burst(t + i * 0.035, 2600 + (i % 2) * 400, 6, 0.06, 0.025, o); this.burst(t + 0.45, 4000, 1, 0.05, 0.08, o, 'highpass'); }
+  /** Штамп «принято». */
+  stamp(): void { if (!this.ok()) return; const t = this.now(), o = this.out('sfx', 0, 0.15); this.burst(t, 400, 1, 0.22, 0.07, o, 'lowpass'); this.tone(t, 150, 0.2, 0.08, o, 'sine', 80); }
+  /** Звонок телефона (клиент передумал). */
+  ring(): void { if (!this.ok()) return; const t = this.now(), o = this.out('sfx', 0.4, 0.2); for (let k = 0; k < 2; k++) for (let i = 0; i < 8; i++) { this.tone(t + k * 0.6 + i * 0.05, 1400, 0.05, 0.04, o, 'square'); this.tone(t + k * 0.6 + i * 0.05 + 0.025, 1750, 0.04, 0.03, o, 'square'); } }
+  /** Тиканье часов (срочный заказ). */
+  tick(): void { if (!this.ok()) return; const t = this.now(), o = this.out('sfx', -0.2, 0.05); this.burst(t, 3800, 8, 0.05, 0.012, o); this.burst(t + 0.5, 3200, 8, 0.04, 0.012, o); }
+  /** Кофемашина: шипение и бульканье. */
+  brew(): void { if (!this.ok()) return; const t = this.now(), o = this.out('sfx', 0.5, 0.2); this.burst(t, 1800, 0.6, 0.06, 1.4, o, 'bandpass', 900); for (let i = 0; i < 8; i++) this.tone(t + 0.3 + i * 0.13 + Math.random() * 0.05, 300 + Math.random() * 200, 0.04, 0.06, o, 'sine', 160); }
+  /** Коробка встала на полку. */
+  thud(): void { if (!this.ok()) return; const t = this.now(), o = this.out('sfx', 0.2, 0.1); this.tone(t, 110, 0.22, 0.12, o, 'sine', 60); this.burst(t, 700, 1, 0.1, 0.06, o, 'lowpass'); }
+  /** Писк паучка. */
+  squeak(): void { if (!this.ok()) return; const t = this.now(), o = this.out('sfx', -0.4, 0.1); this.tone(t, 2600, 0.04, 0.07, o, 'triangle', 3600); this.tone(t + 0.09, 3000, 0.035, 0.06, o, 'triangle', 2200); }
+  /** Достижение: короткая фанфара, отличается от уровня репутации. */
+  badge(): void { if (!this.ok()) return; const t = this.now(), o = this.out('sfx', 0, 0.4); [784, 988, 1175, 1568].forEach((f, i) => this.bellTone(t + i * 0.07, f, 0.07, 0.9, o, [1, 2, 3], [1, 0.4, 0.15])); this.fmPluck(t + 0.3, 1568, 0.08, 0.9, o, 1.2); }
+
   levelUp(): void { if (!this.ok()) return; const t = this.now(), o = this.out('sfx', 0, 0.4); [523, 659, 784, 1046, 1318].forEach((f, i) => { this.fmPluck(t + i * 0.09, f, 0.12, 0.7, o, 1.4); this.bellTone(t + i * 0.09, f * 2, 0.025, 0.6, o); }); }
   boot(): void {
     if (!this.ok()) return; const t = this.now(), o = this.out('sfx', -0.2, 0.2);
