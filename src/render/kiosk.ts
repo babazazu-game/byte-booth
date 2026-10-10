@@ -379,14 +379,52 @@ export function buildKiosk(root: THREE.Group, inner: THREE.Light[]): KioskParts 
   const benchAnchor = new THREE.Group(); benchAnchor.position.set(BENCH.x, 0.902, BENCH.z); root.add(benchAnchor);
   // белая перфопанель с инструментами
   add(root, box(0.02, 0.7, 1.5), std('#fff', { map: perfTex(), roughness: 0.5, metalness: 0.2 }), K.x0 + 0.11, 1.45, 1.05);
+  /*
+   * Инструменты на перфопанели — подробнее (автор): у отвёрток ребристая
+   * рукоять с резиновой вставкой и торцом, металлический стержень и жало
+   * (шлиц/крест), висят на крючках; пассатижи с изогнутыми ручками в
+   * резине и шарниром; гаечный ключ.
+   */
+  const steelT = metal('#c9ccd2', 0.25), rubber = std('#1d1f24', { roughness: 0.85 });
+  const PX = K.x0 + 0.12; // лицевая сторона панели
   ['#e8742f', '#3fb6a8', '#f2c94c', '#e2334a'].forEach((c, i) => {
-    const sd = new THREE.Group(); sd.position.set(K.x0 + 0.14, 1.5, 0.55 + i * 0.09); root.add(sd);
-    add(sd, cyl(0.014, 0.016, 0.1, 12), phys(c, { roughness: 0.4, clearcoat: 0.4 }), 0, 0, 0);
-    add(sd, cyl(0.003, 0.003, 0.12, 6), metal('#c9ccd2'), 0, -0.11, 0);
+    const sd = new THREE.Group(); sd.position.set(PX + 0.025, 1.52, 0.5 + i * 0.085); root.add(sd);
+    const handleM = phys(c, { roughness: 0.3, clearcoat: 0.6, transparent: true, opacity: 0.92 });
+    // рукоять — тело вращения: скруглённый торец, грани под пальцы, «юбка» к стержню
+    const prof = [[0, 0.06], [0.012, 0.059], [0.016, 0.052], [0.017, 0.02], [0.015, 0.0], [0.016, -0.02], [0.013, -0.04], [0.006, -0.05], [0.004, -0.055]].map(([x, y]) => V2(x, y));
+    add(sd, new THREE.LatheGeometry(prof, 8), handleM, 0, 0, 0, 0, Math.PI / 8, 0);
+    add(sd, cyl(0.0172, 0.0172, 0.03, 8), rubber, 0, 0.006, 0, 0, Math.PI / 8, 0);
+    add(sd, cyl(0.0085, 0.0085, 0.004, 12), std('#111', { roughness: 0.5 }), 0, 0.062, 0);
+    add(sd, cyl(0.0028, 0.0028, 0.11, 8), steelT, 0, -0.11, 0);
+    if (i % 2) add(sd, box(0.0062, 0.012, 0.0016), steelT, 0, -0.169, 0); // шлиц
+    else { for (const r of [0, Math.PI / 2]) add(sd, box(0.0045, 0.012, 0.0016), steelT, 0, -0.169, 0, 0, r, 0); } // крест
   });
-  const pliers = new THREE.Group(); pliers.position.set(K.x0 + 0.14, 1.52, 1.0); root.add(pliers);
-  for (const s of [-1, 1]) add(pliers, rbox(0.02, 0.14, 0.012, 0.005), std('#e2334a'), 0, -0.04, s * 0.012, 0, 0, s * 0.12);
-  add(pliers, rbox(0.012, 0.06, 0.02, 0.004), metal('#9aa0a8'), 0, 0.06, 0);
+  const pliers = new THREE.Group(); pliers.position.set(PX + 0.022, 1.52, 0.9); root.add(pliers);
+  for (const sx of [-1, 1]) {
+    // ручка в резине изогнута наружу — тонкая трубка по кривой
+    tube(pliers, [V(0, 0.02, sx * 0.004), V(0, -0.04, sx * 0.014), V(0, -0.1, sx * 0.022), V(0, -0.13, sx * 0.02)], 0.0065, std('#e2334a', { roughness: 0.6 }), 16, 8);
+    tube(pliers, [V(0, 0.02, sx * 0.004), V(0, 0.06, sx * 0.004), V(0, 0.085, -sx * 0.001)], 0.0045, steelT, 10, 6);
+  }
+  add(pliers, cyl(0.007, 0.007, 0.012, 12), steelT, 0, 0.02, 0, Math.PI / 2, 0, 0);
+  // гаечный ключ: цельный плоский силуэт — открытый зев сверху, кольцо снизу
+  const wr = new THREE.Group(); wr.position.set(PX + 0.006, 1.48, 1.08); root.add(wr);
+  {
+    const parts: THREE.Shape[] = [];
+    // рукоять
+    const hd = new THREE.Shape(); hd.moveTo(-0.0065, -0.068); hd.lineTo(0.0065, -0.068); hd.lineTo(0.0075, 0.064); hd.lineTo(-0.0075, 0.064); hd.closePath(); parts.push(hd);
+    // голова с открытым зевом (U-вырез сверху)
+    const R = 0.02, cy = 0.078, jw = 0.0085, top = cy + Math.sqrt(R * R - jw * jw);
+    const a1 = Math.atan2(top - cy, -jw), a2 = Math.atan2(top - cy, jw);
+    const head = new THREE.Shape(); head.moveTo(-jw, top);
+    head.absarc(0, cy, R, a1, a2 + Math.PI * 2, false);
+    head.lineTo(jw, cy - 0.004); head.absarc(0, cy - 0.004, jw, 0, Math.PI, true); head.closePath(); parts.push(head);
+    // кольцо на другом конце
+    const ring = new THREE.Shape(); ring.absarc(0, -0.078, 0.017, 0, Math.PI * 2, false);
+    const hole = new THREE.Path(); hole.absarc(0, -0.078, 0.0085, 0, Math.PI * 2, true); ring.holes.push(hole); parts.push(ring);
+    const geo = new THREE.ExtrudeGeometry(parts, { depth: 0.004, bevelEnabled: true, bevelThickness: 0.0008, bevelSize: 0.0008, bevelSegments: 1, curveSegments: 18 });
+    geo.applyMatrix4(new THREE.Matrix4().makeRotationY(Math.PI / 2)); // контур в плоскости панели
+    add(wr, geo, std('#b4bac2', { metalness: 0.3, roughness: 0.35 }));
+  }
   // лампа-пантограф: плафон смотрит в рабочую зону, прожектор стоит в нём
   const arm = std('#1e2125', { roughness: 0.4, metalness: 0.5 });
   // Основание отодвинуто от стены: перфопанель стоит на x≈−1.34, и прежняя
@@ -394,19 +432,35 @@ export function buildKiosk(root: THREE.Group, inner: THREE.Light[]): KioskParts 
   const P0 = V(-1.21, 0.9, 1.66), P1 = V(-1.19, 1.32, 1.64), P2 = V(-1.05, 1.42, 1.44);
   const T = V(-1.06, 0.95, 1.0);
   add(root, cyl(0.075, 0.085, 0.024, 28), arm, P0.x, P0.y + 0.012, P0.z);
+  add(root, cyl(0.065, 0.07, 0.006, 28), std('#2b2f36', { roughness: 0.3, metalness: 0.4 }), P0.x, P0.y + 0.027, P0.z); // накладка
+  add(root, rbox(0.022, 0.01, 0.012, 0.003), std('#e2334a', { roughness: 0.4 }), P0.x + 0.045, P0.y + 0.03, P0.z + 0.02); // выключатель
+  // пружины вдоль рычагов — витки тонкой трубкой
+  const coil = (a: THREE.Vector3, b: THREE.Vector3, off: number) => {
+    const d = b.clone().sub(a), n = 9, pts: THREE.Vector3[] = [];
+    const side = V(0, 0, 1).cross(d).normalize().multiplyScalar(0.007), up2 = V(0, 0, 1).multiplyScalar(0.007);
+    for (let k = 0; k <= n * 6; k++) { const t2 = 0.25 + (k / (n * 6)) * 0.4, an = (k / 6) * TAU; pts.push(a.clone().addScaledVector(d, t2).add(V(0.018, 0, off)).addScaledVector(side, Math.cos(an)).addScaledVector(up2, Math.sin(an))); }
+    tube(root, pts, 0.0011, metal('#c9ccd2', 0.3), n * 12, 4).castShadow = false;
+  };
+  coil(P0, P1, 0); coil(P1, P2, 0);
   for (const off of [-0.012, 0.012]) {
     capsuleBetween(root, P0.clone().add(V(0, 0.03, off)), P1.clone().add(V(0, 0, off)), 0.006, arm);
     capsuleBetween(root, P1.clone().add(V(0, 0, off)), P2.clone().add(V(0, 0, off)), 0.006, arm);
   }
   tube(root, [P0.clone().add(V(0.02, 0.06, 0)), P0.clone().lerp(P1, 0.5).add(V(0.025, 0, 0)), P1.clone().add(V(0.02, -0.04, 0))], 0.0035, metal('#9aa0a8'), 16, 5);
-  add(root, sph(0.018, 12, 8), arm, P1.x, P1.y, P1.z);
-  add(root, sph(0.016, 12, 8), arm, P2.x, P2.y, P2.z);
+  // шарниры — винты-барашки
+  for (const P of [P1, P2]) { add(root, cyl(0.014, 0.014, 0.034, 16), arm, P.x, P.y, P.z, Math.PI / 2, 0, 0); add(root, rbox(0.012, 0.022, 0.006, 0.002), metal('#9aa0a8', 0.35), P.x, P.y, P.z + 0.02); }
   const dir = T.clone().sub(P2).normalize();
   const lampHead = new THREE.Group(); lampHead.position.copy(P2).addScaledVector(dir, 0.05); root.add(lampHead);
   lampHead.quaternion.setFromUnitVectors(V(0, -1, 0), dir);
   add(lampHead, new THREE.CylinderGeometry(0.03, 0.085, 0.11, 28, 1, true), std('#e9e6e0', { roughness: 0.45, side: THREE.DoubleSide }), 0, 0, 0);
   add(lampHead, cyl(0.03, 0.03, 0.01, 20), std('#e9e6e0', { roughness: 0.45 }), 0, 0.055, 0);
   add(lampHead, sph(0.026, 14, 10), own('#000', { emissive: '#ffe0b0', emissiveIntensity: 1.4 }), 0, 0.015, 0);
+  // отражатель внутри плафона, вентиляционное кольцо и ручка
+  add(lampHead, new THREE.CylinderGeometry(0.028, 0.08, 0.1, 28, 1, true), metal('#e7e9ec', 0.15), 0, -0.002, 0).scale.set(0.97, 1, 0.97);
+  add(lampHead, new THREE.TorusGeometry(0.031, 0.003, 6, 24), arm, 0, 0.045, 0, Math.PI / 2);
+  add(lampHead, new THREE.TorusGeometry(0.086, 0.0035, 6, 32), arm, 0, -0.055, 0, Math.PI / 2);
+  // провод — по рычагам к основанию
+  tube(root, [lampHead.position.clone().add(V(0, 0.06, 0.01)), P2.clone().add(V(0, 0.02, 0.02)), P1.clone().add(V(-0.01, 0, 0.022)), P0.clone().add(V(-0.03, 0.03, 0.02)), P0.clone().add(V(-0.07, 0.003, 0.05))], 0.0022, std('#1b1c20'), 30, 5).castShadow = false;
   const benchLight = new THREE.SpotLight('#ffe8cc', 2.6, 2.6, 0.75, 0.6, 1.5);
   benchLight.position.copy(lampHead.position); benchLight.target.position.copy(T);
   root.add(benchLight, benchLight.target);

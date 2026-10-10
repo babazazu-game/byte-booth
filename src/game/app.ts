@@ -958,6 +958,14 @@ export class App {
     const r = cv.getBoundingClientRect();
     const ray = new THREE.Raycaster();
     ray.setFromCamera(new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1), this.engine.camera);
+    const P = this.world.props;
+    // радио на полке — следующий трек
+    if (ray.intersectObject(P.radio, true).length) { sound.nextRadio(); P.radio.scale.setScalar(1.08); setTimeout(() => P.radio.scale.setScalar(1), 140); return; }
+    // паутина — убрать (её видно, только если появилась)
+    if (P.spider.visible && ray.intersectObject(P.spider, true).length) {
+      P.spider.visible = false; sound.brush(); this.state!.cash += 5; floatyCash(this, e.clientX, e.clientY); this.persist(); this.refresh();
+      toast(t('spider.gone'), 'good'); return;
+    }
     if (ray.intersectObject(this.world.bell, true).length && this.director.free && !this.dialogOpen) {
       const s = this.state!;
       if (s.visitsToday < S.visitsMax(s)) this.callNext(); else { sound.deskBell(); toast(t('err.dayOver')); }
@@ -1017,6 +1025,8 @@ export class App {
     // клиент у окна — тени каждый кадр (иначе его тень дёргалась), никого — раз в 8 кадров
     this.engine.shadowEvery = pp ? 1 : 8;
     if (this.bench.shadowDirty) { this.engine.shadowDirty = true; this.bench.shadowDirty = false; }
+    // паутина появляется сама — в среднем раз в 3 минуты игры, в случайном углу
+    if (!this.views.menu && !this.world.props.spider.visible && Math.random() < dt / 180) this.world.props.showSpider((Math.random() * 4) | 0);
     // живые статуэтки: машущая кошка, переливающийся мини-ПК
     for (const slot of this.world.props.figSlots) for (const c of slot.children) (c.userData.tick as ((t: number) => void) | undefined)?.(t);
     this.engine.render();
@@ -1024,6 +1034,9 @@ export class App {
 }
 
 export { partOrNull, repLevel };
+
+/** «+$5» у пальца — за убранную паутину. */
+function floatyCash(_app: App, x: number, y: number): void { floaty('+$5', x, y); }
 
 /**
  * CSS matrix3d, переводящая четырёхугольник src в dst (по 4 точкам).

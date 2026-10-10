@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { ramSlotsOf } from '../../logic/compat.ts';
 import { part, type Case, type MB, type CPU, type GPU, type RAM, type SSD, type PSU, type Cooler } from '../../logic/parts.ts';
 import type { Build, SlotKey } from '../../logic/compat.ts';
-import { add, std, phys, metal, own, rbox, box, cyl, extrude, rrPath, canvasTex, decal, tube, fitText, inkFor, shade, mergeTree, V, TAU } from '../kit.ts';
+import { add, std, phys, metal, own, rbox, box, cyl, extrude, rrPath, canvasTex, decal, tube, fitText, inkFor, shade, mergeTree, V, TAU, rgbMatH } from '../kit.ts';
 import { buildFan, hubTex, type Fan } from './fan.ts';
 import { RAM_PITCH, buildBoard, buildCPU, buildPaste, buildRAM, buildSSD, buildPSU, buildCooler, type BoardModel, type CoolerModel } from './board.ts';
 import { buildGPU, type GpuModel } from './gpu.ts';
@@ -44,6 +44,14 @@ function memoGrill(): THREE.Texture {
   }));
 }
 
+/** Свои пропорции у моделей — с расстояния корпуса различаются силуэтом (автор: «все похожи»). */
+export const CASE_DIMS_ID: Record<string, [number, number, number]> = {
+  'zalman-t8': [0.205, 0.44, 0.43], popmini: [0.215, 0.42, 0.42], ch560: [0.23, 0.5, 0.455], h5flow: [0.21, 0.465, 0.43],
+};
+/** Подсветка вентиляторов: у каждой модели свой цвет (null — радуга). */
+const CASE_GLOW: Record<string, string | null> = { cc560: '#2fe0cf', popmini: null, ch560: '#ff8a3c', o11evo: '#4fc8ff' };
+/** Оттенок бокового стекла. */
+const CASE_GLASS: Record<string, [string, number]> = { cc560: ['#2a3038', 0.34], h5flow: ['#3a3446', 0.3], nr200p: ['#7f9fe0', 0.18], o11evo: ['#dbe8f0', 0.1] };
 export const CASE_DIMS: Record<Case['size'], [number, number, number]> = {
   mid: [0.22, 0.47, 0.44],
   mini: [0.19, 0.31, 0.38],
@@ -99,7 +107,7 @@ export class PcRig {
   private buildCase(c: Case): void {
     this.body.clear(); this.panel.clear(); this.fans.length = 0; this.caseDust.length = 0;
     this.content = {}; this.board = null; this.boardId = ''; this.cables = {}; this.cableKey = {};
-    const [W, H, D] = CASE_DIMS[c.size];
+    const [W, H, D] = CASE_DIMS_ID[c.id] ?? CASE_DIMS[c.size];
     this.W = W; this.H = H; this.D = D;
     this.caseRef = c;
     const white = c.color === 'white';
@@ -170,6 +178,8 @@ export class PcRig {
       add(B, box(0.03, 0.004, 0.002), accM, 0, H / 2 - 0.07, -D / 2 - 0.0098);
     }
     if (c.id === 'cc560') add(B, box(W - 0.06, 0.004, 0.003), accM, 0, -H / 2 + 0.05, -D / 2 - 0.0075);
+    if (c.id === 'popmini') add(B, box(W - 0.05, 0.006, 0.003), rgbMatH(), 0, -H / 2 + 0.045, -D / 2 - 0.0075);
+    if (c.id === 'zalman-t8') for (const sx of [-1, 1]) add(B, box(0.008, H - 0.12, 0.004), metal('#c9ccd2', 0.3), sx * (W / 2 - 0.035), 0, -D / 2 - 0.008);
     // нижняя крышка спереди с логотипом
     // Крышка кончается в 6 см от блока питания: в этом зазоре поднимается кабель
     // видеокарты. При D − 0.2 зазора не было, и кабель шёл сквозь крышку.
@@ -194,13 +204,15 @@ export class PcRig {
     const rf = buildFan({ R: 0.056, frame: true, frameColor: fanFrame, rgb: !!c.rgb, logo: fanLogo, blade: '#4a4f59' });
     const rx = this.rearGeo().fan[0];
     rf.group.position.set(rx, H / 2 - 0.09, D / 2 - 0.017); B.add(rf.group); this.fans.push(rf);
+    { const gcol = CASE_GLOW[c.id]; if (gcol) for (const f of this.fans) for (const m of f.rgb) m.emissive.set(gcol); }
     const rd = makeDust(0.112, 0.112); rd.position.set(rx, H / 2 - 0.09, D / 2 - 0.032); rd.rotation.y = Math.PI; B.add(rd); this.caseDust.push(rd);
     // заднюю стенку с настоящими вырезами строит buildRear(); старая нарисованная
     // «заглушка слотов» лежала поверх и закрывала выход видеокарты
     // боковая панель: стекло или сталь
     const P = this.panel;
     if (c.glass) {
-      const gl = add(P, rbox(0.004, H - 0.012, D - 0.012, 0.002), phys('#6f8796', { roughness: 0.05, transparent: true, opacity: 0.12, depthWrite: false }), 0, 0, 0);
+      const [gc, go] = CASE_GLASS[c.id] ?? ['#6f8796', 0.12];
+      const gl = add(P, rbox(0.004, H - 0.012, D - 0.012, 0.002), phys(gc, { roughness: 0.05, transparent: true, opacity: go, depthWrite: false }), 0, 0, 0);
       gl.castShadow = false;
     } else {
       add(P, rbox(0.004, H - 0.012, D - 0.012, 0.002), shell, 0, 0, 0);
@@ -482,7 +494,12 @@ export class PcRig {
       this.content.gpu?.gpu?.update(dt * p, true);
       for (const f of this.content.cooler?.cooler?.fans ?? []) f.rotor.rotation.z -= dt * 12 * p;
       const c = new THREE.Color();
-      for (const [i, f] of this.fans.entries()) { c.setHSL((t * 0.12 + i * 0.12) % 1, 0.9, 0.55); for (const m of f.rgb) m.emissive.copy(c); }
+      const glow = this.caseRef ? CASE_GLOW[this.caseRef.id] : null;
+      for (const [i, f] of this.fans.entries()) {
+        if (glow) c.set(glow).multiplyScalar(0.75 + 0.25 * Math.sin(t * 2 + i)); // свой цвет, мягкое «дыхание»
+        else c.setHSL((t * 0.12 + i * 0.12) % 1, 0.9, 0.55);
+        for (const m of f.rgb) m.emissive.copy(c);
+      }
     }
   }
 

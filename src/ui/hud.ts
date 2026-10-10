@@ -6,7 +6,7 @@ import { g as G, gameScore, workScore, ramTotal, powerDraw, temps } from '../log
 import { GOLD, RELIABLE_PSU, RELIABLE_TEMP } from '../logic/orders.ts';
 import * as S from '../logic/state.ts';
 import { t, money, lang } from '../i18n.ts';
-import { h, btn, icon, thumb, confirmBox } from './dom.ts';
+import { h, btn, icon, thumb, confirmBox, modal } from './dom.ts';
 import { sound } from '../audio/audio.ts';
 import type { Zone } from '../render/views.ts';
 
@@ -50,7 +50,8 @@ export class Hud {
     this.top.append(
       h('div', { class: 'chip cash live ' + (s.cash < 0 ? 'neg' : '') }, money(s.cash)),
       h('div', { class: 'chip' }, t('hud.day', { n: s.day }), h('span', { class: 'sub' }, t('hud.visits', { n: s.visitsToday, max: S.visitsMax(s) }))),
-      h('div', { class: 'chip rep' }, h('span', {}, t('hud.rep', { n: lv })), h('div', { class: 'repbar' }, h('i', { style: `width:${pct}%` }))),
+      // репутация — с числами до следующего уровня; нажатие открывает объяснение
+      (() => { const el = h('button', { class: 'chip rep live', 'aria-label': t('rep.title') }, h('span', {}, '★ ' + t('hud.rep', { n: lv })), h('div', { class: 'repbar' }, h('i', { style: `width:${pct}%` })), h('span', { class: 'sub repn' }, REP_XP[lv + 1] ? `${s.xp - cur}/${next - cur}` : 'MAX')); el.addEventListener('click', () => this.repInfo()); return el; })(),
       h('div', { class: 'spacer' }),
       btn([icon('gear')], () => this.app.pause(), 'small', { 'aria-label': t('menu.pause') }),
     );
@@ -77,6 +78,14 @@ export class Hud {
     this.renderActions();
     this.renderTutorial();
     if (this.app.views.zone === 'shelf') this.renderStock(); else this.stock.classList.add('hidden');
+  }
+
+  /** Как растёт репутация и что она открывает. */
+  private repInfo(): void {
+    const s = this.app.state!; const lv = S.level(s);
+    const rows = [['5★', '+35'], ['4★', '+22'], ['3★', '+10'], ['2★', '0'], ['1★', '−15']].map(([k, v]) => h('div', { class: 'kv' }, h('span', {}, t('rep.order', { s: k })), h('b', {}, v)));
+    const lvls = REP_XP.slice(2).map((x, i) => h('div', { class: 'kv' + (i + 2 <= lv ? ' got' : '') }, h('span', {}, t('hud.rep', { n: i + 2 })), h('b', {}, String(x))));
+    modal(t('rep.title'), [h('p', {}, t('rep.text', { xp: s.xp })), ...rows, h('p', { class: 'sp' }, t('rep.extra')), h('h4', { class: 'sect' }, t('rep.levels')), ...lvls], [{ label: t('ok'), cls: 'primary' }], { dismissable: true });
   }
 
   private renderActions(): void {

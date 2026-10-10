@@ -32,7 +32,7 @@ function stickyTex(text: string, color: string): THREE.Texture {
   });
 }
 
-export interface Props { update(dt: number): void; setDay(n: number, ru: boolean): void; setStickies(lines: string[]): void; setCash(n: number): void; figSlots: THREE.Object3D[]; posterSlots: THREE.Object3D[] }
+export interface Props { radio: THREE.Object3D; spider: THREE.Object3D; showSpider(i: number): void; update(dt: number): void; setDay(n: number, ru: boolean): void; setStickies(lines: string[]): void; setCash(n: number): void; figSlots: THREE.Object3D[]; posterSlots: THREE.Object3D[] }
 
 export function buildProps(root: THREE.Group): Props {
   // ── картонные коробки в углу у прилавка ──
@@ -116,7 +116,8 @@ export function buildProps(root: THREE.Group): Props {
   [[-1.05, 0.16, 0.1, '#b98a57'], [-0.86, 0.12, 0.11, '#c9a06a'], [0.95, 0.14, 0.1, '#b98a57'], [1.12, 0.09, 0.1, '#3d5a80']].forEach(([x, w, h, c]) =>
     add(top, rbox(w as number, h as number, 0.1, 0.004), std(c as string, { roughness: 0.9 }), x as number, 0.0125 + (h as number) / 2, 0));
   // радиоприёмник
-  const radio = new THREE.Group(); radio.position.set(-0.45, 0.0125, 0); top.add(radio);
+  // радио: нажатие — следующий трек (app.tapWindow)
+  const radio = new THREE.Group(); radio.position.set(-0.45, 0.0125, 0); radio.userData.keep = true; top.add(radio);
   add(radio, rbox(0.24, 0.12, 0.08, 0.012), std('#d9cdb4', { roughness: 0.6 }), 0, 0.06, 0);
   add(radio, cyl(0.035, 0.035, 0.004, 24), std('#3d3a35', { roughness: 0.9 }), -0.06, 0.06, 0.041, Math.PI / 2);
   add(radio, rbox(0.08, 0.03, 0.004, 0.002), own('#2a2a22', { emissive: '#ffb45c', emissiveIntensity: 0.7 }), 0.06, 0.075, 0.041);
@@ -163,7 +164,9 @@ export function buildProps(root: THREE.Group): Props {
   for (const y of [1.38, 1.72]) add(ws, rbox(0.34, 0.02, 0.13, 0.004), shelfW2, 0, y, 0.065);
   // роутер с мигающими индикаторами
   add(ws, rbox(0.16, 0.03, 0.1, 0.008), std('#f2f0eb', { roughness: 0.5 }), -0.05, 1.405, 0.06);
-  for (let i = 0; i < 4; i++) add(ws, sph(0.0035, 8, 6), own('#111', { emissive: i % 2 ? '#7dff6a' : '#4fd1c0', emissiveIntensity: 2 }), -0.1 + i * 0.022, 1.405, 0.111);
+  // у каждой лампочки свой материал — мигают вразнобой (update)
+  const routerLeds: THREE.MeshStandardMaterial[] = [];
+  for (let i = 0; i < 4; i++) { const lm = own('#111', { emissive: i % 2 ? '#7dff6a' : '#4fd1c0', emissiveIntensity: 2 }); routerLeds.push(lm); add(ws, sph(0.0035, 8, 6), lm, -0.1 + i * 0.022, 1.405, 0.111); }
   for (const s of [-1, 1]) add(ws, cyl(0.003, 0.003, 0.12, 6), std('#1b1c20'), -0.05 + s * 0.06, 1.48, 0.03, 0, 0, s * 0.25);
   // мотки скотча и изоленты
   for (const [x, c] of [[0.09, '#2f6fd6'], [0.13, '#1b1c20']] as const) add(ws, new THREE.TorusGeometry(0.022, 0.01, 8, 20), std(c, { roughness: 0.6 }), x, 1.4, 0.07, Math.PI / 2); // лежат на полке (верх полки 1.39)
@@ -289,9 +292,42 @@ export function buildProps(root: THREE.Group): Props {
     lcd.needsUpdate = true;
   };
 
+  /*
+   * Паутина с паучком: время от времени появляется в одном из углов у окна,
+   * нажатие убирает (app.tapWindow). Плоскость с рисунком паутины по
+   * диагонали угла и паучок на ниточке.
+   */
+  const webT = canvasTex(256, 256, (g, w, h) => {
+    g.clearRect(0, 0, w, h); g.strokeStyle = 'rgba(245,245,240,.75)'; g.lineWidth = 1.6;
+    const cx = 0, cy = 0, n = 9;
+    for (let k = 0; k < n; k++) { const a = (k / (n - 1)) * (Math.PI / 2); g.beginPath(); g.moveTo(cx, cy); g.lineTo(Math.cos(a) * w * 1.4, Math.sin(a) * h * 1.4); g.stroke(); }
+    for (let rr = 24; rr < w * 1.3; rr += 22) { g.beginPath(); for (let k = 0; k < n; k++) { const a = (k / (n - 1)) * (Math.PI / 2); const q = rr * (0.93 + 0.07 * Math.sin(k * 2.3 + rr)); if (k) g.lineTo(Math.cos(a) * q, Math.sin(a) * q); else g.moveTo(Math.cos(a) * q, Math.sin(a) * q); } g.stroke(); }
+  });
+  const spider = new THREE.Group(); spider.userData.keep = true; spider.visible = false; root.add(spider);
+  const web = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.42), new THREE.MeshBasicMaterial({ map: webT, transparent: true, depthWrite: false, side: THREE.DoubleSide }));
+  web.position.set(0.21, -0.21, 0); spider.add(web);
+  const legM = std('#141414', { roughness: 0.6 });
+  const bug = new THREE.Group(); bug.position.set(0.16, -0.3, 0.01); spider.add(bug);
+  add(bug, sph(0.016, 10, 8), legM, 0, 0, 0).scale.set(1, 1.25, 0.8);
+  add(bug, sph(0.009, 8, 6), legM, 0, 0.022, 0);
+  for (let k = 0; k < 4; k++) for (const sx of [-1, 1]) add(bug, cyl(0.0015, 0.0015, 0.04, 4), legM, sx * 0.02, 0.012 - k * 0.009, 0, 0, 0, sx * (1.0 + (k - 1.5) * 0.25));
+  add(spider, cyl(0.0005, 0.0005, 0.12, 3), std('#eeeeea'), 0.16, -0.24, 0.01);
+  // углы, видимые от окошка: [x, y, z, поворот]
+  const WEB_SPOTS: [number, number, number, number][] = [[-1.33, 2.5, -0.27, Math.PI / 4], [1.33, 2.5, -0.27, -Math.PI / 4 + Math.PI / 2], [-1.33, 1.25, -0.27, Math.PI / 4], [1.33, 1.25, -0.27, -Math.PI / 4 + Math.PI / 2]];
+  let bugT = 0;
+
   return {
+    radio, spider,
+    showSpider(i: number) { const [x, y, z, ry] = WEB_SPOTS[i % WEB_SPOTS.length]; spider.position.set(x, y, z); spider.rotation.set(0, ry, i % 2 ? Math.PI / 2 : 0); spider.visible = true; },
     setCash, figSlots, posterSlots,
-    update(dt: number) { blades.rotation.z -= dt * 14; },
+    update(dt: number) {
+      blades.rotation.z -= dt * 14;
+      // лампочки роутера мигают вразнобой, как при передаче данных
+      bugT += dt;
+      routerLeds.forEach((m, i) => { m.emissiveIntensity = Math.sin(bugT * (7 + i * 3.1) + i * 1.7) > 0.2 ? 2.4 : 0.25; });
+      // паучок покачивается на ниточке
+      if (spider.visible) bug.position.y = -0.3 + Math.sin(bugT * 1.3) * 0.015;
+    },
     setDay(n: number, ru: boolean) {
       if (n === lastDay) return; lastDay = n;
       const c = calT.image as HTMLCanvasElement, g = c.getContext('2d')!;

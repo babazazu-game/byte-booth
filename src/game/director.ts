@@ -63,7 +63,7 @@ export class Director {
     const p = buildPerson(look, seed);
     // облокачиваясь, ладони кладёт ровно на столешницу прилавка
     // ладони — на подоконник окна (он на 4,5 см выше прилавка): ниже рука проходила сквозь стену
-    p.st.restY = 0.97; p.st.restZ = KIOSK.z0;
+    p.st.restY = 0.972; p.st.restZ = KIOSK.z0 - 0.075; // ладонь ближе к улице: пальцы кончаются у края подоконника, а не свешиваются в него
     this.person = p; this.look = look;
     this.root.add(p.root);
     p.root.position.copy(ENTER[0]);

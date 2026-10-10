@@ -666,3 +666,7 @@
 .site .ph { flex-wrap: nowrap; }
 .site .tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; flex: 1; min-width: 0; }
 .site .tabs button { white-space: nowrap; flex: none; }
+/* репутация на HUD: кнопка с числами до следующего уровня */
+button.chip.rep { cursor: pointer; text-align: left; }
+.chip.rep .repn { font-size: .78em; }
+.modal .kv.got { opacity: .55; }

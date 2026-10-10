@@ -436,6 +436,18 @@ class Sound {
    * архив) — тихо переходим на процедурный синтез ниже: тишина хуже.
    */
   private fileBus!: GainNode;
+  private curFile: { src: AudioBufferSourceNode; g: GainNode } | null = null;
+  /** Радио на полке: шипение настройки и следующий трек плейлиста. */
+  nextRadio(): void {
+    if (!this.ok()) return;
+    const t = this.now();
+    this.burst(t, 2400, 0.6, 0.06, 0.35, this.out('sfx', 0.3, 0.1), 'bandpass');
+    if (this.curFile) {
+      const { src, g } = this.curFile;
+      g.gain.cancelScheduledValues(t); g.gain.setTargetAtTime(0.0001, t, 0.08);
+      src.stop(t + 0.35); // onended запустит следующий трек
+    } else if (this.synthOn && this.ctx) this.nextTrack(this.ctx.currentTime + 0.3);
+  }
   private buffers = new Map<string, Promise<AudioBuffer | null>>();
   private synthOn = false;
   private loadTrack(id: string): Promise<AudioBuffer | null> {
@@ -467,7 +479,8 @@ class Sound {
     g.gain.setValueAtTime(1, t + len - 4); g.gain.exponentialRampToValueAtTime(0.0001, t + len);
     src.connect(g).connect(this.fileBus);
     src.start(t); src.stop(t + len + 0.05);
-    src.onended = () => { g.disconnect(); void this.playFileTrack(); };
+    src.onended = () => { g.disconnect(); if (this.curFile?.src === src) this.curFile = null; void this.playFileTrack(); };
+    this.curFile = { src, g };
     this.onTrack?.(id);
   }
   /*

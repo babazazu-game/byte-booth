@@ -481,6 +481,8 @@ function buildPersonFull(L: PersonLook, seed: number, far: boolean): Person {
           R.shoulder[k].rotation.y *= 1 - w;
           R.elbow[k].rotation.x += (el - R.elbow[k].rotation.x) * w;
           R.wrist[k].rotation.x += (wr - R.wrist[k].rotation.x) * w;
+          // пальцы плашмя, пока опирается (согнутые уходили кончиками в подоконник)
+          (R.hand[k].userData.curl as (a: number) => void)(0.12 * (1 - w) + 0.02 * w);
         }
       }
       body.scale.y = 1 + Math.sin(t * 2.1) * 0.01 * (1 - st.walkW);
