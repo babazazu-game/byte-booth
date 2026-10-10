@@ -166,7 +166,7 @@ export function buildProps(root: THREE.Group): Props {
   for (let i = 0; i < 4; i++) add(ws, sph(0.0035, 8, 6), own('#111', { emissive: i % 2 ? '#7dff6a' : '#4fd1c0', emissiveIntensity: 2 }), -0.1 + i * 0.022, 1.405, 0.111);
   for (const s of [-1, 1]) add(ws, cyl(0.003, 0.003, 0.12, 6), std('#1b1c20'), -0.05 + s * 0.06, 1.48, 0.03, 0, 0, s * 0.25);
   // мотки скотча и изоленты
-  for (const [x, c] of [[0.09, '#2f6fd6'], [0.13, '#1b1c20']] as const) add(ws, new THREE.TorusGeometry(0.022, 0.01, 8, 20), std(c, { roughness: 0.6 }), x, 1.42, 0.07, Math.PI / 2);
+  for (const [x, c] of [[0.09, '#2f6fd6'], [0.13, '#1b1c20']] as const) add(ws, new THREE.TorusGeometry(0.022, 0.01, 8, 20), std(c, { roughness: 0.6 }), x, 1.4, 0.07, Math.PI / 2); // лежат на полке (верх полки 1.39)
   // верхняя полка: коробочки и маленький кактус
   add(ws, rbox(0.1, 0.07, 0.08, 0.004), std('#c9a06a', { roughness: 0.9 }), -0.09, 1.765, 0.06);
   add(ws, rbox(0.07, 0.05, 0.08, 0.004), std('#3d5a80', { roughness: 0.9 }), 0.0, 1.755, 0.06);

@@ -54,7 +54,7 @@ export class Site {
     if (!s || this.el.classList.contains('hidden')) return;
     this.tabsEl.innerHTML = '';
     const bonusDot = D.bonusState(s, new Date()).ready || D.shopState(s).ready ? ' ●' : '';
-    const tabs: [Tab, string][] = [['shop', t('site.shop')], ['bonus', '🎁 ' + t('bonus.tab') + bonusDot], ['news', t('site.news') + (s.newsSeen !== s.day && s.market.news.some((n) => n.day === s.day) ? ' ●' : '')], ['stock', t('site.stock') + ` ${s.inv.length}/${S.capacity(s)}`], ['orders', t('site.orders') + ` ${S.activeOrders(s).length}`], ['upgrades', t('site.upgrades')], ['guide', '? ' + t('help.tab')]];
+    const tabs: [Tab, string][] = [['shop', t('site.shop')], ['news', t('site.news') + (s.newsSeen !== s.day && s.market.news.some((n) => n.day === s.day) ? ' ●' : '')], ['stock', t('site.stock') + ` ${s.inv.length}/${S.capacity(s)}`], ['orders', t('site.orders') + ` ${S.activeOrders(s).length}`], ['upgrades', t('site.upgrades')], ['guide', '? ' + t('help.tab')], ['bonus', '🎁 ' + t('bonus.tab') + bonusDot]];
     for (const [k, label] of tabs) {
       const b = h('button', { class: 'live ' + (this.tab === k ? 'on' : '') }, label);
       b.addEventListener('click', () => { sound.tab(); this.tab = k; this.render(); });

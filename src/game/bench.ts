@@ -659,13 +659,7 @@ export class Bench {
     if (this.tool === 'remove') {
       // Первое попадание по ДЕТАЛИ: кабели и стенки корпуса пропускаем — иначе
       // жгут 24-pin, лежащий поверх видеокарты, перехватывал нажатие.
-      let slot: SlotKey | undefined;
-      for (const hh of this.ray.intersectObject(this.rig.group, true)) {
-        if (!hh.object.visible || hh.object.userData.zone) continue;
-        let o: THREE.Object3D | null = hh.object;
-        while (o && !o.userData.slot) o = o.parent;
-        if (o) { slot = o.userData.slot as SlotKey; break; }
-      }
+      const slot = this.slotAt();
       // корпус тоже снимается (клиент принёс чёрный, а просил белый) — когда он пуст
       if (slot) this.removeSlot(slot);
       return;
@@ -697,13 +691,17 @@ export class Bench {
 
   /** Слот детали под последним лучом (кабели и стенки корпуса пропускаем). */
   private slotAt(): SlotKey | undefined {
+    let hitCase = false;
     for (const hh of this.ray.intersectObject(this.rig.group, true)) {
       if (!hh.object.visible || hh.object.userData.zone) continue;
       let o: THREE.Object3D | null = hh.object;
       while (o && !o.userData.slot) o = o.parent;
       if (o) return o.userData.slot as SlotKey;
+      hitCase = true;
     }
-    return undefined;
+    // попали в сам корпус (стенки, дно, вентиляторы) — он строится отдельно от деталей
+    // и метки слота не имеет; раньше нажатие по нему ничего не делало
+    return hitCase && this.order?.build.case ? 'case' : undefined;
   }
   private removeSlot(slot: SlotKey): void {
     const b0 = this.build;

@@ -19,6 +19,10 @@ const WINDOW_SPOT = V(0, 0, -0.88);
 const ENTER = [V(-7, 0, -2.4), V(-1.3, 0, -1.8), WINDOW_SPOT];
 const EXIT = [WINDOW_SPOT, V(1.2, 0, -1.7), V(7.5, 0, -2.4)];
 
+// пятно-тень под прохожими: одна геометрия и материал на всех
+const BLOB_GEO = new THREE.CircleGeometry(0.42, 20);
+const BLOB_MAT = new THREE.MeshBasicMaterial({ color: '#000', transparent: true, opacity: 0.22, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
+
 export class Director {
   person: Person | null = null;
   look: PersonLook | null = null;
@@ -169,8 +173,11 @@ export class Director {
       const seg = (Math.random() * (path.length - 1)) | 0, dir = Math.random() < 0.5 ? 1 : -1;
       p.root.position.copy(path[seg]).lerp(path[seg + 1], Math.random());
       p.st.walking = true; p.st.walkW = 1; p.st.speed = 0.7 + Math.random() * 0.4;
-      // Тень прохожего — второй проход отрисовки на каждый его меш; на слабом качестве не нужна.
-      if (!shadows) p.root.traverse((o) => { o.castShadow = false; });
+      // Настоящая тень прохожего — второй проход на каждый его меш, а карта теней
+      // обновляется не каждый кадр (Engine.shadowEvery): тень шла рывками.
+      // Вместо неё — мягкое пятно под ногами: движется вместе с ним, почти бесплатно.
+      p.root.traverse((o) => { o.castShadow = false; });
+      if (shadows) { const b = new THREE.Mesh(BLOB_GEO, BLOB_MAT); b.rotation.x = -Math.PI / 2; b.position.y = 0.015; b.renderOrder = 2; b.castShadow = false; p.root.add(b); }
       this.root.add(p.root);
       this.walkers.push({ p, path, i: dir > 0 ? seg + 1 : seg, dir, speed: p.st.speed, base: p.root.position.clone(), side: 0 });
     }

@@ -1014,7 +1014,8 @@ export class App {
     this.world.update(t, dt);
     // как часто перерисовывать тени: клиент двигается — каждый кадр, стоит — раз в 3, нет — раз в 12
     const pp = this.director.person;
-    this.engine.shadowEvery = !pp ? 12 : pp.st.walking || pp.st.carrying || this.director.state !== 'none' && pp.st.walkW > 0.05 ? 1 : 3;
+    // клиент у окна — тени каждый кадр (иначе его тень дёргалась), никого — раз в 8 кадров
+    this.engine.shadowEvery = pp ? 1 : 8;
     if (this.bench.shadowDirty) { this.engine.shadowDirty = true; this.bench.shadowDirty = false; }
     // живые статуэтки: машущая кошка, переливающийся мини-ПК
     for (const slot of this.world.props.figSlots) for (const c of slot.children) (c.userData.tick as ((t: number) => void) | undefined)?.(t);

@@ -567,7 +567,6 @@ export function buildKiosk(root: THREE.Group, inner: THREE.Light[]): KioskParts 
       g.clearRect(0, 0, w, h);
       g.strokeStyle = 'rgba(60,30,12,.28)';
       for (const [x, y, r] of [[118, 150, 26], [142, 162, 25]] as const) { g.lineWidth = 3; g.beginPath(); g.arc(x, y, r, 0.3, Math.PI * 1.9); g.stroke(); }
-      g.fillStyle = 'rgba(240,226,180,.55)'; g.save(); g.translate(330, 70); g.rotate(-0.25); g.fillRect(-36, -9, 72, 18); g.restore();
       const gr = g.createLinearGradient(0, h - 50, 0, h); gr.addColorStop(0, 'rgba(255,240,215,0)'); gr.addColorStop(1, 'rgba(255,240,215,.16)');
       g.fillStyle = gr; g.fillRect(40, h - 50, w - 80, 50);
     });
