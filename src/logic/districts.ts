@@ -12,7 +12,7 @@
 
 import type { Arch } from './customers.ts';
 
-export type DistrictId = 'park' | 'block' | 'center';
+export type DistrictId = 'park' | 'block' | 'harbor' | 'center' | 'old';
 
 export interface District {
   id: DistrictId;
@@ -35,7 +35,11 @@ export const DISTRICTS: Record<DistrictId, District> = {
   block: { id: 'block', minRep: 3, cost: 1500, rentK: 0.8, payK: 0.97, archs: ['dad', 'grandma', 'student', 'teen', 'office', 'gamer', 'gamergirl', 'builder', 'schoolkid'], kinds: [0.42, 0.33, 0.25] },
   // Деловой центр: офисы и богатые клиенты. Дорогие сборки и щедрые чаевые,
   // но аренда кусается, а заказы капризнее (чаще «надёжный», «тихий», «белый»).
-  center: { id: 'center', minRep: 5, cost: 6500, rentK: 1.7, payK: 1.25, archs: ['boss', 'designer', 'coder', 'office', 'streamer', 'crypto', 'oligarch'], kinds: [0.72, 0.23, 0.05] },
+  // Набережная: туристы и молодёжь у моря — игровые сборки и апгрейды, щедрые чаевые.
+  harbor: { id: 'harbor', minRep: 4, cost: 3500, rentK: 1.2, payK: 1.1, archs: ['gamer', 'gamergirl', 'streamer', 'student', 'designer', 'teen', 'dad'], kinds: [0.62, 0.3, 0.08] },
+  center: { id: 'center', minRep: 6, cost: 6500, rentK: 1.7, payK: 1.25, archs: ['boss', 'designer', 'coder', 'office', 'streamer', 'crypto', 'oligarch'], kinds: [0.72, 0.23, 0.05] },
+  // Старый город: коллекционеры и солидная публика — дорогие надёжные сборки, аренда высокая.
+  old: { id: 'old', minRep: 8, cost: 12000, rentK: 2.0, payK: 1.35, archs: ['grandma', 'boss', 'designer', 'coder', 'oligarch', 'dad', 'crypto'], kinds: [0.6, 0.3, 0.1] },
 };
 export const DISTRICT_IDS = Object.keys(DISTRICTS) as DistrictId[];
 

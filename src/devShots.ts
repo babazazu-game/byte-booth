@@ -16,6 +16,8 @@ export async function runShot(app: App, scene: string): Promise<void> {
   const q = new URLSearchParams(location.search);
   // ?up=sign:2,decor:2 — улучшения; ?cam=x,y,z,tx,ty,tz — свой ракурс; ?noui=1 — без интерфейса
   if (q.get('up') && app.state) { for (const kv of q.get('up')!.split(',')) { const [k, v] = kv.split(':'); (app.state.up as Record<string, number>)[k] = Number(v); } app.applyUpgrades(); }
+  // ?dist=harbor — район (проверка окружений)
+  if (q.get('dist') && app.state) { app.state.district = q.get('dist') as never; app.world.setDistrict(q.get('dist')!); }
   const cam = q.get('cam')?.split(',').map(Number);
   if (cam?.length === 6) {
     const v = app.views as unknown as { update: (...a: unknown[]) => void }; const ou = v.update.bind(v);
@@ -120,7 +122,7 @@ async function runScene(app: App, scene: string): Promise<void> {
   S.buy(s, sol.ram!, 2);
   if (scene === 'shop' || scene === 'stock' || scene === 'upgrades') {
     app.go('pc');
-    app.site.tab = scene === 'shop' ? 'shop' : scene === 'stock' ? 'stock' : 'upgrades'; app.site.render();
+    app.site.tab = (new URLSearchParams(location.search).get('tab') as never) ?? (scene === 'shop' ? 'shop' : scene === 'stock' ? 'stock' : 'upgrades'); app.site.render();
     for (let i = 0; i < 60; i++) app.debugStep(0.05);
     return;
   }

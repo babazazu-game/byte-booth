@@ -69,6 +69,7 @@ export class Engine {
   setQuality(q: Quality, sun?: THREE.DirectionalLight): void {
     this.quality = q;
     this.renderer.shadowMap.enabled = q !== 'low';
+    this.shadowDirty = true;
     // PCFSoft в r185 устарел и молча подменяется на PCF (5 выборок) — ставим PCF
     // явно, мягкость даёт radius.
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
@@ -141,10 +142,19 @@ export class Engine {
   }
 
   /*
-   * Тени обновляются каждый кадр. Пробовали раз в 2–4 кадра (экономия ~1 мс):
-   * тени идущих людей дёргались и мерцали — не стоит того.
+   * Тени — половина кадра (≈210 вызовов и 120 тыс. треугольников при 270 в
+   * основном проходе). Прохожие тени не отбрасывают, остальное почти
+   * неподвижно, поэтому карту теней перерисовываем не каждый кадр: каждые
+   * shadowEvery кадров (игра ставит 1, пока клиент у окна движется) и сразу
+   * по shadowDirty (деталь поставлена, качество сменилось).
    */
+  shadowEvery = 1;
+  shadowDirty = true;
+  private sf = 0;
   render(): void {
+    const sm = this.renderer.shadowMap;
+    sm.autoUpdate = false;
+    if (this.shadowDirty || ++this.sf >= this.shadowEvery) { sm.needsUpdate = true; this.sf = 0; this.shadowDirty = false; }
     this.renderer.render(this.scene, this.camera);
   }
 }

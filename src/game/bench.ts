@@ -39,6 +39,8 @@ export class Bench {
   /** Клубы дыма сгоревшего БП: всплывают и тают. */
   private smoke: { m: THREE.Mesh; v: THREE.Vector3; t: number }[] = [];
   private screws: Screw[] = [];
+  /** Сборка изменилась — карту теней обновить сразу (см. Engine.shadowDirty). */
+  shadowDirty = false;
   private gpuLoose: { model: GpuModel; id: string; open: number } | null = null;
   private orderId: number | null = null;
   private dustInit = new Set<number>();
@@ -99,6 +101,7 @@ export class Bench {
 
   /** Привести 3D к состоянию верстака. Зовётся после любого действия. */
   sync(animate = true): void {
+    this.shadowDirty = true;
     const o = this.order;
     if (!o) {
       if (this.orderId !== null) { this.rig.sync({}); this.orderId = null; }
@@ -755,6 +758,7 @@ export class Bench {
     const running = this.running > 0;
     if (running) { this.running -= dt; if (this.running <= 0) sound.fan(false); }
     this.rig.update(dt, t, running);
+    if (Math.abs(this.rig.panelTarget - this.rig.panelOpen) > 0.002) this.shadowDirty = true; // панель едет
     // пыльные места мягко пульсируют тёплым, пока чистка не засчитана — видно, что осталось
     const dustWork = this.order && this.build && (this.build.dust ?? 0) !== 0 && this.dustLevel() >= 0.12;
     const pulse = dustWork ? 0.16 + 0.12 * Math.sin(t * 4.2) : 0; // < 0.3: не попадает в «свечение» сборки
@@ -764,7 +768,7 @@ export class Bench {
       if (pulse) { m.emissive.set('#ffa040'); m.emissiveIntensity = pulse * Math.min(1, d.userData.amount * 2); } else if (m.emissiveIntensity) m.emissiveIntensity = 0;
     }
     for (const f of this.flights) {
-      f.t += dt / f.dur;
+      f.t += dt / f.dur; this.shadowDirty = true; // деталь летит на место — тень за ней
       const k = Math.min(1, f.t), e = 1 - Math.pow(1 - k, 3);
       f.obj.position.lerpVectors(f.from, f.to, e);
     }

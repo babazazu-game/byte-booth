@@ -2,7 +2,8 @@ import * as THREE from 'three';
 import { add, std, phys, own, rbox, box, cyl, sph, canvasTex, mulberry32, mergeTree, flattenStatic, V, V2, TAU } from './kit.ts';
 import { buildProps, type Props } from './props.ts';
 import { buildKiosk } from './kiosk.ts';
-import { buildBlock, buildCenter, BACKDROPS } from './districts.ts';
+import { BUILDERS, BACKDROPS, SEASON } from './districts.ts';
+import { tree, bush, setSeason } from './flora.ts';
 
 /**
  * Мир: ларёк (внутри и снаружи) и парк напротив.
@@ -66,70 +67,6 @@ function makeSky(): THREE.Mesh {
 }
 
 /* ─────────────────────────────── парк ─────────────────────────────── */
-
-/*
- * Деревья и кусты — в стиле нарисованных задников (автор: «деревья хуже, чем
- * на рисунке»): кроны из гранёных шаров (икосаэдр, плоское затенение),
- * сочная салатовая листва — светлее сверху, темнее снизу; у лиственных ствол
- * с двумя ветками, ели — гранёные «свечки». Геометрия общая на всех, материалы
- * общие — mergeTree склеивает парк в несколько вызовов отрисовки.
- */
-const FOL = ['#5f9a34', '#78b23e', '#93c64a', '#a9d45c'].map((c) => std(c, { roughness: 0.85, flatShading: true }));
-const FOL_DARK = std('#4d8530', { roughness: 0.85, flatShading: true });
-const BARK = std('#7a5235', { roughness: 0.9 });
-const FLOWERS = ['#ffffff', '#ffc4d6', '#ffe08a'].map((c) => std(c, { roughness: 0.6, flatShading: true }));
-const facet = (r: number) => new THREE.IcosahedronGeometry(r, 1);
-
-function bush(r: () => number, seed: number): THREE.Group {
-  const g = new THREE.Group();
-  const n = 4 + Math.floor(r() * 3);
-  for (let i = 0; i < n; i++) {
-    const a = (i / n) * TAU + r() * 0.5, d = 0.16 + r() * 0.12, rad = 0.2 + r() * 0.08;
-    add(g, facet(rad), i % 2 ? FOL[0] : FOL_DARK, Math.cos(a) * d, rad * 0.8, Math.sin(a) * d, r(), r(), 0).scale.y = 0.85;
-  }
-  for (let i = 0; i < 3; i++) {
-    const a = r() * TAU, d = r() * 0.12, rad = 0.19 + r() * 0.07;
-    add(g, facet(rad), FOL[1 + (i % 2)], Math.cos(a) * d, 0.36 + r() * 0.1, Math.sin(a) * d, r(), r(), 0);
-  }
-  add(g, facet(0.14), FOL[3], 0, 0.55, 0, r(), r(), 0);
-  // у части кустов — цветочки, как на рисунке
-  if (seed % 3 === 0) for (let i = 0; i < 6; i++) {
-    const a = r() * TAU, d = 0.18 + r() * 0.12;
-    add(g, new THREE.IcosahedronGeometry(0.035, 0), FLOWERS[i % 3], Math.cos(a) * d, 0.3 + r() * 0.25, Math.sin(a) * d);
-  }
-  return g;
-}
-
-function tree(r: () => number, kind: number): THREE.Group {
-  const g = new THREE.Group();
-  const h = 1.5 + r() * 1.2;
-  if (kind % 3 === 2) {
-    // «свеча» (кипарис/ель с рисунка): гранёный вытянутый конус
-    add(g, cyl(0.06, 0.08, 0.4, 6), BARK, 0, 0.2, 0);
-    // округлая гранёная «капля», светлее кверху — как кипарисы на рисунке
-    add(g, facet(0.5), FOL_DARK, 0, 1.25, 0, r(), r(), 0).scale.set(1, 2.0, 1);
-    add(g, facet(0.38), FOL[0], 0, 2.15, 0, r(), r(), 0).scale.set(1, 1.9, 1);
-    add(g, facet(0.2), FOL[1], 0, 2.75, 0, r(), r(), 0).scale.set(1, 1.6, 1);
-    return g;
-  }
-  add(g, cyl(0.07, 0.13, h, 7), BARK, 0, h / 2, 0);
-  // две ветки из ствола в крону
-  for (const s of [-1, 1]) {
-    const br = add(g, cyl(0.035, 0.055, 0.7, 6), BARK, s * 0.17, h * 0.85, 0, 0, 0, -s * 0.6);
-    br.rotation.y = r() * 0.6;
-  }
-  // крона: нижний тёмный ярус, средний, светлая верхушка — горкой
-  const tiers: [number, number, number, number][] = [[6, 0.55, 0.0, 0.42], [5, 0.38, 0.45, 0.4], [2, 0.16, 0.85, 0.36]];
-  tiers.forEach(([n, ring, dy, rad], t) => {
-    for (let i = 0; i < n; i++) {
-      const a = (i / n) * TAU + r() * 0.5;
-      const m = add(g, facet(rad * (0.85 + r() * 0.3)), t === 0 ? FOL[0] : t === 1 ? FOL[1 + (i % 2)] : FOL[3], Math.cos(a) * ring, h + 0.25 + dy + r() * 0.1, Math.sin(a) * ring, r(), r(), 0);
-      m.scale.y = 0.92;
-    }
-  });
-  add(g, facet(0.5), FOL[1], 0, h + 0.55, 0, r(), r(), 0);
-  return g;
-}
 
 function bench(): THREE.Group {
   const g = new THREE.Group();
@@ -387,13 +324,14 @@ export function buildWorld(scene: THREE.Scene): World {
     setDistrict(id: string) {
       if (!groups[id]) {
         const g = new THREE.Group(); g.userData.keep = true; root.add(g);
-        const set = id === 'block' ? buildBlock(g) : buildCenter(g);
+        const set = BUILDERS[id](g);
         bulbs.push(...set.bulbs);
         finalize(g);
         groups[id] = g;
         world.setPhase(phase);
       }
       for (const [k2, g] of Object.entries(groups)) g.visible = k2 === id;
+      setSeason(SEASON[id] ?? 'summer');
       if (curDistrict === id) return;
       curDistrict = id;
       // дома за ларьком (фон меню) — тот же задник, что у района

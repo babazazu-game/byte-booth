@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { DecalGeometry } from 'three/addons/geometries/DecalGeometry.js';
 import type { PersonLook } from '../../logic/customers.ts';
-import { add, std, phys, own, rbox, sph, cyl, canvasTex, tube, capsuleBetween, noiseDisplace, blob, mulberry32, shade, mergeTree, bakeVertexColors, V, V2, TAU } from '../kit.ts';
+import { add, std, phys, own, rbox, sph, cyl, canvasTex, tube, capsuleBetween, noiseDisplace, blob, mulberry32, shade, mergeTree, bakeVertexColors, V, V2, TAU, Q, setDetail } from '../kit.ts';
 
 /**
  * Клиент: «глиняный» человечек со скелетом и процедурной анимацией.
@@ -46,7 +46,7 @@ let MOUTH: Record<Mood, THREE.Texture> | null = null;
 const mouths = () => (MOUTH ??= { smile: mouthTex('smile'), talk: mouthTex('talk'), closed: mouthTex('closed'), sad: mouthTex('sad'), wow: mouthTex('wow') });
 
 function headGeometry(skin: string): THREE.BufferGeometry {
-  const g = new THREE.SphereGeometry(0.28, 80, 60);
+  const g = new THREE.SphereGeometry(0.28, Q(80, 4), Q(60, 3));
   g.rotateY(-Math.PI / 2);
   const p = g.attributes.position as THREE.BufferAttribute, n = V(), col: number[] = [];
   const skinC = new THREE.Color(skin), blushC = new THREE.Color(skin).lerp(new THREE.Color('#ee7a6c'), 0.55), c = new THREE.Color();
@@ -178,6 +178,12 @@ export interface Person {
 }
 
 export function buildPerson(L: PersonLook, seed = 1, far = false): Person {
+  // далёким прохожим — меньше сегментов (см. kit.setDetail)
+  if (far) setDetail(0.35);
+  try { return buildPersonFull(L, seed, far); } finally { setDetail(1); }
+}
+
+function buildPersonFull(L: PersonLook, seed: number, far: boolean): Person {
   const root = new THREE.Group();
   const skin = phys(L.skin, { roughness: 0.62, sheen: 0.25, sheenColor: new THREE.Color('#ffcdb2'), sheenRoughness: 0.5 });
   const skinWarm = phys(shade(L.skin, 0.92), { roughness: 0.6 });
@@ -205,11 +211,11 @@ export function buildPerson(L: PersonLook, seed = 1, far = false): Person {
   const body = new THREE.Group(); torso.add(body);
   const prof = [[0, -0.1], [0.3, -0.095], [0.34, -0.05], [0.36, 0.1], [0.36, 0.3], [0.33, 0.44], [0.27, 0.55], [0.17, 0.62], [0.1, 0.655], [0, 0.665]].map(([r, y]) => V2(r, y));
   add(body, new THREE.LatheGeometry(prof, 48), cloth).scale.set(1, 1, 0.78);
-  add(body, new THREE.TorusGeometry(0.305, 0.035, 10, 48), top === 'suit' ? cloth : clothD, 0, -0.08, 0, Math.PI / 2).scale.set(1, 0.78, 1);
+  add(body, new THREE.TorusGeometry(0.305, 0.035, Q(10), Q(48, 6)), top === 'suit' ? cloth : clothD, 0, -0.08, 0, Math.PI / 2).scale.set(1, 0.78, 1);
   add(body, sph(0.28, 40, 28), cloth, 0, 0.18, 0.07).scale.set(1.05, 1, 0.85);
   const BS = [1.05, 1, 0.85];
   if (top === 'hoodie') {
-    add(body, new THREE.TorusGeometry(0.14, 0.055, 14, 40), clothD, 0, 0.64, 0, Math.PI / 2).scale.set(1.18, 1, 1);
+    add(body, new THREE.TorusGeometry(0.14, 0.055, Q(14), Q(40, 6)), clothD, 0, 0.64, 0, Math.PI / 2).scale.set(1.18, 1, 1);
     const hoodG = blob(0.19, 3, 0.01, 9, 2);
     add(body, hoodG, clothD, 0, 0.62, -0.16).scale.set(1.25, 0.78, 0.62);
     const str = std('#e3dbd0', { roughness: 0.8 });
@@ -221,16 +227,16 @@ export function buildPerson(L: PersonLook, seed = 1, far = false): Person {
     const collar = std(top === 'suit' ? '#f4f2ee' : L.topColor, { roughness: 0.7 });
     [-1, 1].forEach((s) => { const c = add(body, rbox(0.1, 0.06, 0.012, 0.005), collar, s * 0.06, 0.62, 0.16, -0.5, 0, s * 0.5); c.castShadow = false; });
     if (top === 'suit') {
-      add(body, new THREE.SphereGeometry(0.28, 20, 10, Math.PI / 2 - 0.22, 0.44, 0.75, 0.7), std('#f4f2ee', { roughness: 0.7 }), 0, 0.18, 0.07).scale.set(BS[0] * 1.01, BS[1] * 1.01, BS[2] * 1.01);
+      add(body, new THREE.SphereGeometry(0.28, Q(20, 4), Q(10, 3), Math.PI / 2 - 0.22, 0.44, 0.75, 0.7), std('#f4f2ee', { roughness: 0.7 }), 0, 0.18, 0.07).scale.set(BS[0] * 1.01, BS[1] * 1.01, BS[2] * 1.01);
       [-1, 1].forEach((s) => add(body, rbox(0.05, 0.22, 0.012, 0.004), clothD, s * 0.075, 0.5, 0.235, -0.35, 0, s * -0.25));
     }
     const tie = std(L.topColor2, { roughness: 0.55 });
     add(body, rbox(0.035, 0.03, 0.02, 0.008), tie, 0, 0.6, 0.2);
     tube(body, [V(0, 0.58, 0.205), V(0, 0.48, 0.25), V(0, 0.36, 0.285), V(0, 0.3, 0.29)], 0.017, tie, 16, 6).scale.set(1.4, 1, 0.5);
   } else if (top === 'sweater') {
-    add(body, new THREE.TorusGeometry(0.13, 0.05, 14, 40), clothD, 0, 0.64, 0, Math.PI / 2).scale.set(1.18, 1, 1);
+    add(body, new THREE.TorusGeometry(0.13, 0.05, Q(14), Q(40, 6)), clothD, 0, 0.64, 0, Math.PI / 2).scale.set(1.18, 1, 1);
   } else {
-    add(body, new THREE.TorusGeometry(0.12, 0.022, 10, 40), clothD, 0, 0.645, 0.01, Math.PI / 2).scale.set(1.2, 1, 1);
+    add(body, new THREE.TorusGeometry(0.12, 0.022, Q(10), Q(40, 6)), clothD, 0, 0.645, 0.01, Math.PI / 2).scale.set(1.2, 1, 1);
   }
   if (L.vest) {
     // Сигнальный жилет до плеч. Светоотражающие полосы нарисованы на самой
@@ -264,13 +270,13 @@ export function buildPerson(L: PersonLook, seed = 1, far = false): Person {
   }
   if (L.gold) {
     const goldM = std('#e0b54a', { metalness: 0.95, roughness: 0.25 });
-    add(body, new THREE.TorusGeometry(0.13, 0.014, 8, 40), goldM, 0, 0.56, 0.1, Math.PI / 2 - 0.5).scale.set(1.15, 1, 1);
+    add(body, new THREE.TorusGeometry(0.13, 0.014, Q(8), Q(40, 6)), goldM, 0, 0.56, 0.1, Math.PI / 2 - 0.5).scale.set(1.15, 1, 1);
   }
   const pt = printTex(L.print);
   if (pt) {
     // Принт — на животе, ниже шнурков капюшона, и с запасом над тканью: на груди
     // его закрывали шнурки и воротник, а у самой поверхности он «тонул» в кофте.
-    const pr = new THREE.Mesh(new THREE.SphereGeometry(0.28, 32, 16, Math.PI / 2 - 0.5, 1.0, 1.2, 0.62), new THREE.MeshStandardMaterial({ map: pt, alphaTest: 0.5, roughness: 0.8, polygonOffset: true, polygonOffsetFactor: -4 }));
+    const pr = new THREE.Mesh(new THREE.SphereGeometry(0.28, Q(32, 4), Q(16, 3), Math.PI / 2 - 0.5, 1.0, 1.2, 0.62), new THREE.MeshStandardMaterial({ map: pt, alphaTest: 0.5, roughness: 0.8, polygonOffset: true, polygonOffsetFactor: -4 }));
     pr.position.set(0, 0.18, 0.07); pr.scale.set(BS[0] * 1.03, BS[1] * 1.03, BS[2] * 1.03); pr.castShadow = false; body.add(pr);
   }
   add(torso, cyl(0.085, 0.095, 0.16, 20), skin, 0, 0.71, 0);
@@ -314,7 +320,7 @@ export function buildPerson(L: PersonLook, seed = 1, far = false): Person {
   if (L.glasses !== 'none') {
     const lensM = L.glasses === 'sun' ? std('#15171c', { roughness: 0.1, metalness: 0.4 }) : phys('#dfeaf2', { roughness: 0.05, transparent: true, opacity: 0.12, depthWrite: false });
     [-1, 1].forEach((s) => {
-      if (L.glasses === 'round') add(head, new THREE.TorusGeometry(0.079, 0.0125, 12, 40), frameM, s * 0.095, 0.035, 0.287);
+      if (L.glasses === 'round') add(head, new THREE.TorusGeometry(0.079, 0.0125, Q(12), Q(40, 6)), frameM, s * 0.095, 0.035, 0.287);
       else {
         const sh = new THREE.Shape(); const w = 0.16, h = 0.12, r = 0.03;
         sh.moveTo(-w / 2 + r, -h / 2); sh.lineTo(w / 2 - r, -h / 2); sh.quadraticCurveTo(w / 2, -h / 2, w / 2, -h / 2 + r); sh.lineTo(w / 2, h / 2 - r); sh.quadraticCurveTo(w / 2, h / 2, w / 2 - r, h / 2); sh.lineTo(-w / 2 + r, h / 2); sh.quadraticCurveTo(-w / 2, h / 2, -w / 2, h / 2 - r); sh.lineTo(-w / 2, -h / 2 + r); sh.quadraticCurveTo(-w / 2, -h / 2, -w / 2 + r, -h / 2);
@@ -332,32 +338,26 @@ export function buildPerson(L: PersonLook, seed = 1, far = false): Person {
   [-1, 1].forEach((s) => brows.push(tube(head, [V(s * 0.045, 0.15, 0.232), V(s * 0.1, 0.17, 0.222), V(s * 0.15, 0.155, 0.2)], 0.0145, hairM, 16, 8)));
   if (L.beard) {
     /*
-     * Борода — слой поверх самой формы головы: те же вершины, сдвинутые наружу
-     * по нормали на щеках и подбородке и утопленные внутрь за краем. Раньше это
-     * была отдельная сферическая полоса, и она висела на 2 см ниже подбородка
-     * с щелью между ней и лицом. Рот (наклейка) остаётся открытым.
+     * Усы и небольшая бородка вместо сплошной бороды (автор: «бороды ужасные»).
+     * Три варианта по seed: только усы, бородка-эспаньолка, усы с бородкой.
+     * Всё лежит по поверхности лица (точки посчитаны по форме headGeometry).
      */
-    const g2 = headGeometry('#000'); g2.deleteAttribute('color');
-    const bp = g2.attributes.position as THREE.BufferAttribute, bn = g2.attributes.normal as THREE.BufferAttribute;
-    const ss = (a: number, b: number, x: number) => { const k = Math.max(0, Math.min(1, (x - a) / (b - a))); return k * k * (3 - 2 * k); };
-    const dv = V(), nv = V();
-    for (let i = 0; i < bp.count; i++) {
-      dv.fromBufferAttribute(bp, i); nv.fromBufferAttribute(bn, i);
-      const d = dv.clone().normalize();
-      const lower = ss(-0.12, -0.34, d.y), side = ss(0.3, 0.52, Math.abs(d.x)), chin = ss(-0.6, -0.74, d.y), front = ss(-0.4, -0.05, d.z);
-      const w = lower * Math.max(side, chin) * front;
-      dv.addScaledVector(nv, 0.016 * w - 0.008 * (1 - w)); bp.setXYZ(i, dv.x, dv.y, dv.z);
+    const bm = std(L.hairColor, { roughness: 0.8 });
+    const style = seed % 3;
+    if (style !== 1) [-1, 1].forEach((sx) => tube(head, [V(0, -0.086, 0.259), V(sx * 0.035, -0.089, 0.255), V(sx * 0.07, -0.1, 0.24), V(sx * 0.085, -0.118, 0.228)], 0.0125, bm, 12, 6));
+    if (style !== 0) {
+      const gt = add(head, new THREE.SphereGeometry(0.04, Q(16, 4), Q(10, 3)), bm, 0, -0.212, 0.178);
+      gt.scale.set(1.15, 1.15, 0.6);
+      if (style === 2) [-1, 1].forEach((sx) => tube(head, [V(sx * 0.085, -0.118, 0.228), V(sx * 0.05, -0.18, 0.205), V(0, -0.2, 0.19)], 0.008, bm, 10, 6));
     }
-    noiseDisplace(g2, 0.004, 40, 3); g2.computeVertexNormals();
-    add(head, g2, std(L.hairColor, { roughness: 0.85 }));
   }
   buildHair(head, L, hairM, seed);
   if (L.headphones) {
     const hpM = std('#2b2d36', { roughness: 0.35 }), hpA = std(shade(L.topColor, 1.3), { roughness: 0.4 });
-    add(head, new THREE.TorusGeometry(0.335, 0.026, 12, 48, Math.PI), hpM, 0, 0, -0.04);
+    add(head, new THREE.TorusGeometry(0.335, 0.026, Q(12), Q(48, 6), Math.PI), hpM, 0, 0, -0.04);
     [-1, 1].forEach((s) => {
       add(head, cyl(0.088, 0.088, 0.06, 32), hpM, s * 0.322, -0.01, -0.04, 0, 0, Math.PI / 2);
-      add(head, new THREE.TorusGeometry(0.068, 0.026, 12, 32), std('#3b3e49', { roughness: 0.8 }), s * 0.288, -0.01, -0.04, 0, Math.PI / 2, 0);
+      add(head, new THREE.TorusGeometry(0.068, 0.026, Q(12), Q(32, 6)), std('#3b3e49', { roughness: 0.8 }), s * 0.288, -0.01, -0.04, 0, Math.PI / 2, 0);
       add(head, cyl(0.05, 0.05, 0.004, 32), hpA, s * 0.353, -0.01, -0.04, 0, 0, Math.PI / 2);
     });
   }
@@ -504,7 +504,7 @@ function buildHair(head: THREE.Group, L: PersonLook, hairM: THREE.Material, seed
     // с +π/2 она ложилась на лоб «ободком».
     // Венчик — оболочкой по затылку и вискам до линии шеи (раньше был тонкий
     // «бублик» вокруг головы, и сзади под ним торчала голая кожа).
-    const fringe = new THREE.SphereGeometry(1, 48, 20, Math.PI - 0.15, Math.PI + 0.3, 1.12, 0.86);
+    const fringe = new THREE.SphereGeometry(1, Q(48, 4), Q(20, 3), Math.PI - 0.15, Math.PI + 0.3, 1.12, 0.86);
     fringe.scale(0.293, 0.283, 0.272);
     noiseDisplace(fringe, 0.004, 24, 17); fringe.computeVertexNormals();
     add(head, fringe, hairM);
@@ -515,7 +515,7 @@ function buildHair(head: THREE.Group, L: PersonLook, hairM: THREE.Material, seed
   const capLen = L.hair === 'short' || L.hair === 'cap' ? 0.98 : L.hair === 'bob' ? 1.5 : 1.08;
   const capR = L.hair === 'short' ? 0.285 : 0.292;
   if (L.hair !== 'cap') {
-    const cap = new THREE.SphereGeometry(capR, 56, 28, 0, TAU, 0, capLen);
+    const cap = new THREE.SphereGeometry(capR, Q(56, 4), Q(28, 3), 0, TAU, 0, capLen);
     noiseDisplace(cap, L.hair === 'short' ? 0.004 : 0.008, 24, 5); cap.computeVertexNormals();
     add(g, cap, std(L.hairColor, { roughness: 0.72, side: THREE.DoubleSide }));
   }
@@ -530,7 +530,7 @@ function buildHair(head: THREE.Group, L: PersonLook, hairM: THREE.Material, seed
   const low = L.hair === 'long' || L.hair === 'bob' ? 2.3 : tied ? 2.15 : L.hair === 'short' || L.hair === 'cap' ? 1.85 : 2.05;
   // у кепки затылок начинается ниже её края — иначе волосы лезли сквозь ткань
   const top0 = L.hair === 'cap' ? 0.8 : 0.6;
-  const nape = new THREE.SphereGeometry(1, 48, 24, Math.PI + (tied ? 0.45 : 0.12), Math.PI - (tied ? 0.9 : 0.24), top0, low - top0);
+  const nape = new THREE.SphereGeometry(1, Q(48, 4), Q(24, 3), Math.PI + (tied ? 0.45 : 0.12), Math.PI - (tied ? 0.9 : 0.24), top0, low - top0);
   nape.scale(0.293, 0.283, 0.272);
   noiseDisplace(nape, 0.004, 24, 11); nape.computeVertexNormals();
   // у каре и длинных волос затылок входит в цельную оболочку ниже
@@ -544,7 +544,7 @@ function buildHair(head: THREE.Group, L: PersonLook, hairM: THREE.Material, seed
    */
   if (framed) {
     const lowF = L.hair === 'long' ? 2.6 : 2.25;
-    const sh = new THREE.SphereGeometry(1, 56, 28, Math.PI / 2 + 0.95, Math.PI * 2 - 1.9, 0.45, lowF - 0.45);
+    const sh = new THREE.SphereGeometry(1, Q(56, 4), Q(28, 3), Math.PI / 2 + 0.95, Math.PI * 2 - 1.9, 0.45, lowF - 0.45);
     sh.scale(0.305, 0.29, 0.29);
     const pp = sh.attributes.position as THREE.BufferAttribute;
     for (let i = 0; i < pp.count; i++) {
@@ -579,7 +579,7 @@ function buildHair(head: THREE.Group, L: PersonLook, hairM: THREE.Material, seed
     for (let i = 0; i < 9; i++) {
       const pol = 0.15 + hr() * 0.7, az = hr() * TAU;
       const d = V(Math.sin(pol) * Math.sin(az), Math.cos(pol), Math.sin(pol) * Math.cos(az));
-      const c = add(g, new THREE.ConeGeometry(0.045, 0.13, 12), hairM);
+      const c = add(g, new THREE.ConeGeometry(0.045, 0.13, Q(12)), hairM);
       c.position.copy(d).multiplyScalar(0.3); c.quaternion.setFromUnitVectors(V(0, 1, 0), d);
     }
   }
@@ -589,7 +589,7 @@ function buildHair(head: THREE.Group, L: PersonLook, hairM: THREE.Material, seed
   if (L.hair === 'pony') {
     tube(head, [V(0, 0.16, -0.25), V(0, 0.08, -0.33), V(0, -0.08, -0.33), V(0, -0.2, -0.28)], 0.055, hairM, 16, 10).scale.set(1, 1, 1);
     add(head, sph(0.05, 12, 8), hairM, 0, -0.2, -0.28);
-    add(head, new THREE.TorusGeometry(0.045, 0.012, 8, 20), std('#e2674f'), 0, 0.12, -0.29, Math.PI / 2.4, 0, 0);
+    add(head, new THREE.TorusGeometry(0.045, 0.012, Q(8), Q(20, 6)), std('#e2674f'), 0, 0.12, -0.29, Math.PI / 2.4, 0, 0);
   }
   if (L.hair === 'long') {
     // длина — плоская прядь по спине, продолжает оболочку (шар-«горб» убран)
@@ -601,10 +601,10 @@ function buildHair(head: THREE.Group, L: PersonLook, hairM: THREE.Material, seed
     const hat = std('#f2c230', { roughness: 0.35 });
     // купол — до самого экватора: обрезанный на 1.45 рад, он кончался на 1 см выше
     // полей, и между каской и козырьком светилась щель
-    add(head, new THREE.SphereGeometry(0.31, 40, 20, 0, TAU, 0, Math.PI / 2), hat, 0, 0.05, -0.01).scale.set(1, 0.92, 1.02);
+    add(head, new THREE.SphereGeometry(0.31, Q(40, 4), Q(20, 3), 0, TAU, 0, Math.PI / 2), hat, 0, 0.05, -0.01).scale.set(1, 0.92, 1.02);
     add(head, cyl(0.36, 0.36, 0.018, 40), hat, 0, 0.065, 0.02).scale.set(1, 1, 1.08);
     // гребень жёсткости — дуга точно по куполу, спереди назад (была прямая палка)
-    const ridge = add(head, new THREE.TorusGeometry(0.31, 0.022, 10, 48, Math.PI * 0.86), hat, 0, 0.05, -0.01, 0, Math.PI / 2, Math.PI * 0.07);
+    const ridge = add(head, new THREE.TorusGeometry(0.31, 0.022, Q(10), Q(48, 6), Math.PI * 0.86), hat, 0, 0.05, -0.01, 0, Math.PI / 2, Math.PI * 0.07);
     ridge.scale.set(1.02, 0.92, 1);
     add(head, cyl(0.04, 0.04, 0.01, 24), std('#f4f1ea', { roughness: 0.5 }), 0, 0.2, 0.272, 1.1, 0, 0);
   }
@@ -613,7 +613,7 @@ function buildHair(head: THREE.Group, L: PersonLook, hairM: THREE.Material, seed
     // Кепка сдвинута на затылок: спереди край над бровями (брови на 0.15–0.17
     // раньше оказывались внутри), сзади она закрывает затылок, а не сидит
     // маленькой шапочкой на макушке.
-    const capM = add(head, new THREE.SphereGeometry(0.298, 40, 20, 0, TAU, 0, 1.3), capC, 0, 0.02, -0.01, -0.42, 0, 0);
+    const capM = add(head, new THREE.SphereGeometry(0.298, Q(40, 4), Q(20, 3), 0, TAU, 0, 1.3), capC, 0, 0.02, -0.01, -0.42, 0, 0);
     capM.scale.set(1, 0.95, 0.97);
     const brim = add(head, cyl(0.17, 0.17, 0.014, 32), capC, 0, 0.2, 0.24, 0.12, 0, 0);
     brim.scale.set(1, 1, 0.75);

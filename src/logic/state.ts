@@ -13,6 +13,7 @@ import { canInstall, canRemove, SLOT_OF, ramSlotsOf, RAM_ORDER4, type SlotKey, t
 import { makeOrder, evaluate, repLevel, type Order, type Evaluation, type Kind } from './orders.ts';
 import { type Arch, makeLook } from './customers.ts';
 import { Rng } from './rng.ts';
+import { progress, type Daily } from './daily.ts';
 import { DISTRICTS, DISTRICT_IDS, MOVE_BACK, LEGEND_REP, type District, type DistrictId } from './districts.ts';
 
 export interface Item {
@@ -136,6 +137,10 @@ export interface GameState {
   won: boolean;
   totalEarned: number;
   built: number;
+  /** Ежедневный бонус и задания (daily.ts). */
+  daily?: Daily;
+  /** Куплен «Свой магазин» — игра пройдена (можно продолжать). */
+  shopOwned?: boolean;
 }
 
 const freshDay = (): DayStats => ({ income: 0, tips: 0, spent: 0, sold: 0, rent: 0, served: 0, stars: [] });
@@ -627,6 +632,14 @@ export function deliver(s: GameState, orderId: number, opt: { discount?: number;
     s.regulars = reg.slice(-10);
   }
   s.totalEarned += pay + tip;
+  // задания дня
+  if (!o.returned) {
+    progress(s, 'serve');
+    progress(s, 'earn', pay + tip);
+    if (o.kind === 'build' && ev.stars >= 5) progress(s, 'build5');
+    if (o.kind === 'clean' && ev.stars >= 4) progress(s, 'clean');
+    if (o.kind === 'upgrade' && ev.stars >= 4) progress(s, 'upgrade');
+  }
   if (ev.stars <= 2) {
     // проблему клиент обнаружит дома: вернётся завтра
     o.returnAt = s.day + 1;

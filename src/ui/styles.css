@@ -651,3 +651,18 @@
 .bubble.side.left:after { left: auto; right: -9px; transform: rotate(-45deg) skew(8deg, 8deg); }
 /* телефон стоя: под верхней строкой, справа — не налезает на «Репутацию» */
 @media (max-width: 700px) and (min-height: 561px) { .fps { top: calc(18px + var(--safe-t)); right: calc(52px + var(--safe-r, 0px)); font-size: 9.5px; padding: 3px 4px; z-index: 30; } }
+/* вкладка «Бонусы»: серия из 7 дней и задания */
+.site .bdays { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; margin: 6px 0 10px; }
+.site .bday { background: #fff; border: 1px solid #dde3ec; border-radius: 6px; padding: 6px 2px; text-align: center; font-size: 12px; }
+.site .bday .n { color: #6b7686; font-size: 10.5px; }
+.site .bday.got { background: #e6f4ea; border-color: #9fd3ad; opacity: .75; }
+.site .bday.cur { border: 2px solid var(--tape); background: #fffbea; }
+.site .row.task, .site .row.goal { grid-template-columns: 40px 1fr auto; }
+.site .row .ticon { font-size: 22px; text-align: center; }
+.site .row.task.done { opacity: .6; }
+.site .row.task .repbar { height: 6px; margin: 4px 0; background: #e3e8ef; border-radius: 3px; overflow: hidden; }
+.site .row .price .sp { display: block; font-size: 11px; }
+/* вкладок стало 7 — одной строкой с прокруткой и на компьютере (кнопка ✕ уезжала вниз) */
+.site .ph { flex-wrap: nowrap; }
+.site .tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; flex: 1; min-width: 0; }
+.site .tabs button { white-space: nowrap; flex: none; }

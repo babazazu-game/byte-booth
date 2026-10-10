@@ -15,6 +15,7 @@ import { h, btn, toast, modal, confirmBox, floaty, isModalOpen } from '../ui/dom
 import { sound } from '../audio/audio.ts';
 import { t, variant, nameOf, money, lang } from '../i18n.ts';
 import * as S from '../logic/state.ts';
+import * as D from '../logic/daily.ts';
 import { part, partOrNull } from '../logic/parts.ts';
 import { ARCHS, makeLook } from '../logic/customers.ts';
 import { buildPerson } from '../render/models/person.ts';
@@ -147,7 +148,10 @@ export class App {
     this.views.snap();
     this.hud.show(true);
     this.syncAll();
+    this.warmGPU();
     core.gameplayStart();
+    // ежедневный бонус ждёт — напоминаем, где его забрать
+    if (this.state && this.state.tutorial >= 99 && D.bonusState(this.state, new Date()).ready) setTimeout(() => toast(t('bonus.toast'), 'good'), 1200);
     this.refresh();
   }
 
@@ -165,6 +169,25 @@ export class App {
   }
 
   pause(): void { if (!this.views.menu) pauseMenu(this); }
+
+  /**
+   * Прогрев видеокарты: собрать шейдеры всех материалов и загрузить все
+   * текстуры заранее, включая скрытое (верстак, полки, монитор, район).
+   * Иначе это происходило при первом повороте к зоне — кадр «спотыкался».
+   */
+  warmGPU(): void {
+    const R = this.engine.renderer, sc = this.engine.scene;
+    const hidden: THREE.Object3D[] = [];
+    sc.traverse((o) => { if (!o.visible && !o.userData.zone) { hidden.push(o); o.visible = true; } });
+    sc.traverse((o) => {
+      const m = (o as THREE.Mesh).material as THREE.Material | THREE.Material[] | undefined;
+      for (const mm of m ? (Array.isArray(m) ? m : [m]) : []) for (const v of Object.values(mm)) if ((v as THREE.Texture)?.isTexture) R.initTexture(v as THREE.Texture);
+    });
+    // compileAsync ставит программы в очередь синхронно — видимость можно вернуть сразу,
+    // а сборку шейдеров драйвер доделает параллельно (KHR_parallel_shader_compile)
+    void R.compileAsync(sc, this.engine.camera);
+    for (const o of hidden) o.visible = false;
+  }
 
   /** Привести 3D-мир к сохранению (после загрузки или новой игры). */
   private syncAll(): void {
@@ -233,6 +256,7 @@ export class App {
     sound.whoosh();
     await new Promise((r) => setTimeout(r, 1300));
     this.world.setDistrict(id);
+    this.warmGPU();
     this.director.clear();
     this.spawnWalkers();
     this.go('window');
@@ -768,6 +792,16 @@ export class App {
     this.returnRig.group.visible = true;
   }
 
+  /** Финал: купить свой магазин — титры и выбор «играть дальше». */
+  buyShop(): void {
+    const s = this.state!;
+    confirmBox(t('shop.confirm', { n: money(D.SHOP.price) }), t('shop.buy', { n: money(D.SHOP.price) }), () => {
+      if (!D.buyShop(s)) return;
+      this.persist(); sound.levelUp(); this.refresh();
+      modal(t('shop.endTitle'), [h('p', {}, t('shop.endText', { days: s.day, built: s.built, earned: money(s.totalEarned) }))], [{ label: t('shop.continue'), cls: 'primary' }, { label: t('shop.toMenu'), cls: 'ghost', act: () => { this.toMenu(); } }]);
+    });
+  }
+
   private victory(): void {
     sound.levelUp();
     modal(t('win.title'), [h('p', {}, t('win.text'))], [{ label: t('win.ok'), cls: 'primary' }]);
@@ -978,6 +1012,10 @@ export class App {
     if (ds !== this.lastDirState) { this.lastDirState = ds; if (ds === 'free' && !this.views.menu) { this.dialogOpen = false; this.refresh(); } }
     this.bench.update(t, dt);
     this.world.update(t, dt);
+    // как часто перерисовывать тени: клиент двигается — каждый кадр, стоит — раз в 3, нет — раз в 12
+    const pp = this.director.person;
+    this.engine.shadowEvery = !pp ? 12 : pp.st.walking || pp.st.carrying || this.director.state !== 'none' && pp.st.walkW > 0.05 ? 1 : 3;
+    if (this.bench.shadowDirty) { this.engine.shadowDirty = true; this.bench.shadowDirty = false; }
     // живые статуэтки: машущая кошка, переливающийся мини-ПК
     for (const slot of this.world.props.figSlots) for (const c of slot.children) (c.userData.tick as ((t: number) => void) | undefined)?.(t);
     this.engine.render();

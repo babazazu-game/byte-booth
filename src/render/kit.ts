@@ -99,16 +99,24 @@ export function box(w: number, h: number, d: number): THREE.BufferGeometry {
   if (!g) { g = new THREE.BoxGeometry(w, h, d); boxCache.set(k, g); }
   return g;
 }
+/**
+ * Детализация геометрии (1 — полная). Далёкие прохожие строятся с ~0.35:
+ * сферы, трубки, капсулы получают втрое меньше сегментов — силуэт тот же,
+ * треугольников в разы меньше (каждый прохожий весил 15–20 тыс.).
+ */
+let GEO_DETAIL = 1;
+export function setDetail(k: number): void { GEO_DETAIL = k; }
+export const Q = (n: number, min = 3): number => Math.max(min, Math.round(n * GEO_DETAIL));
 const cylCache = new Map<string, THREE.BufferGeometry>();
 export function cyl(rt: number, rb: number, h: number, seg = 24): THREE.BufferGeometry {
-  const k = [rt, rb, h, seg].join(',');
+  seg = Q(seg); const k = [rt, rb, h, seg].join(',');
   let g = cylCache.get(k);
   if (!g) { g = new THREE.CylinderGeometry(rt, rb, h, seg); cylCache.set(k, g); }
   return g;
 }
 const sphCache = new Map<string, THREE.BufferGeometry>();
 export function sph(r: number, w = 24, h = 16): THREE.BufferGeometry {
-  const k = [r, w, h].join(',');
+  w = Q(w, 4); h = Q(h, 3); const k = [r, w, h].join(',');
   let g = sphCache.get(k);
   if (!g) { g = new THREE.SphereGeometry(r, w, h); sphCache.set(k, g); }
   return g;
@@ -135,13 +143,13 @@ export function decal(parent: THREE.Object3D, w: number, h: number, tex: THREE.T
 }
 
 export function tube(parent: THREE.Object3D, pts: THREE.Vector3[], r: number, mat: THREE.Material, seg = 48, radial = 10): THREE.Mesh {
-  const g = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), seg, r, radial, false);
+  const g = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), Q(seg, 4), r, Q(radial, 4), false);
   return add(parent, g, mat);
 }
 
 export function capsuleBetween(parent: THREE.Object3D, a: THREE.Vector3, b: THREE.Vector3, r: number, mat: THREE.Material): THREE.Mesh {
   const d = b.clone().sub(a), len = d.length();
-  const m = add(parent, new THREE.CapsuleGeometry(r, Math.max(1e-4, len), 8, 16), mat);
+  const m = add(parent, new THREE.CapsuleGeometry(r, Math.max(1e-4, len), Q(8, 2), Q(16, 5)), mat);
   m.position.copy(a).add(b).multiplyScalar(0.5);
   m.quaternion.setFromUnitVectors(V(0, 1, 0), d.normalize());
   return m;
@@ -174,7 +182,7 @@ export function noiseDisplace(g: THREE.BufferGeometry, amp: number, freq: number
   }
 }
 export function blob(r: number, detail: number, amp: number, freq: number, seed: number): THREE.BufferGeometry {
-  let g: THREE.BufferGeometry = new THREE.IcosahedronGeometry(r, detail);
+  let g: THREE.BufferGeometry = new THREE.IcosahedronGeometry(r, GEO_DETAIL < 1 ? Math.max(1, detail - 1) : detail);
   g.deleteAttribute('normal'); g.deleteAttribute('uv'); g = mergeVertices(g);
   noiseDisplace(g, amp, freq, seed); g.computeVertexNormals();
   return g;

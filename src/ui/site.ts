@@ -9,6 +9,7 @@ import { h, btn, icon, thumb, toast, spark, confirmBox, modal, dragScroll } from
 import { sound } from '../audio/audio.ts';
 import { guideBody } from './guide.ts';
 import { DISTRICTS, DISTRICT_IDS, LEGEND_REP } from '../logic/districts.ts';
+import * as D from '../logic/daily.ts';
 import { WALLS, FIGS, POSTERS, ownedWalls, wallOf, paintWall, buyFig, buyPoster } from '../logic/collect.ts';
 
 /**
@@ -19,7 +20,7 @@ import { WALLS, FIGS, POSTERS, ownedWalls, wallOf, paintWall, buyFig, buyPoster 
  * невозможно, а так текст всегда нормального кегля (п. 1.8).
  */
 
-type Tab = 'shop' | 'news' | 'stock' | 'orders' | 'upgrades' | 'guide';
+type Tab = 'shop' | 'bonus' | 'news' | 'stock' | 'orders' | 'upgrades' | 'guide';
 
 export class Site {
   readonly el: HTMLElement;
@@ -52,7 +53,8 @@ export class Site {
     const s = this.app.state;
     if (!s || this.el.classList.contains('hidden')) return;
     this.tabsEl.innerHTML = '';
-    const tabs: [Tab, string][] = [['shop', t('site.shop')], ['news', t('site.news') + (s.newsSeen !== s.day && s.market.news.some((n) => n.day === s.day) ? ' ●' : '')], ['stock', t('site.stock') + ` ${s.inv.length}/${S.capacity(s)}`], ['orders', t('site.orders') + ` ${S.activeOrders(s).length}`], ['upgrades', t('site.upgrades')], ['guide', '? ' + t('help.tab')]];
+    const bonusDot = D.bonusState(s, new Date()).ready || D.shopState(s).ready ? ' ●' : '';
+    const tabs: [Tab, string][] = [['shop', t('site.shop')], ['bonus', '🎁 ' + t('bonus.tab') + bonusDot], ['news', t('site.news') + (s.newsSeen !== s.day && s.market.news.some((n) => n.day === s.day) ? ' ●' : '')], ['stock', t('site.stock') + ` ${s.inv.length}/${S.capacity(s)}`], ['orders', t('site.orders') + ` ${S.activeOrders(s).length}`], ['upgrades', t('site.upgrades')], ['guide', '? ' + t('help.tab')]];
     for (const [k, label] of tabs) {
       const b = h('button', { class: 'live ' + (this.tab === k ? 'on' : '') }, label);
       b.addEventListener('click', () => { sound.tab(); this.tab = k; this.render(); });
@@ -63,6 +65,7 @@ export class Site {
     const keepScroll = this.body.scrollTop;
     this.body.innerHTML = '';
     if (this.tab === 'shop') this.renderShop();
+    if (this.tab === 'bonus') this.renderBonus();
     if (this.tab === 'news') this.renderNews();
     if (this.tab === 'stock') this.renderStock();
     if (this.tab === 'orders') this.renderOrders();
@@ -245,6 +248,41 @@ export class Site {
         act));
     }
     this.body.append(grid, h('h4', { class: 'sect' }, t('site.upgrades')));
+  }
+
+  /** Ежедневный бонус, задания дня и финальная цель «Свой магазин». */
+  private renderBonus(): void {
+    const s = this.app.state!, now = new Date();
+    const b = D.bonusState(s, now);
+    const days = h('div', { class: 'bdays' }, ...[1, 2, 3, 4, 5, 6, 7].map((i) => {
+      const got = b.ready ? i < b.day : i <= b.day;
+      const cur = b.ready && i === b.day;
+      return h('div', { class: 'bday' + (got ? ' got' : '') + (cur ? ' cur' : '') }, h('div', { class: 'n' }, t('bonus.day', { n: i })), h('b', {}, money(D.bonusFor(i))), i === 7 ? h('div', { class: 'n' }, t('bonus.paste')) : null);
+    }));
+    this.body.append(h('h4', { class: 'sect', style: 'margin-top:0' }, t('bonus.daily')), h('p', { class: 'sp' }, t('bonus.dailyHint')), days,
+      b.ready ? btn([icon('star'), t('bonus.claim', { n: money(b.amount) })], () => { const got = D.claimBonus(s, now); if (got) { sound.cash(); toast('+' + money(got), 'good'); this.app.persist(); this.app.refresh(); } }, 'primary')
+        : h('p', { class: 'sp' }, t('bonus.tomorrow')));
+    // задания дня
+    this.body.append(h('h4', { class: 'sect' }, t('bonus.tasks')));
+    for (const tk of D.tasksToday(s, now)) {
+      const pct = Math.round((tk.have / tk.need) * 100);
+      this.body.append(h('div', { class: 'row task' + (tk.done ? ' done' : '') },
+        h('div', { class: 'ticon' }, tk.done ? '✓' : '★'),
+        h('div', {}, h('div', { class: 'nm' }, t('task.' + tk.kind, { n: tk.kind === 'earn' ? money(tk.need) : tk.need })), h('div', { class: 'repbar' }, h('i', { style: `width:${pct}%` })), h('div', { class: 'sp' }, tk.kind === 'earn' ? money(tk.have) + ' / ' + money(tk.need) : tk.have + ' / ' + tk.need)),
+        h('div', { class: 'price' }, h('b', {}, '+' + money(tk.reward)), h('span', { class: 'sp' }, '+' + tk.xp + ' ' + t('bonus.xp')))));
+    }
+    this.app.persist();
+    // финальная цель
+    const sh = D.shopState(s);
+    const req = (ok: boolean, txt: string) => h('div', { class: 'kv' }, h('span', {}, txt), h('b', { style: `color:${ok ? '#3f9a5a' : '#d2462f'}` }, ok ? '✓' : '✗'));
+    this.body.append(h('h4', { class: 'sect' }, t('shop.goal')),
+      h('div', { class: 'row goal' + (sh.owned ? ' done' : '') },
+        h('div', { class: 'ticon' }, '🏬'),
+        h('div', {}, h('div', { class: 'nm' }, t('shop.title')), h('div', { class: 'sp' }, t(sh.owned ? 'shop.owned' : 'shop.desc')),
+          req(sh.repOk, t('shop.reqRep', { n: D.SHOP.rep, now: S.level(s) })),
+          req(sh.earnedOk, t('shop.reqEarned', { n: money(D.SHOP.earned), now: money(s.totalEarned) })),
+          req(sh.cashOk, t('shop.reqCash', { n: money(D.SHOP.price) }))),
+        h('div', { class: 'price' }, sh.owned ? h('b', {}, '✓') : btn(t('shop.buy', { n: money(D.SHOP.price) }), () => this.app.buyShop(), 'primary', sh.ready ? {} : { disabled: true }))));
   }
 
   private renderNews(): void {

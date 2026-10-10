@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { add, std, phys, own, rbox, box, cyl, sph, canvasTex, mulberry32, V, TAU } from './kit.ts';
+import { add, std, phys, own, rbox, box, cyl, canvasTex, mulberry32, V, TAU } from './kit.ts';
+import { tree, bush, FOL, FOL_DARK, type Season } from './flora.ts';
 
 /**
  * Окружение ларька в спальном районе и в деловом центре.
@@ -89,7 +90,7 @@ function birch(r: () => number, _i: number): THREE.Group {
   const h = 2.2 + r() * 1.6;
   add(g, cyl(0.06, 0.1, h, 10), std('#ece8df', { roughness: 0.8 }), 0, h / 2, 0);
   for (let k = 0; k < 7; k++) add(g, box(0.08, 0.025, 0.02), std('#2a2a2a'), Math.cos(k * 2.1) * 0.07, 0.4 + k * (h / 8), Math.sin(k * 2.1) * 0.07, 0, k * 2.1, 0, false);
-  const leaf = [std('#a3d05a', { roughness: 0.85, flatShading: true }), std('#82b545', { roughness: 0.85, flatShading: true })];
+  const leaf = [FOL[2], FOL[1]]; // листва сезонная (flora.setSeason)
   for (let k = 0; k < 6; k++) {
     const a = r() * TAU, d = r() * 0.45;
     add(g, new THREE.IcosahedronGeometry(0.38 + r() * 0.25, 1), leaf[k % 2], Math.cos(a) * d, h + r() * 0.8 - 0.1, Math.sin(a) * d, r(), r(), 0).scale.y = 1.2;
@@ -131,7 +132,12 @@ function lamp(set: DistrictSet, modern: boolean): THREE.Group {
 export function buildBlock(g: THREE.Group): DistrictSet {
   const set: DistrictSet = { lamps: [], bulbs: [] };
   const r = mulberry32(3131);
-  const gr = grass(r, '#77985a'); gr.repeat.set(40, 40);
+  // осень: пожухлая трава с опавшими листьями
+  const gr = canvasTex(256, 256, (c, w, h) => {
+    c.fillStyle = '#8f8a4e'; c.fillRect(0, 0, w, h);
+    for (let i = 0; i < 1600; i++) { c.fillStyle = r() < 0.5 ? 'rgba(110,120,60,.45)' : 'rgba(170,150,80,.35)'; c.fillRect(r() * w, r() * h, 2, 4); }
+    for (let i = 0; i < 260; i++) { c.fillStyle = ['#d8642a', '#eba23a', '#c84a2a', '#f2c64a'][i % 4]; c.beginPath(); c.ellipse(r() * w, r() * h, 3, 1.8, r() * 3, 0, TAU); c.fill(); }
+  }, { repeat: true }); gr.repeat.set(40, 40);
   flat(add(g, new THREE.PlaneGeometry(110, 110), std('#fff', { map: gr, roughness: 0.95 }), 0, 0, -8, -Math.PI / 2));
   frontWalk(g, tiles(r, '#b9b3a8', '#9a948a'));
   // внутридомовой проезд с парковкой
@@ -173,7 +179,7 @@ export function buildBlock(g: THREE.Group): DistrictSet {
     if (x > -2 && x < 4 && z > -16) continue; // прямо перед окном — вид на дома
     const t = birch(r, i); t.position.set(x, 0, z); t.scale.setScalar(0.9 + r() * 0.4); g.add(t);
   }
-  const lilac = [std('#b08fd8', { roughness: 0.85, flatShading: true }), std('#78b23e', { roughness: 0.85, flatShading: true })];
+  const lilac = [FOL[0], FOL_DARK];
   // сирень обходит лавочки и фонари вдоль газона
   const busy: [number, number][] = [[-6, -4.4], [6.5, -4.4], [-7.5, -4.3], [7.0, -4.3], [15, -4.3]];
   for (let i = 0; i < 16; i++) {
@@ -185,6 +191,7 @@ export function buildBlock(g: THREE.Group): DistrictSet {
   }
   for (const [x, z] of [[-6, -4.4], [6.5, -4.4], [-12, -9.2], [4, -9.2]] as const) { const b = bench(); b.position.set(x, 0, z); g.add(b); }
   for (const x of [-7.5, 7.0, 15]) { const L = lamp(set, false); L.position.set(x, 0, -4.3); g.add(L); }
+  for (let i = 0; i < 8; i++) { const t = tree(r, i); t.position.set(-20 + i * 5.6 + r(), 0, -17 - r() * 3); g.add(t); }
   backdrop(g, 'assets/tex/street_block.webp');
   return set;
 }
@@ -194,9 +201,13 @@ export function buildBlock(g: THREE.Group): DistrictSet {
 export function buildCenter(g: THREE.Group): DistrictSet {
   const set: DistrictSet = { lamps: [], bulbs: [] };
   const r = mulberry32(4242);
-  const plaza = tiles(r, '#b8b6b0', '#9d9b95', 32); plaza.repeat.set(55, 55);
+  // зима: заснеженная площадь
+  const plaza = canvasTex(256, 256, (c, w, h) => {
+    c.fillStyle = '#eef3f7'; c.fillRect(0, 0, w, h);
+    for (let i = 0; i < 900; i++) { c.fillStyle = 'rgba(150,175,200,' + (r() * 0.18).toFixed(3) + ')'; c.beginPath(); c.arc(r() * w, r() * h, 1 + r() * 3, 0, TAU); c.fill(); }
+  }, { repeat: true }); plaza.repeat.set(30, 30);
   flat(add(g, new THREE.PlaneGeometry(110, 110), std('#fff', { map: plaza, roughness: 0.8 }), 0, 0, -8, -Math.PI / 2));
-  frontWalk(g, tiles(r, '#c9c5bd', '#a9a59d'));
+  frontWalk(g, tiles(r, '#dfe3e6', '#b9c0c6'));
   // проспект с зеброй
   const asp = asphalt(r, true); asp.repeat.set(16, 1);
   flat(add(g, new THREE.PlaneGeometry(80, 6), std('#fff', { map: asp, roughness: 0.9 }), 0, 0.004, -7.0, -Math.PI / 2));
@@ -210,13 +221,17 @@ export function buildCenter(g: THREE.Group): DistrictSet {
   const bol = std('#3a3d44', { roughness: 0.4, metalness: 0.6 });
   for (let x = -22; x <= 22; x += 1.6) { if (Math.abs(x - 1.2) < 1.6) continue; add(g, cyl(0.06, 0.07, 0.6, 10), bol, x, 0.3, -3.85); }
   // кадки с подстриженными деревьями
-  const conc = std('#b5b1a8', { roughness: 0.85 }), crown = std('#4f8040', { roughness: 0.8 }), crown2 = std('#5f924c', { roughness: 0.8 });
+  const conc = std('#b5b1a8', { roughness: 0.85 }), snowM = std('#f7fafc', { roughness: 0.9, flatShading: true }), firM = std('#3f6e4c', { roughness: 0.85, flatShading: true });
   for (let i = 0; i < 12; i++) {
     const x = -20 + i * 3.6; if (Math.abs(x - 1.5) < 2) continue;
     const z = -11.6 - (i % 2) * 0.4;
     add(g, rbox(1.1, 0.55, 1.1, 0.04), conc, x, 0.28, z);
-    add(g, cyl(0.06, 0.08, 1.6, 8), std('#5b4231'), x, 1.3, z);
-    add(g, sph(0.75, 16, 12), i % 2 ? crown : crown2, x, 2.4, z).scale.set(1, 0.9, 1);
+    add(g, rbox(1.12, 0.06, 1.12, 0.03), snowM, x, 0.58, z);
+    // ёлка в кадке с гирляндой и снежной шапкой
+    add(g, cyl(0.05, 0.07, 0.5, 6), std('#5b4231'), x, 0.8, z);
+    for (let k = 0; k < 3; k++) add(g, new THREE.ConeGeometry(0.75 - k * 0.2, 0.9, 7), firM, x, 1.3 + k * 0.5, z);
+    add(g, new THREE.ConeGeometry(0.42, 0.35, 7), snowM, x, 2.45, z);
+    for (let k = 0; k < 8; k++) { const a = k * 0.8 + i; add(g, new THREE.IcosahedronGeometry(0.045, 0), own('#000', { emissive: ['#ffd76a', '#ff6a5a', '#7ad0ff'][k % 3], emissiveIntensity: 2 }), x + Math.cos(a) * (0.55 - k * 0.05), 1.15 + k * 0.17, z + Math.sin(a) * (0.55 - k * 0.05)); }
   }
   // остановка со стеклянным павильоном
   const frame = std('#30343b', { roughness: 0.4, metalness: 0.6 });
@@ -234,7 +249,100 @@ export function buildCenter(g: THREE.Group): DistrictSet {
   add(g, rbox(1.6, 0.5, 1.6, 0.05), conc, 1.8, 0.25, -15);
   add(g, new THREE.TorusGeometry(1.0, 0.12, 12, 48), std('#c8cdd4', { metalness: 0.9, roughness: 0.25 }), 1.8, 1.55, -15, 0, 0.6, 0);
   for (const x of [-12, -3.5, 6, 14]) { const L = lamp(set, true); L.position.set(x, 0, -4.2); g.add(L); }
-  backdrop(g, 'assets/tex/street_center.webp', '#b8b4ae');
+  // сугробы вдоль бордюра
+  for (let x = -22; x <= 22; x += 2.3) if (Math.abs(x - 1.2) > 2) add(g, new THREE.IcosahedronGeometry(0.5, 1), snowM, x, 0, -4.4, 0, x, 0).scale.set(1.4, 0.45, 0.8);
+  backdrop(g, 'assets/tex/street_center.webp', '#c4c8cc');
   void V;
   return set;
 }
+
+/* ─────────────────────────────── набережная (лето у моря) ─────────────────────────────── */
+
+export function buildHarbor(g: THREE.Group): DistrictSet {
+  const set: DistrictSet = { lamps: [], bulbs: [] };
+  const r = mulberry32(5151);
+  const sand = canvasTex(256, 256, (c, w, h) => {
+    c.fillStyle = '#ead9a8'; c.fillRect(0, 0, w, h);
+    for (let i = 0; i < 1500; i++) { c.fillStyle = 'rgba(' + (r() < 0.5 ? '190,160,110' : '255,250,230') + ',' + (r() * 0.35).toFixed(3) + ')'; c.fillRect(r() * w, r() * h, 2, 2); }
+  }, { repeat: true }); sand.repeat.set(40, 40);
+  flat(add(g, new THREE.PlaneGeometry(110, 110), std('#fff', { map: sand, roughness: 0.95 }), 0, 0, -8, -Math.PI / 2));
+  frontWalk(g, tiles(r, '#e9e2d3', '#c9bfa9', 48));
+  // деревянный променад и море за ним
+  const deck = canvasTex(256, 64, (c, w, h) => { c.fillStyle = '#b98a5a'; c.fillRect(0, 0, w, h); c.fillStyle = 'rgba(70,40,20,.35)'; for (let x = 0; x < w; x += 16) c.fillRect(x, 0, 2, h); }, { repeat: true }); deck.repeat.set(30, 1);
+  flat(add(g, new THREE.PlaneGeometry(80, 3), std('#fff', { map: deck, roughness: 0.8 }), 0, 0.01, -7.5, -Math.PI / 2));
+  flat(add(g, new THREE.PlaneGeometry(120, 9), std('#3fb6c8', { roughness: 0.15, metalness: 0.1 }), 0, 0.02, -13.6, -Math.PI / 2));
+  // перила променада
+  const rail = std('#f4f1ea', { roughness: 0.5 });
+  for (let x = -24; x <= 24; x += 1.2) add(g, cyl(0.03, 0.03, 0.9, 6), rail, x, 0.45, -9);
+  add(g, cyl(0.035, 0.035, 48, 6), rail, 0, 0.9, -9, 0, 0, Math.PI / 2);
+  // пальмы
+  const trunk = std('#9a7448', { roughness: 0.9, flatShading: true });
+  for (let i = 0; i < 9; i++) {
+    const x = -20 + i * 5 + (r() - 0.5); if (Math.abs(x - 1.2) < 2.5) continue;
+    const p = new THREE.Group(); p.position.set(x, 0, -5.4 - (i % 2) * 0.6); g.add(p);
+    const hgt = 3 + r() * 1.2, lean = (r() - 0.5) * 0.3;
+    for (let k = 0; k < 6; k++) add(p, cyl(0.1 - k * 0.008, 0.12 - k * 0.008, hgt / 6 + 0.02, 6), trunk, lean * k * 0.3, hgt / 12 + (k * hgt) / 6, 0);
+    for (let k = 0; k < 7; k++) {
+      const a = (k / 7) * TAU + r(), arm = new THREE.Group(); arm.position.set(lean * 1.8, hgt, 0); arm.rotation.set(0, a, 0); p.add(arm);
+      const leaf = add(arm, new THREE.IcosahedronGeometry(0.5, 0), FOL[k % 3], 0.65, -0.18, 0, 0, 0, -0.4); leaf.scale.set(1.5, 0.12, 0.45);
+    }
+  }
+  // полосатые зонтики на песке
+  const umbC = ['#ff7a6a', '#4fb6d8', '#ffd25e'];
+  for (let i = 0; i < 6; i++) {
+    const x = -16 + i * 6.2; if (Math.abs(x - 1.2) < 2.5) continue;
+    add(g, cyl(0.03, 0.03, 2, 6), rail, x, 1, -11.2);
+    add(g, new THREE.ConeGeometry(1, 0.4, 8), std(umbC[i % 3], { roughness: 0.6, flatShading: true }), x, 2.05, -11.2);
+  }
+  // лодки
+  for (const [x, z, c] of [[-9, -15, '#f4f1ea'], [6, -16.5, '#ff7a6a'], [14, -14.5, '#4f86c8']] as const) {
+    const b = new THREE.Group(); b.position.set(x, 0, z); g.add(b);
+    add(b, rbox(2.2, 0.4, 0.8, 0.15), std(c, { roughness: 0.5 }), 0, 0.1, 0);
+    add(b, cyl(0.03, 0.03, 2.2, 6), rail, 0.2, 1.3, 0);
+    add(b, new THREE.ConeGeometry(0.7, 1.6, 3), std('#ffffff', { roughness: 0.6, flatShading: true }), 0.6, 1.4, 0, 0, Math.PI / 2, 0).scale.set(1, 1, 0.08);
+  }
+  for (let i = 0; i < 10; i++) { const x = -20 + r() * 40; if (Math.abs(x - 1.2) < 2.5) continue; const b = bush(r, i * 3); b.position.set(x, 0, -4.6); b.scale.setScalar(0.6); g.add(b); }
+  for (const x of [-7.5, 7.0, 15]) { const L = lamp(set, true); L.position.set(x, 0, -4.3); g.add(L); }
+  backdrop(g, 'assets/tex/street_harbor.webp', '#c8c2b8');
+  return set;
+}
+
+/* ─────────────────────────────── старый город (весна) ─────────────────────────────── */
+
+export function buildOld(g: THREE.Group): DistrictSet {
+  const set: DistrictSet = { lamps: [], bulbs: [] };
+  const r = mulberry32(6262);
+  // брусчатка
+  const cob = canvasTex(256, 256, (c, w, h) => {
+    c.fillStyle = '#7d7468'; c.fillRect(0, 0, w, h);
+    for (let y = 0; y < h; y += 20) for (let x = (y / 20) % 2 ? -10 : 0; x < w; x += 22) { c.fillStyle = 'hsl(30,' + (8 + r() * 8) + '%,' + (48 + r() * 14) + '%)'; c.beginPath(); c.roundRect(x + 2, y + 2, 18, 16, 5); c.fill(); }
+  }, { repeat: true }); cob.repeat.set(36, 36);
+  flat(add(g, new THREE.PlaneGeometry(110, 110), std('#fff', { map: cob, roughness: 0.9 }), 0, 0, -8, -Math.PI / 2));
+  frontWalk(g, tiles(r, '#c2b6a2', '#9f9381', 40));
+  // газоны с тюльпанами
+  const grassT = grass(r, '#8cc65a'); grassT.repeat.set(4, 1);
+  const tul = ['#ff5a6a', '#ffd25e', '#ff9ab8', '#ffffff', '#b06ad8'].map((c) => std(c, { roughness: 0.6, flatShading: true }));
+  const stem = std('#4f8a3a');
+  for (const x of [-14, -6, 9, 17]) {
+    flat(add(g, new THREE.PlaneGeometry(5, 1.4), std('#fff', { map: grassT, roughness: 0.95 }), x, 0.01, -5.2, -Math.PI / 2));
+    for (let k = 0; k < 26; k++) { const tx = x - 2.3 + r() * 4.6, tz = -5.8 + r() * 1.2; add(g, cyl(0.008, 0.008, 0.22, 4), stem, tx, 0.11, tz); add(g, new THREE.IcosahedronGeometry(0.045, 0), tul[k % 5], tx, 0.24, tz).scale.y = 1.3; }
+  }
+  // цветущие деревья (сезон «весна» красит листву розовым)
+  for (let i = 0; i < 16; i++) {
+    const x = -22 + r() * 44, z = -8 - r() * 12; if (Math.abs(x - 1.5) < 3 && z > -14) continue;
+    const t = tree(r, i % 3 === 2 ? 0 : i); t.position.set(x, 0, z); t.scale.setScalar(0.8 + r() * 0.3); g.add(t);
+  }
+  // колодец посреди площади
+  const stoneM = std('#b9ad98', { roughness: 0.9, flatShading: true });
+  add(g, cyl(0.9, 1.0, 0.7, 10), stoneM, 1.8, 0.35, -13);
+  for (const sx of [-1, 1]) add(g, box(0.12, 1.6, 0.12), std('#6b4a32'), 1.8 + sx * 0.8, 1.2, -13);
+  add(g, new THREE.ConeGeometry(1.25, 0.7, 4), std('#a8442a', { roughness: 0.8, flatShading: true }), 1.8, 2.3, -13, 0, Math.PI / 4, 0);
+  for (const [x, z, ry] of [[-6, -4.4, 0], [6.5, -4.4, 0], [-10, -11, 0.4]] as const) { const b = bench(); b.position.set(x, 0, z); b.rotation.y = ry; g.add(b); }
+  for (const x of [-7.5, 7.0, 15]) { const L = lamp(set, false); L.position.set(x, 0, -4.3); g.add(L); }
+  backdrop(g, 'assets/tex/street_old.webp', '#c4bdb2');
+  return set;
+}
+
+/** Построители районов и их время года. */
+export const BUILDERS: Record<string, (g: THREE.Group) => DistrictSet> = { block: buildBlock, center: buildCenter, harbor: buildHarbor, old: buildOld };
+export const SEASON: Record<string, Season> = { park: 'summer', block: 'autumn', center: 'winter', harbor: 'sea', old: 'spring' };
