@@ -463,3 +463,19 @@ export function inkFor(hex: string): string {
   const c = new THREE.Color(hex);
   return c.r * 0.3 + c.g * 0.59 + c.b * 0.11 > 0.45 ? '#1d1f24' : '#f6efe4';
 }
+
+/**
+ * Простая тень-пятно под объектом: мягкий тёмный круг на земле. Один общий
+ * материал на всю сцену — mergeTree склеивает все пятна района в один вызов.
+ */
+let blobShadowMat: THREE.MeshBasicMaterial | null = null;
+export function blobShadow(parent: THREE.Object3D, r: number, x = 0, z = 0, opacity = 1, sy = 1): THREE.Mesh {
+  blobShadowMat ??= new THREE.MeshBasicMaterial({
+    map: canvasTex(64, 64, (g, w, h) => { const gr = g.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w / 2); gr.addColorStop(0, 'rgba(0,0,0,.42)'); gr.addColorStop(0.6, 'rgba(0,0,0,.2)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(0, 0, w, h); }),
+    transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2,
+  });
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(r * 2, r * 2 * sy).rotateX(-Math.PI / 2), opacity === 1 ? blobShadowMat : Object.assign(blobShadowMat.clone(), { opacity }));
+  m.position.set(x, 0.012, z); m.castShadow = false; m.receiveShadow = false; m.renderOrder = 1;
+  parent.add(m);
+  return m;
+}

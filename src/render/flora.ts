@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { add, std, cyl, TAU } from './kit.ts';
+import { add, std, cyl, TAU, blobShadow} from './kit.ts';
 
 /*
  * Деревья и кусты — в стиле нарисованных задников (автор: «деревья хуже, чем
@@ -31,6 +31,7 @@ export function bush(r: () => number, seed: number): THREE.Group {
     const a = r() * TAU, d = 0.18 + r() * 0.12;
     add(g, new THREE.IcosahedronGeometry(0.035, 0), FLOWERS[i % 3], Math.cos(a) * d, 0.3 + r() * 0.25, Math.sin(a) * d);
   }
+  blobShadow(g, 0.55);
   return g;
 }
 
@@ -45,6 +46,7 @@ export function tree(r: () => number, kind: number): THREE.Group {
     add(g, facet(0.5), FOL_DARK, 0, 1.2, 0, 0, r() * TAU, 0).scale.set(1, 2.0, 1);
     add(g, facet(0.38), FOL[0], 0, 2.1, 0, 0, r() * TAU, 0).scale.set(1, 1.9, 1);
     add(g, facet(0.2), FOL[1], 0, 2.7, 0, 0, r() * TAU, 0).scale.set(1, 1.6, 1);
+    blobShadow(g, 0.7);
     return g;
   }
   add(g, cyl(0.07, 0.13, h, 7), BARK, 0, h / 2, 0);
@@ -63,6 +65,7 @@ export function tree(r: () => number, kind: number): THREE.Group {
     }
   });
   add(g, facet(0.5), FOL[1], 0, h + 0.55, 0, r(), r(), 0);
+  blobShadow(g, 1.1);
   return g;
 }
 

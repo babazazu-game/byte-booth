@@ -148,7 +148,7 @@ export class Engine {
    * shadowEvery кадров (игра ставит 1, пока клиент у окна движется) и сразу
    * по shadowDirty (деталь поставлена, качество сменилось).
    */
-  shadowEvery = 1;
+  shadowEvery = 90;
   shadowDirty = true;
   private sf = 0;
   render(): void {

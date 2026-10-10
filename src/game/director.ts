@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { blobShadow } from '../render/kit.ts';
 import { buildPerson, type Person, type Mood } from '../render/models/person.ts';
 import { buildRetailBox } from '../render/models/retail.ts';
 import { makeLook, ARCHS, type Arch, type PersonLook } from '../logic/customers.ts';
@@ -18,10 +19,6 @@ import { KIOSK } from '../render/kiosk.ts';
 const WINDOW_SPOT = V(0, 0, -0.88);
 const ENTER = [V(-7, 0, -2.4), V(-1.3, 0, -1.8), WINDOW_SPOT];
 const EXIT = [WINDOW_SPOT, V(1.2, 0, -1.7), V(7.5, 0, -2.4)];
-
-// пятно-тень под прохожими: одна геометрия и материал на всех
-const BLOB_GEO = new THREE.CircleGeometry(0.42, 20);
-const BLOB_MAT = new THREE.MeshBasicMaterial({ color: '#000', transparent: true, opacity: 0.22, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
 
 export class Director {
   person: Person | null = null;
@@ -61,6 +58,9 @@ export class Director {
   spawn(look: PersonLook, seed: number, onArrive: () => void): void {
     this.clear();
     const p = buildPerson(look, seed);
+    // клиент — тень-пятно, а не тень от солнца: карта теней теперь статичная (FPS)
+    p.root.traverse((o) => { o.castShadow = false; });
+    blobShadow(p.root, 0.45);
     // облокачиваясь, ладони кладёт ровно на столешницу прилавка
     // ладони — на подоконник окна (он на 4,5 см выше прилавка): ниже рука проходила сквозь стену
     p.st.restY = 0.972; p.st.restZ = KIOSK.z0 - 0.075; // ладонь ближе к улице: пальцы кончаются у края подоконника, а не свешиваются в него
@@ -150,7 +150,7 @@ export class Director {
 
   /* ───────────── прохожие ───────────── */
 
-  spawnWalkers(n: number, archs: Arch[], shadows = true): void {
+  spawnWalkers(n: number, archs: Arch[], shadows = true, park = true): void {
     for (const w of this.walkers) w.p.root.removeFromParent();
     this.walkers = [];
     const routes = [
@@ -158,12 +158,15 @@ export class Director {
       [V(-14, 0, -3.1), V(14, 0, -3.1)],
       [V(14, 0, 4.2), V(-14, 0, 4.2)], // за ларьком — их видно в меню
       // аллея и поперечная дорожка огибают фонтан (центр 1.8, −12, радиус ~2.1)
-      [V(1.2, 0, -26), V(1.2, 0, -15), V(-0.9, 0, -12.6), V(-0.9, 0, -10.2), V(1.2, 0, -9), V(1.2, 0, -5)],
+      // начало — перед рисованным задником (z −21), а не за ним: прохожие «выходили из картинки»
+      [V(1.2, 0, -18.5), V(1.2, 0, -15), V(-0.9, 0, -12.6), V(-0.9, 0, -10.2), V(1.2, 0, -9), V(1.2, 0, -5)],
       // встречная дорожка — в 80 см от первой (было 30: люди шли сквозь друг друга)
       [V(14, 0, -2.3), V(-14, 0, -2.3)],
       [V(-16, 0, 10.5), V(16, 0, 10.5)],
       [V(-16, 0, -12.3), V(-1.2, 0, -12.3), V(0.2, 0, -14.6), V(3.4, 0, -14.6), V(4.8, 0, -12.3), V(16, 0, -12.3)],
     ];
+    // в других районах аллеи с фонтаном нет (там море, колодец, проспект) — только тротуары
+    if (!park) routes.splice(2, 1), routes.splice(4, 1);
     for (let i = 0; i < n; i++) {
       const seed = 1000 + i * 77 + Math.floor(Math.random() * 1000);
       const arch = archs[(i + seed) % archs.length];
@@ -177,7 +180,7 @@ export class Director {
       // обновляется не каждый кадр (Engine.shadowEvery): тень шла рывками.
       // Вместо неё — мягкое пятно под ногами: движется вместе с ним, почти бесплатно.
       p.root.traverse((o) => { o.castShadow = false; });
-      if (shadows) { const b = new THREE.Mesh(BLOB_GEO, BLOB_MAT); b.rotation.x = -Math.PI / 2; b.position.y = 0.015; b.renderOrder = 2; b.castShadow = false; p.root.add(b); }
+      if (shadows) blobShadow(p.root, 0.42);
       this.root.add(p.root);
       this.walkers.push({ p, path, i: dir > 0 ? seg + 1 : seg, dir, speed: p.st.speed, base: p.root.position.clone(), side: 0 });
     }

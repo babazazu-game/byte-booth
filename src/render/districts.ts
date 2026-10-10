@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { add, std, phys, own, rbox, box, cyl, canvasTex, mulberry32, V, TAU } from './kit.ts';
+import { add, std, phys, own, rbox, box, cyl, canvasTex, mulberry32, V, TAU, blobShadow} from './kit.ts';
 import { tree, bush, FOL, FOL_DARK, type Season } from './flora.ts';
 
 /**
@@ -28,7 +28,7 @@ export function backdrop(g: THREE.Group, file: string, tint = '#b3aca2'): void {
   // прямые и зеркальные копии по очереди — без обрыва по краям
   for (let k = -5; k <= 6; k++) {
     const mm = k % 2 === 0 ? m : m2;
-    const p = add(g, new THREE.PlaneGeometry(29, 10.9), mm, -13.5 + k * 28.98, 10.9 / 2 - 0.5, -21 - (Math.abs(k) % 2) * 0.02, 0, 0, 0, false);
+    const p = add(g, new THREE.PlaneGeometry(29, 10.9), mm, -13.5 + k * 28.98, 10.9 / 2 - 0.5, -21 - (Math.abs(k) % 2) * 0.25, 0, 0, 0, false);
     p.receiveShadow = false; p.userData.keep = true;
   }
 }
@@ -63,12 +63,6 @@ function asphalt(r: () => number, marks: boolean): THREE.CanvasTexture {
   }, { repeat: true });
 }
 
-function grass(r: () => number, base: string): THREE.CanvasTexture {
-  return canvasTex(256, 256, (c, w, h) => {
-    c.fillStyle = base; c.fillRect(0, 0, w, h);
-    for (let i = 0; i < 2500; i++) { c.fillStyle = r() < 0.5 ? 'rgba(80,130,55,.45)' : 'rgba(150,190,100,.35)'; c.fillRect(r() * w, r() * h, 2, 4); }
-  }, { repeat: true });
-}
 
 /** Легковушка вдоль оси X: кузов, кабина со стёклами, колёса, фары. */
 function car(color: string): THREE.Group {
@@ -81,6 +75,7 @@ function car(color: string): THREE.Group {
   add(g, rbox(0.9, 0.3, 0.78, 0.1), glass, -0.08, 0.75, 0);
   for (const x of [-0.56, 0.56]) for (const z of [-0.38, 0.38]) add(g, cyl(0.17, 0.17, 0.12, 16), tyre, x, 0.17, z, Math.PI / 2);
   for (const z of [-0.26, 0.26]) { add(g, box(0.02, 0.07, 0.16), std('#fff6dc', { emissive: '#fff1c8', emissiveIntensity: 0.3 }), 0.88, 0.45, z); add(g, box(0.02, 0.06, 0.14), std('#c8372d'), -0.88, 0.45, z); }
+  blobShadow(g, 1.05, 0, 0, 1, 0.5);
   return g;
 }
 
@@ -95,6 +90,7 @@ function birch(r: () => number, _i: number): THREE.Group {
     const a = r() * TAU, d = r() * 0.45;
     add(g, new THREE.IcosahedronGeometry(0.38 + r() * 0.25, 1), leaf[k % 2], Math.cos(a) * d, h + r() * 0.8 - 0.1, Math.sin(a) * d, r(), r(), 0).scale.y = 1.2;
   }
+  blobShadow(g, 0.8);
   return g;
 }
 
@@ -104,6 +100,7 @@ function bench(): THREE.Group {
   for (let i = 0; i < 3; i++) add(g, rbox(1.5, 0.04, 0.12, 0.01), wood, 0, 0.45, -0.14 + i * 0.14);
   add(g, rbox(1.5, 0.11, 0.035, 0.01), wood, 0, 0.7, -0.26, -0.2, 0, 0);
   for (const x of [-0.65, 0.65]) add(g, rbox(0.05, 0.45, 0.42, 0.01), iron, x, 0.225, -0.05);
+  blobShadow(g, 0.9, 0, -0.05, 1, 0.45);
   return g;
 }
 
@@ -320,13 +317,14 @@ export function buildOld(g: THREE.Group): DistrictSet {
   flat(add(g, new THREE.PlaneGeometry(110, 110), std('#fff', { map: cob, roughness: 0.9 }), 0, 0, -8, -Math.PI / 2));
   frontWalk(g, tiles(r, '#c2b6a2', '#9f9381', 40));
   // газоны с тюльпанами
-  const grassT = grass(r, '#8cc65a'); grassT.repeat.set(4, 1);
-  const tul = ['#ff5a6a', '#ffd25e', '#ff9ab8', '#ffffff', '#b06ad8'].map((c) => std(c, { roughness: 0.6, flatShading: true }));
-  const stem = std('#4f8a3a');
-  for (const x of [-14, -6, 9, 17]) {
-    flat(add(g, new THREE.PlaneGeometry(5, 1.4), std('#fff', { map: grassT, roughness: 0.95 }), x, 0.01, -5.2, -Math.PI / 2));
-    for (let k = 0; k < 26; k++) { const tx = x - 2.3 + r() * 4.6, tz = -5.8 + r() * 1.2; add(g, cyl(0.008, 0.008, 0.22, 4), stem, tx, 0.11, tz); add(g, new THREE.IcosahedronGeometry(0.045, 0), tul[k % 5], tx, 0.24, tz).scale.y = 1.3; }
-  }
+  // клумбы с тюльпанами — нарисованы в текстуре (3D-цветы убраны: дорого и неаккуратно)
+  const bedT = canvasTex(512, 144, (c, w, h) => {
+    c.fillStyle = '#7fb84f'; c.fillRect(0, 0, w, h);
+    for (let i = 0; i < 900; i++) { c.fillStyle = r() < 0.5 ? 'rgba(80,130,55,.45)' : 'rgba(150,200,100,.35)'; c.fillRect(r() * w, r() * h, 2, 4); }
+    const cols = ['#ff5a6a', '#ffd25e', '#ff9ab8', '#ffffff', '#b06ad8'];
+    for (let i = 0; i < 70; i++) { const x = 10 + r() * (w - 20), y = 12 + r() * (h - 24); c.fillStyle = '#4f8a3a'; c.fillRect(x - 1, y, 2, 7); c.fillStyle = cols[i % 5]; c.beginPath(); c.ellipse(x, y, 4, 5, 0, 0, TAU); c.fill(); }
+  });
+  for (const x of [-14, -6, 9, 17]) flat(add(g, new THREE.PlaneGeometry(5, 1.4), std('#fff', { map: bedT, roughness: 0.95 }), x, 0.01, -5.2, -Math.PI / 2));
   // цветущие деревья (сезон «весна» красит листву розовым)
   for (let i = 0; i < 16; i++) {
     const x = -22 + r() * 44, z = -8 - r() * 12; if (Math.abs(x - 1.5) < 3 && z > -14) continue;

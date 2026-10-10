@@ -56,15 +56,15 @@ export function buildProps(root: THREE.Group): Props {
       if (li % 2 === 0) {
         // картонные коробки с надписями, стопкой
         const h1 = Math.min(0.22, room * 0.55), w1 = 0.26;
-        const m1 = add(root, rbox(0.34, h1, w1, 0.006, 2), std('#fff', { map: kraftTex(70 + li, labels[li % 6], h1 / 0.34), roughness: 0.9 }), SX + 0.02, y + 0.0125 + h1 / 2, 1.78, 0, Math.PI / 2 + 0.05, 0);
+        const m1 = add(root, rbox(0.34, h1, w1, 0.006, 2), std('#fff', { map: kraftTex(70 + li, labels[li % 6], h1 / 0.34), roughness: 0.9 }), SX + 0.02, y + h1 / 2, 1.78, 0, Math.PI / 2 + 0.05, 0);
         m1.receiveShadow = true;
-        if (room > 0.32) add(root, rbox(0.26, 0.12, 0.2, 0.006, 2), std('#fff', { map: kraftTex(80 + li, labels[(li + 2) % 6], 0.46), roughness: 0.9 }), SX + 0.03, y + 0.0125 + h1 + 0.06, 1.8, 0, Math.PI / 2 - 0.08, 0);
+        if (room > 0.32) add(root, rbox(0.26, 0.12, 0.2, 0.006, 2), std('#fff', { map: kraftTex(80 + li, labels[(li + 2) % 6], 0.46), roughness: 0.9 }), SX + 0.03, y + h1 + 0.06, 1.8, 0, Math.PI / 2 - 0.08, 0);
       } else {
         // пластиковые ящики с мелочёвкой
         for (let k = 0; k < 2; k++) {
           const z = 1.7 + k * 0.15;
-          add(root, rbox(0.3, 0.1, 0.13, 0.01, 2), plastic[(li + k) % 3], SX + 0.02, y + 0.0125 + 0.05, z);
-          add(root, box(0.26, 0.004, 0.1), std('#2a2d32', { roughness: 0.9 }), SX + 0.02, y + 0.0125 + 0.092, z, 0, 0, 0, false);
+          add(root, rbox(0.3, 0.1, 0.13, 0.01, 2), plastic[(li + k) % 3], SX + 0.02, y + 0.05, z);
+          add(root, box(0.26, 0.004, 0.1), std('#2a2d32', { roughness: 0.9 }), SX + 0.02, y + 0.092, z, 0, 0, 0, false);
         }
       }
     });
@@ -111,7 +111,10 @@ export function buildProps(root: THREE.Group): Props {
   const top = new THREE.Group(); top.position.set(0, 2.19, -0.235); root.add(top);
   const shelfWood = std('#8a5a36', { roughness: 0.75 });
   add(top, rbox(2.5, 0.025, 0.13, 0.004), shelfWood, 0, 0, 0);
-  for (const x of [-1.0, 0, 1.0]) add(top, box(0.015, 0.06, 0.1), std('#1b1c20', { metalness: 0.5, roughness: 0.4 }), x, -0.04, -0.01);
+  // кронштейны — тонкие треугольные косынки цвета полки (чёрные бруски читались как резкие тени)
+  { const sh = new THREE.Shape(); sh.moveTo(0, 0); sh.lineTo(0.09, 0); sh.lineTo(0, -0.05); sh.closePath();
+    const kg = new THREE.ExtrudeGeometry(sh, { depth: 0.01, bevelEnabled: false }); kg.translate(0, 0, -0.005); kg.rotateY(-Math.PI / 2);
+    for (const x of [-1.0, 1.0]) add(top, kg, std('#6e4a2c', { roughness: 0.7 }), x, -0.0125, -0.06); }
   // коробки
   [[-1.05, 0.16, 0.1, '#b98a57'], [-0.86, 0.12, 0.11, '#c9a06a'], [0.95, 0.14, 0.1, '#b98a57'], [1.12, 0.09, 0.1, '#3d5a80']].forEach(([x, w, h, c]) =>
     add(top, rbox(w as number, h as number, 0.1, 0.004), std(c as string, { roughness: 0.9 }), x as number, 0.0125 + (h as number) / 2, 0));
@@ -175,12 +178,29 @@ export function buildProps(root: THREE.Group): Props {
   add(ws, rbox(0.07, 0.05, 0.08, 0.004), std('#3d5a80', { roughness: 0.9 }), 0.0, 1.755, 0.06);
   add(ws, new THREE.CylinderGeometry(0.03, 0.025, 0.05, 16), std('#c96f4a', { roughness: 0.85 }), 0.1, 1.755, 0.06);
   add(ws, new THREE.CapsuleGeometry(0.016, 0.04, 2, 6), std('#78b23e', { roughness: 0.75, flatShading: true }), 0.1, 1.81, 0.06);
-  // удлинитель на стене и провода вниз к прилавку
-  add(ws, rbox(0.06, 0.2, 0.03, 0.006), std('#e9e5dc', { roughness: 0.6 }), -0.11, 1.12, 0.015);
-  for (let i = 0; i < 3; i++) add(ws, box(0.018, 0.012, 0.004), std('#2a2d32'), -0.11, 1.18 - i * 0.05, 0.032);
-  // два провода — к кассе: вниз по стене левее места кофемашины и по прилавку к её задней стенке
-  for (const [o, c] of [[-0.012, '#1b1c20'], [0.012, '#f2f0eb']] as const)
-    tube(ws, [V(-0.11 + o, 1.16, 0.035), V(-0.15 + o, 1.02, 0.04), V(-0.19 + o, 0.94, 0.09), V(-0.21 + o, 0.932, 0.25), V(-0.23 + o, 0.932, 0.41)], 0.003, std(c, { roughness: 0.6 }), 24, 5).castShadow = false;
+  /*
+   * Розетка на стене (три гнезда) и провода к кассе и терминалу: вилки в
+   * гнёздах, кабель прижат к стене, ложится на прилавок плавной дугой и
+   * входит в заднюю стенку устройства. Раньше провода висели ломаной линией.
+   */
+  {
+    const plate = std('#f2efe8', { roughness: 0.45 }), hole = std('#2a2d32', { roughness: 0.6 }), plugM = std('#1b1c20', { roughness: 0.5 });
+    add(ws, rbox(0.075, 0.22, 0.02, 0.008), plate, -0.11, 1.125, 0.01);
+    const sockY = [1.19, 1.125, 1.06];
+    for (const y of sockY) {
+      add(ws, cyl(0.022, 0.022, 0.006, 20), std('#e3dfd6', { roughness: 0.5 }), -0.11, y, 0.021, Math.PI / 2, 0, 0);
+      for (const dx of [-0.008, 0.008]) add(ws, cyl(0.0028, 0.0028, 0.004, 8), hole, -0.11 + dx, y, 0.0245, Math.PI / 2, 0, 0);
+    }
+    // вилки в двух верхних гнёздах
+    for (const y of sockY.slice(0, 2)) { add(ws, rbox(0.03, 0.034, 0.024, 0.006), plugM, -0.11, y, 0.034); add(ws, cyl(0.006, 0.006, 0.012, 10), plugM, -0.11, y - 0.022, 0.034); }
+    const cable = (y: number, side: number, end: THREE.Vector3) => tube(ws, [
+      V(-0.11, y - 0.028, 0.034), V(-0.11 + side * 0.004, y - 0.08, 0.03), V(-0.11 + side * 0.006, 0.98, 0.028),
+      V(-0.11 + side * 0.008, 0.94, 0.04), V(-0.12 + side * 0.01, 0.932, 0.1),
+      V((end.x - 0.11) / 2, 0.932, (end.z + 0.1) / 2), V(end.x, 0.932, end.z - 0.04), end,
+    ], 0.0032, plugM, 48, 6);
+    cable(sockY[0], -1, V(-0.285, 0.945, 0.425)).castShadow = false; // касса
+    cable(sockY[1], 1, V(-0.555, 0.94, 0.49)).castShadow = false;   // терминал
+  }
 
   // ── места для постеров (заполняются покупками по порядку) ──
   const posterSlots: THREE.Object3D[] = [];
@@ -298,27 +318,31 @@ export function buildProps(root: THREE.Group): Props {
    * диагонали угла и паучок на ниточке.
    */
   const webT = canvasTex(256, 256, (g, w, h) => {
-    g.clearRect(0, 0, w, h); g.strokeStyle = 'rgba(245,245,240,.75)'; g.lineWidth = 1.6;
-    const cx = 0, cy = 0, n = 9;
-    for (let k = 0; k < n; k++) { const a = (k / (n - 1)) * (Math.PI / 2); g.beginPath(); g.moveTo(cx, cy); g.lineTo(Math.cos(a) * w * 1.4, Math.sin(a) * h * 1.4); g.stroke(); }
-    for (let rr = 24; rr < w * 1.3; rr += 22) { g.beginPath(); for (let k = 0; k < n; k++) { const a = (k / (n - 1)) * (Math.PI / 2); const q = rr * (0.93 + 0.07 * Math.sin(k * 2.3 + rr)); if (k) g.lineTo(Math.cos(a) * q, Math.sin(a) * q); else g.moveTo(Math.cos(a) * q, Math.sin(a) * q); } g.stroke(); }
+    g.clearRect(0, 0, w, h); g.strokeStyle = 'rgba(250,250,245,.85)'; g.lineWidth = 1.8;
+    const cx = w / 2, cy = 2, n = 11;
+    for (let k = 0; k < n; k++) { const a = (k / (n - 1)) * Math.PI; g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx + Math.cos(a) * w * 0.72, cy + Math.sin(a) * h * 0.95); g.stroke(); }
+    for (let rr = 18; rr < w * 0.7; rr += 17) { g.beginPath(); for (let k = 0; k < n; k++) { const a = (k / (n - 1)) * Math.PI; const q = rr * (0.92 + 0.08 * Math.sin(k * 2.3 + rr)); const x = cx + Math.cos(a) * q, y = cy + Math.sin(a) * q * 1.3; if (k) g.lineTo(x, y); else g.moveTo(x, y); } g.stroke(); }
   });
   const spider = new THREE.Group(); spider.userData.keep = true; spider.visible = false; root.add(spider);
-  const web = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.42), new THREE.MeshBasicMaterial({ map: webT, transparent: true, depthWrite: false, side: THREE.DoubleSide }));
-  web.position.set(0.21, -0.21, 0); spider.add(web);
+  // плоскость поперёк угла: края касаются обеих стен (ширина 0.4 под 45°)
+  const web = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.4), new THREE.MeshBasicMaterial({ map: webT, transparent: true, depthWrite: false, side: THREE.DoubleSide }));
+  web.position.set(0, -0.2, 0); spider.add(web);
   const legM = std('#141414', { roughness: 0.6 });
-  const bug = new THREE.Group(); bug.position.set(0.16, -0.3, 0.01); spider.add(bug);
+  const bug = new THREE.Group(); bug.position.set(0.04, -0.3, 0.01); spider.add(bug);
   add(bug, sph(0.016, 10, 8), legM, 0, 0, 0).scale.set(1, 1.25, 0.8);
   add(bug, sph(0.009, 8, 6), legM, 0, 0.022, 0);
   for (let k = 0; k < 4; k++) for (const sx of [-1, 1]) add(bug, cyl(0.0015, 0.0015, 0.04, 4), legM, sx * 0.02, 0.012 - k * 0.009, 0, 0, 0, sx * (1.0 + (k - 1.5) * 0.25));
-  add(spider, cyl(0.0005, 0.0005, 0.12, 3), std('#eeeeea'), 0.16, -0.24, 0.01);
+  add(spider, cyl(0.0005, 0.0005, 0.3, 3), std('#eeeeea'), 0.04, -0.15, 0.01);
   // углы, видимые от окошка: [x, y, z, поворот]
-  const WEB_SPOTS: [number, number, number, number][] = [[-1.33, 2.5, -0.27, Math.PI / 4], [1.33, 2.5, -0.27, -Math.PI / 4 + Math.PI / 2], [-1.33, 1.25, -0.27, Math.PI / 4], [1.33, 1.25, -0.27, -Math.PI / 4 + Math.PI / 2]];
+  // углы стены с окном (внутренние грани: боковые x ±1.35, передняя z −0.294), видимые от окошка.
+  // Центр паутины — на биссектрисе угла, плоскость развёрнута к комнате.
+  const cxL = -1.35 + 0.1414, cxR = 1.35 - 0.1414, cz = -0.294 + 0.1414;
+  const WEB_SPOTS: [number, number, number, number][] = [[cxL, 2.05, cz, Math.PI / 4], [cxR, 2.12, cz, -Math.PI / 4], [cxL, 1.12, cz, Math.PI / 4], [cxR, 1.3, cz, -Math.PI / 4]];
   let bugT = 0;
 
   return {
     radio, spider,
-    showSpider(i: number) { const [x, y, z, ry] = WEB_SPOTS[i % WEB_SPOTS.length]; spider.position.set(x, y, z); spider.rotation.set(0, ry, i % 2 ? Math.PI / 2 : 0); spider.visible = true; },
+    showSpider(i: number) { const [x, y, z, ry] = WEB_SPOTS[i % WEB_SPOTS.length]; spider.position.set(x, y, z); spider.rotation.set(0, ry, 0); spider.visible = true; },
     setCash, figSlots, posterSlots,
     update(dt: number) {
       blades.rotation.z -= dt * 14;

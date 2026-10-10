@@ -302,7 +302,7 @@ export function callCustomer(s: GameState, basePrice: (id: string) => number, fo
   const r = rngOf(s);
   // клиент, который передумал: звонит, пока ждёт свой ПК, и добавляет пожелание
   const fk = s.orders.find((x) => x.trait === 'fickle' && !x.changed && (x.state === 'active' || x.state === 'bench'));
-  if (fk && r.chance(0.5)) {
+  if (fk) { // звонит всегда — при следующем вызове клиента
     fk.changed = true; fk.changedNew = true;
     if (!fk.req.rgb) fk.req.rgb = true; else if (!fk.req.white) fk.req.white = true; else fk.req.silent = true;
     fk.pay = Math.round((fk.pay * 1.1) / 10) * 10;
@@ -359,6 +359,12 @@ export function startBench(s: GameState, orderId: number): Err {
   if (!o || o.state !== 'active') return 'err.noOrder';
   o.state = 'bench';
   s.bench = o.id; s.src = {}; s.loose = []; s.gpuOpen = false;
+  // передумавший звонит, как только мастер взялся за его ПК (если ещё не звонил)
+  if (o.trait === 'fickle' && !o.changed) {
+    o.changed = true; o.changedNew = true;
+    if (!o.req.rgb) o.req.rgb = true; else if (!o.req.white) o.req.white = true; else o.req.silent = true;
+    o.pay = Math.round((o.pay * 1.1) / 10) * 10;
+  }
   if (o.kind !== 'build') {
     // ПК клиента приезжает собранным: все его детали — «чужие», src пуст.
     o.build.panel = true;

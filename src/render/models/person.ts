@@ -212,7 +212,8 @@ function buildPersonFull(L: PersonLook, seed: number, far: boolean): Person {
   const prof = [[0, -0.1], [0.3, -0.095], [0.34, -0.05], [0.36, 0.1], [0.36, 0.3], [0.33, 0.44], [0.27, 0.55], [0.17, 0.62], [0.1, 0.655], [0, 0.665]].map(([r, y]) => V2(r, y));
   add(body, new THREE.LatheGeometry(prof, 48), cloth).scale.set(1, 1, 0.78);
   add(body, new THREE.TorusGeometry(0.305, 0.035, Q(10), Q(48, 6)), top === 'suit' ? cloth : clothD, 0, -0.08, 0, Math.PI / 2).scale.set(1, 0.78, 1);
-  add(body, sph(0.28, 40, 28), cloth, 0, 0.18, 0.07).scale.set(1.05, 1, 0.85);
+  // грудь/живот вровень с корпусом кофты (при z 0.07 выпирал «второй животик»)
+  add(body, sph(0.28, 40, 28), cloth, 0, 0.18, 0.035).scale.set(1.05, 1, 0.85);
   const BS = [1.05, 1, 0.85];
   if (top === 'hoodie') {
     add(body, new THREE.TorusGeometry(0.14, 0.055, Q(14), Q(40, 6)), clothD, 0, 0.64, 0, Math.PI / 2).scale.set(1.18, 1, 1);
@@ -277,7 +278,7 @@ function buildPersonFull(L: PersonLook, seed: number, far: boolean): Person {
     // Принт — на животе, ниже шнурков капюшона, и с запасом над тканью: на груди
     // его закрывали шнурки и воротник, а у самой поверхности он «тонул» в кофте.
     const pr = new THREE.Mesh(new THREE.SphereGeometry(0.28, Q(32, 4), Q(16, 3), Math.PI / 2 - 0.5, 1.0, 1.2, 0.62), new THREE.MeshStandardMaterial({ map: pt, alphaTest: 0.5, roughness: 0.8, polygonOffset: true, polygonOffsetFactor: -4 }));
-    pr.position.set(0, 0.18, 0.07); pr.scale.set(BS[0] * 1.03, BS[1] * 1.03, BS[2] * 1.03); pr.castShadow = false; body.add(pr);
+    pr.position.set(0, 0.18, 0.035); pr.scale.set(BS[0] * 1.03, BS[1] * 1.03, BS[2] * 1.03); pr.castShadow = false; body.add(pr);
   }
   add(torso, cyl(0.085, 0.095, 0.16, 20), skin, 0, 0.71, 0);
   [-1, 1].forEach((s, k) => {

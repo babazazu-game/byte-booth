@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { add, std, phys, own, rbox, box, cyl, sph, canvasTex, mulberry32, mergeTree, flattenStatic, V, V2, TAU } from './kit.ts';
+import { add, std, phys, own, rbox, box, cyl, sph, canvasTex, mulberry32, mergeTree, flattenStatic, V, V2, TAU, blobShadow} from './kit.ts';
 import { buildProps, type Props } from './props.ts';
 import { buildKiosk } from './kiosk.ts';
 import { BUILDERS, BACKDROPS, SEASON } from './districts.ts';
@@ -39,6 +39,8 @@ export interface World {
   /** Неон на фасаде — уровни «Неоновой вывески». */
   neon: THREE.Group[];
   coffee: THREE.Group;
+  blinds: THREE.Object3D;
+  setBlinds(k: number): void;
   fountainWater: THREE.Mesh;
   signText: (title: string) => void;
   props: Props;
@@ -74,6 +76,7 @@ function bench(): THREE.Group {
   for (let i = 0; i < 3; i++) add(g, rbox(1.5, 0.04, 0.12, 0.01), wood, 0, 0.45, -0.14 + i * 0.14);
   for (let i = 0; i < 2; i++) add(g, rbox(1.5, 0.11, 0.035, 0.01), wood, 0, 0.62 + i * 0.15, -0.26, -0.2, 0, 0);
   for (const x of [-0.65, 0.65]) { add(g, rbox(0.05, 0.45, 0.42, 0.01), iron, x, 0.225, -0.05); add(g, rbox(0.05, 0.4, 0.05, 0.01), iron, x, 0.65, -0.28, -0.2, 0, 0); }
+  blobShadow(g, 0.9, 0, -0.05, 1, 0.45);
   return g;
 }
 
@@ -87,6 +90,7 @@ function lampPost(): { g: THREE.Group; light: THREE.PointLight; bulb: THREE.Mesh
   add(g, cyl(0.2, 0.08, 0.1, 12), iron, 0, 3.32, 0);
   // Настоящего источника света в фонаре нет: шесть PointLight удорожали КАЖДЫЙ
   // материал сцены. Вечером фонарь «горит» самосвечением и bloom — этого хватает.
+  blobShadow(g, 0.35);
   const light = new THREE.PointLight('#ffc88a', 0, 9, 2);
   return { g, light, bulb };
 }
@@ -97,7 +101,15 @@ function buildPark(root: THREE.Group, lamps: THREE.PointLight[], bulbs: THREE.Me
   const grassT = canvasTex(256, 256, (g, w, h) => {
     g.fillStyle = '#7ea25e'; g.fillRect(0, 0, w, h);
     for (let i = 0; i < 2500; i++) { const v = r(); g.fillStyle = v < 0.5 ? 'rgba(90,150,60,.5)' : 'rgba(150,200,100,.4)'; g.fillRect(r() * w, r() * h, 2, 4); }
-    for (let i = 0; i < 25; i++) { g.fillStyle = ['#fff6c8', '#ffd1e0', '#fff'][i % 3]; g.beginPath(); g.arc(r() * w, r() * h, 2, 0, TAU); g.fill(); }
+    // редкие цветочки: пять лепестков и жёлтая серединка, кое-где кучкой
+    for (let i = 0; i < 14; i++) {
+      const cx = r() * w, cy = r() * h, col = ['#ffffff', '#ffc4d6', '#fff2a8', '#d9c4ff'][i % 4];
+      for (let k = 0; k < 1 + (i % 3); k++) {
+        const x = cx + (r() - 0.5) * 14, y = cy + (r() - 0.5) * 14;
+        g.fillStyle = col; for (let p = 0; p < 5; p++) { const a = (p / 5) * TAU; g.beginPath(); g.arc(x + Math.cos(a) * 2.2, y + Math.sin(a) * 2.2, 1.6, 0, TAU); g.fill(); }
+        g.fillStyle = '#f2b632'; g.beginPath(); g.arc(x, y, 1.1, 0, TAU); g.fill();
+      }
+    }
   }, { repeat: true });
   grassT.repeat.set(42, 42);
   // Земля тянется и ЗА ларёк: камера меню смотрит на ларёк из парка, и раньше за ним была пустота.
@@ -171,14 +183,7 @@ function buildPark(root: THREE.Group, lamps: THREE.PointLight[], bulbs: THREE.Me
     busy.push([x, z, 0.6]);
     const b = bush(r, i); b.position.set(x, 0, z); b.scale.setScalar(0.8 + r() * 0.5); root.add(b);
   }
-  const flowerC = ['#ff8aa8', '#ffd25e', '#ffffff', '#c38aff', '#ff6b4f'];
-  for (let i = 0; i < 70; i++) {
-    const x = -2.5 + r() * 9, z = -10.6 - r() * 0.6 - (i % 2) * 2.2;
-    // не в фонтане и не под фонарём (раньше клумба заходила в чашу)
-    if (Math.hypot(x - 1.8, z + 12) < 2.35 || Math.hypot(x + 1.1, z + 10.4) < 0.35) continue;
-    add(root, cyl(0.006, 0.006, 0.1, 4), std('#5e8a4c', { roughness: 0.8 }), x, 0.05, z);
-    add(root, sph(0.04, 6, 4), std(flowerC[i % flowerC.length], { roughness: 0.6 }), x, 0.11, z).scale.y = 0.6;
-  }
+  // (3D-цветы убраны: цветочки нарисованы в текстуре травы — дешевле и аккуратнее)
   // лавочки и фонари вдоль аллеи
   for (const [x, z, ry] of [[-4, -4.4, 0], [5.5, -4.4, 0], [-9, -4.4, 0], [0.2, -16.6, Math.PI / 2], [3.4, -9, -Math.PI / 2], [-6, -13.4, Math.PI]] as const) { // те же точки, что PARK_BENCH
     const b = bench(); b.position.set(x, 0, z); b.rotation.y = ry; root.add(b);
@@ -201,7 +206,7 @@ function buildPark(root: THREE.Group, lamps: THREE.PointLight[], bulbs: THREE.Me
   for (let k = -5; k <= 6; k++) {
     const m = k % 2 === 0 ? streetM : streetM2;
     // ближе к парку (21 м, было 31): город «теснее», пустого газона меньше
-    const p = add(root, new THREE.PlaneGeometry(29, 10.9), m, -13.5 + k * 28.98, 10.9 / 2 - 0.5, -21 - (Math.abs(k) % 2) * 0.02, 0, 0, 0, false);
+    const p = add(root, new THREE.PlaneGeometry(29, 10.9), m, -13.5 + k * 28.98, 10.9 / 2 - 0.5, -21 - (Math.abs(k) % 2) * 0.25, 0, 0, 0, false);
     p.receiveShadow = false; p.userData.keep = true;
   }
   return { water, tileT, r };
@@ -260,7 +265,7 @@ function buildBackdrop(root: THREE.Group, r: () => number, tileT: THREE.Texture,
   // Камера меню ездит вдоль ларька: две панели кончались, и был виден обрыв.
   // Ряд из прямых и зеркальных копий продолжает дома в обе стороны.
   for (let k = -5; k <= 5; k++) {
-    const m = add(root, new THREE.PlaneGeometry(32, 12), far[Math.abs(k) % 2], 14 - k * 31.98, 12 / 2 - 0.4, 22 + (Math.abs(k) % 2) * 0.02, 0, Math.PI, 0, false);
+    const m = add(root, new THREE.PlaneGeometry(32, 12), far[Math.abs(k) % 2], 14 - k * 31.98, 12 / 2 - 0.4, 22 + (Math.abs(k) % 2) * 0.25, 0, Math.PI, 0, false);
     m.receiveShadow = false; m.userData.keep = true;
   }
   return far;
@@ -319,7 +324,7 @@ export function buildWorld(scene: THREE.Scene): World {
   let phase = 0.2;
   const world: World = {
     root, sun, hemi, sky, lamps, lampBulbs: bulbs, inner, bell: k.bell, screen: k.screen,
-    shelfAnchor: k.shelfAnchor, benchAnchor: k.benchAnchor, counterAnchor: k.counterAnchor, decor: k.decor, neon: k.neon, coffee: k.coffee,
+    shelfAnchor: k.shelfAnchor, benchAnchor: k.benchAnchor, counterAnchor: k.counterAnchor, decor: k.decor, neon: k.neon, coffee: k.coffee, blinds: k.blinds, setBlinds: k.setBlinds,
     fountainWater: water, signText: k.signText, props, dusk: 0, wall: k.wall, sunYaw: 0,
     setDistrict(id: string) {
       if (!groups[id]) {

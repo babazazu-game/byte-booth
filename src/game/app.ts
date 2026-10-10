@@ -60,6 +60,8 @@ export class App {
   private choices: HTMLElement;
   private ptr = { x: 0, y: 0, down: false };
   /** Палец на холсте вне верстака: ведём взгляд, как мышью на ПК. */
+  /** Куда едут жалюзи (0 — подняты, 1 — опущены) и где они сейчас. */
+  private blindsTo = 0; private blindsK = 0;
   private look: { id: number; x: number; y: number; ox: number; oy: number; moved: boolean } | null = null;
   private lastLevel = 1;
   private lastDirState = 'none';
@@ -412,7 +414,7 @@ export class App {
   private spawnWalkers(): void {
     const q = this.settings.quality;
     this.walkersQ = q;
-    this.director.spawnWalkers(q === 'low' ? 1 : q === 'mid' ? 3 : 5, walkerArchs, q === 'high');
+    this.director.spawnWalkers(q === 'low' ? 1 : q === 'mid' ? 3 : 5, walkerArchs, q !== 'low', (this.state?.district ?? 'park') === 'park');
   }
   saveSettings(): void { this.save.set('settings', { ...this.settings }); }
 
@@ -433,6 +435,7 @@ export class App {
   refresh(): void {
     const s = this.state;
     if (!s || this.views.menu) return;
+    this.engine.shadowDirty = true; // что-то поменялось (ПК на прилавке, полки) — тени пересчитать
     this.syncReturns();
     this.world.props.setCash(s.cash);
     // клиент-«передумал» позвонил: показать один раз
@@ -493,6 +496,7 @@ export class App {
     const ready = s.orders.find((x) => x.state === 'ready');
     if (ready) { this.callBack(ready.id); return; }
     sound.deskBell();
+    this.blindsTo = 0; // позвали клиента — жалюзи вверх, чтобы его было видно
     // срочный заказ ещё не выдан — часы тикают
     if (s.orders.some((x) => x.trait === 'hurry' && (x.state === 'active' || x.state === 'bench') && x.day === s.day)) setTimeout(() => sound.tick(), 500);
     const first = s.day === 1 && s.nextOrder === 1;
@@ -838,7 +842,7 @@ export class App {
   private endDay(): void {
     const s = this.state!;
     const st = S.endDay(s);
-    sound.shutter(true);
+    sound.shutter(true); this.blindsTo = 1; // на ночь жалюзи опускаются
     this.phaseTo = 1; this.phaseSpeed = 0.18;
     sound.cash();
     this.persist();
@@ -870,7 +874,7 @@ export class App {
     await new Promise((r) => setTimeout(r, 900));
     await interstitialBetweenLevels();
     S.startNextDay(s);
-    setTimeout(() => sound.shutter(false), 300);
+    setTimeout(() => sound.shutter(false), 300); this.blindsTo = 0;
     this.persist();
     this.phaseNow(-0.3);
     this.phaseTo = this.phase(); this.phaseSpeed = 0.09;
@@ -971,6 +975,8 @@ export class App {
     const ray = new THREE.Raycaster();
     ray.setFromCamera(new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1), this.engine.camera);
     const P = this.world.props;
+    // жалюзи — опустить/поднять
+    if (ray.intersectObject(this.world.blinds, false).length) { this.blindsTo = this.blindsTo > 0.5 ? 0 : 1; sound.panel(this.blindsTo < 0.5); return; }
     // радио на полке — следующий трек
     if (ray.intersectObject(P.radio, true).length) { sound.nextRadio(); if (this.state) { A.bump(this.state, 'radio'); this.refresh(); } P.radio.scale.setScalar(1.08); setTimeout(() => P.radio.scale.setScalar(1), 140); return; }
     // паутина — убрать (её видно, только если появилась)
@@ -1034,8 +1040,10 @@ export class App {
     this.world.update(t, dt);
     // как часто перерисовывать тени: клиент двигается — каждый кадр, стоит — раз в 3, нет — раз в 12
     const pp = this.director.person;
-    // клиент у окна — тени каждый кадр (иначе его тень дёргалась), никого — раз в 8 кадров
-    this.engine.shadowEvery = pp ? 1 : 8;
+    // жалюзи плавно едут к цели; новый клиент — поднимаем, чтобы его было видно
+    if (Math.abs(this.blindsTo - this.blindsK) > 0.001) { this.blindsK += Math.sign(this.blindsTo - this.blindsK) * Math.min(Math.abs(this.blindsTo - this.blindsK), dt * 0.9); this.world.setBlinds(this.blindsK); this.engine.shadowDirty = true; }
+    // карта теней почти статична: люди с тенью-пятном, солнце ползёт медленно
+    this.engine.shadowEvery = 90; void pp;
     if (this.bench.shadowDirty) { this.engine.shadowDirty = true; this.bench.shadowDirty = false; }
     // паутина появляется сама — в среднем раз в 3 минуты игры, в случайном углу
     // кофемашина иногда варит кофе (если куплена и смотрим в окно)

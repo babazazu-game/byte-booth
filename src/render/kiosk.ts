@@ -28,6 +28,9 @@ export interface KioskParts {
   neon: THREE.Group[];
   /** Кофемашина на прилавке (улучшение «Кофемашина»). */
   coffee: THREE.Group;
+  /** Жалюзи окна (для нажатия) и их положение 0 — подняты, 1 — опущены. */
+  blinds: THREE.Object3D;
+  setBlinds(k: number): void;
   signText: (title: string) => void;
   /** Материал стен: его цвет = цвет покраски. */
   wall: THREE.MeshStandardMaterial;
@@ -246,13 +249,33 @@ export function buildKiosk(root: THREE.Group, inner: THREE.Light[]): KioskParts 
   add(root, box(2 * winX - 0.06, 0.012, 0.12), wall, 0, winY1 - 0.036, K.z0 + 0.07);
   // приспущенные деревянные жалюзи: прикрывают верх яркой улицы
   // жалюзи подняты (9 → 5 ламелей): низко висящие нависали над головой клиента (Codex)
-  const slatN = 5, slatG = new THREE.BoxGeometry(2 * winX - 0.1, 0.004, 0.035);
+  /*
+   * Жалюзи опускаются и поднимаются (нажатие по ним; на ночь закрываются сами).
+   * k = 0 — подняты (ламели собраны пачкой под карнизом), 1 — опущены до
+   * подоконника и почти сомкнуты. Ламели — один InstancedMesh, нижняя планка
+   * едет вместе с последней ламелью.
+   */
+  const slatN = 40, slatG = new THREE.BoxGeometry(2 * winX - 0.1, 0.004, 0.035);
   const blinds = new THREE.InstancedMesh(slatG, std('#c79a63', { roughness: 0.7 }), slatN);
   const sm = new THREE.Object3D();
-  for (let i = 0; i < slatN; i++) { sm.position.set(0, winY1 - 0.07 - i * 0.026, K.z0 + 0.1); sm.rotation.set(0.5, 0, 0); sm.updateMatrix(); blinds.setMatrixAt(i, sm.matrix); }
+  const rail = add(root, box(2 * winX - 0.08, 0.02, 0.045), std('#8a5a36', { roughness: 0.6 }), 0, 0, K.z0 + 0.1, 0, 0, 0, false);
+  rail.userData.keep = true;
+  const blindTop = winY1 - 0.07, blindSpan = (blindTop - winY0 - 0.03) / (slatN - 1);
+  let blindK = -1;
+  const setBlinds = (k: number) => {
+    if (Math.abs(k - blindK) < 1e-4) return; blindK = k;
+    const step = 0.0035 + (blindSpan - 0.0035) * k, rot = 0.5 + (1.4 - 0.5) * k; // закрытые — ламели почти вертикально, сплошной стенкой
+    for (let i = 0; i < slatN; i++) { sm.position.set(0, blindTop - i * step, K.z0 + 0.1); sm.rotation.set(rot, 0, 0); sm.updateMatrix(); blinds.setMatrixAt(i, sm.matrix); }
+    blinds.instanceMatrix.needsUpdate = true; blinds.computeBoundingSphere();
+    rail.position.y = blindTop - slatN * step;
+    // шнуры-«лесенки» — от карниза до нижней планки (длина меняется вместе с жалюзи)
+    const len = slatN * step + 0.04;
+    for (const c of cords) { c.scale.y = len; c.position.y = blindTop + 0.02 - len / 2; }
+  };
+  const cords = [-0.8, 0, 0.8].map((x) => { const c = add(root, new THREE.CylinderGeometry(0.0015, 0.0015, 1, 4), std('#e9e1d2'), x, 0, K.z0 + 0.1, 0, 0, 0, false); c.userData.keep = true; return c; });
+  setBlinds(0);
   blinds.castShadow = true; blinds.userData.keep = true; root.add(blinds);
-  add(root, box(2 * winX - 0.08, 0.02, 0.045), std('#8a5a36', { roughness: 0.6 }), 0, winY1 - 0.07 - slatN * 0.026, K.z0 + 0.1);
-  for (const x of [-0.8, 0, 0.8]) add(root, cyl(0.0015, 0.0015, slatN * 0.026 + 0.04, 4), std('#e9e1d2'), x, winY1 - 0.06 - (slatN * 0.026) / 2, K.z0 + 0.1, 0, 0, 0, false);
+
   // плоский козырёк с LED-полосой снизу
   /*
    * Полосатая маркиза с фестонами — как на логотипе. Скат от стены над окном
@@ -357,6 +380,10 @@ export function buildKiosk(root: THREE.Group, inner: THREE.Light[]): KioskParts 
   const mug = new THREE.Group(); mug.position.set(-0.74, K.counterY + 0.025, 0.24); root.add(mug);
   add(mug, new THREE.LatheGeometry([[0, 0], [0.045, 0], [0.05, 0.01], [0.05, 0.11], [0.044, 0.11], [0.044, 0.012], [0, 0.012]].map(([a, b]) => V2(a, b)), 32), phys('#2f6f6b', { roughness: 0.35, clearcoat: 0.6 }));
   add(mug, cyl(0.044, 0.044, 0.004, 24), std('#3b2416', { roughness: 0.2 }), 0, 0.095, 0);
+  // игровой рисунок на кружке (Codex): изогнутая наклейка по стенке, к мастеру
+  { const mt = new THREE.TextureLoader().load('assets/tex/mug_print.webp'); mt.colorSpace = THREE.SRGBColorSpace;
+    const dec = add(mug, new THREE.CylinderGeometry(0.0512, 0.0512, 0.07, 20, 1, true, -0.85, 1.7), new THREE.MeshStandardMaterial({ map: mt, transparent: true, alphaTest: 0.4, roughness: 0.4 }), 0, 0.057, 0, 0, 0.15, 0);
+    dec.castShadow = false; }
   add(mug, new THREE.TorusGeometry(0.03, 0.009, 8, 20, Math.PI), phys('#2f6f6b', { roughness: 0.35 }), 0.05, 0.055, 0, 0, 0, -Math.PI / 2);
   // LED-полоса над окном изнутри вместо гирлянды
   add(root, box(2 * winX - 0.1, 0.012, 0.025), own('#fff', { emissive: '#ffe1b8', emissiveIntensity: 0.7 }), 0, winY1 - 0.04, K.z0 + 0.06, 0, 0, 0, false);
@@ -388,7 +415,7 @@ export function buildKiosk(root: THREE.Group, inner: THREE.Light[]): KioskParts 
   const steelT = metal('#c9ccd2', 0.25), rubber = std('#1d1f24', { roughness: 0.85 });
   const PX = K.x0 + 0.12; // лицевая сторона панели
   ['#e8742f', '#3fb6a8', '#f2c94c', '#e2334a'].forEach((c, i) => {
-    const sd = new THREE.Group(); sd.position.set(PX + 0.025, 1.52, 0.5 + i * 0.085); root.add(sd);
+    const sd = new THREE.Group(); sd.position.set(PX + 0.0178, 1.52, 0.5 + i * 0.085); root.add(sd);
     const handleM = phys(c, { roughness: 0.3, clearcoat: 0.6, transparent: true, opacity: 0.92 });
     // рукоять — тело вращения: скруглённый торец, грани под пальцы, «юбка» к стержню
     const prof = [[0, 0.06], [0.012, 0.059], [0.016, 0.052], [0.017, 0.02], [0.015, 0.0], [0.016, -0.02], [0.013, -0.04], [0.006, -0.05], [0.004, -0.055]].map(([x, y]) => V2(x, y));
@@ -399,7 +426,7 @@ export function buildKiosk(root: THREE.Group, inner: THREE.Light[]): KioskParts 
     if (i % 2) add(sd, box(0.0062, 0.012, 0.0016), steelT, 0, -0.169, 0); // шлиц
     else { for (const r of [0, Math.PI / 2]) add(sd, box(0.0045, 0.012, 0.0016), steelT, 0, -0.169, 0, 0, r, 0); } // крест
   });
-  const pliers = new THREE.Group(); pliers.position.set(PX + 0.022, 1.52, 0.9); root.add(pliers);
+  const pliers = new THREE.Group(); pliers.position.set(PX + 0.0075, 1.52, 0.9); root.add(pliers);
   for (const sx of [-1, 1]) {
     // ручка в резине изогнута наружу — тонкая трубка по кривой
     tube(pliers, [V(0, 0.02, sx * 0.004), V(0, -0.04, sx * 0.014), V(0, -0.1, sx * 0.022), V(0, -0.13, sx * 0.02)], 0.0065, std('#e2334a', { roughness: 0.6 }), 16, 8);
@@ -407,7 +434,7 @@ export function buildKiosk(root: THREE.Group, inner: THREE.Light[]): KioskParts 
   }
   add(pliers, cyl(0.007, 0.007, 0.012, 12), steelT, 0, 0.02, 0, Math.PI / 2, 0, 0);
   // гаечный ключ: цельный плоский силуэт — открытый зев сверху, кольцо снизу
-  const wr = new THREE.Group(); wr.position.set(PX + 0.006, 1.48, 1.08); root.add(wr);
+  const wr = new THREE.Group(); wr.position.set(PX + 0.0012, 1.48, 1.08); root.add(wr);
   {
     const parts: THREE.Shape[] = [];
     // рукоять
@@ -589,7 +616,8 @@ export function buildKiosk(root: THREE.Group, inner: THREE.Light[]): KioskParts 
   {
     // шнур кофемашины — к удлинителю на стене (он чуть левее и выше)
     coffee.updateMatrixWorld(true);
-    const pts = [V(1.07, 1.12, -0.258), V(1.09, 1.04, -0.25), V(1.12, 0.99, -0.215), V(1.14, 0.98, -0.19)].map((p) => coffee.worldToLocal(p));
+    const pts = [V(1.05, 1.04, -0.26), V(1.06, 1.0, -0.255), V(1.1, 0.95, -0.22), V(1.14, 0.96, -0.19)].map((p) => coffee.worldToLocal(p));
+    { const pl = coffee.worldToLocal(V(1.05, 1.06, -0.26)); add(coffee, rbox(0.03, 0.034, 0.024, 0.006), std('#1b1c20', { roughness: 0.5 }), pl.x, pl.y, pl.z, 0, 0.25, 0); } // вилка в нижнем гнезде
     tube(coffee, pts, 0.003, std('#1b1c20', { roughness: 0.6 }), 20, 5).castShadow = false;
   }
   { const cb = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.32).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: canvasTex(64, 64, (g, w, h) => { const gr = g.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w / 2); gr.addColorStop(0, 'rgba(10,6,4,0.55)'); gr.addColorStop(1, 'rgba(10,6,4,0)'); g.fillStyle = gr; g.fillRect(0, 0, w, h); }), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 })); cb.position.y = 0.0005; cb.renderOrder = 2; coffee.add(cb); }
@@ -726,5 +754,5 @@ export function buildKiosk(root: THREE.Group, inner: THREE.Light[]): KioskParts 
   const glow = new THREE.Points(glowG, new THREE.PointsMaterial({ map: glowT, size: 0.08, sizeAttenuation: true, transparent: true, opacity: 0.55, depthWrite: false, blending: THREE.AdditiveBlending }));
   glow.renderOrder = 3; glow.userData.keep = true; root.add(glow);
 
-  return { bell, screen: { mesh: scr, tex: scrT, draw: drawScreen }, benchAnchor, shelfAnchor, counterAnchor, decor, neon: neonUp, coffee, signText, wall };
+  return { bell, screen: { mesh: scr, tex: scrT, draw: drawScreen }, benchAnchor, shelfAnchor, counterAnchor, decor, neon: neonUp, coffee, blinds, setBlinds, signText, wall };
 }
