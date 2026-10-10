@@ -225,7 +225,8 @@ function makeBuild(rng: Rng, id: number, rep: number, day: number, cust: Custome
   if (wishes.length) req.main = rng.pick(wishes);
   else if (req.score && rng.chance(0.35)) req.main = 'score';
   const cost = sol?.cost ?? 600;
-  const k = rng.range(1.32, 1.55) * ARCHS[cust.arch].budgetK;
+  // наценка ниже (симуляция tools/econ_sim.ts: деньги копились быстрее, чем их было куда тратить)
+  const k = rng.range(1.25, 1.45) * ARCHS[cust.arch].budgetK;
   const pay = Math.round((cost * k) / 10) * 10;
   return { id, kind: 'build', cust, req, pay, haggle: 0, state: 'active', build: {}, day };
 }
@@ -363,7 +364,8 @@ export function swappedOut(o: Order, b: Build): string[] {
   return out;
 }
 
-export const REP_XP = [0, 0, 60, 160, 320, 560, 900, 1350, 1900, 2600, 3500];
+// верхние уровни дороже: бот без ошибок брал 10-й уровень к 15-му дню
+export const REP_XP = [0, 0, 60, 160, 340, 640, 1100, 1700, 2500, 3500, 4800];
 export function repLevel(xp: number): number {
   let lv = 1;
   for (let i = 1; i < REP_XP.length; i++) if (xp >= REP_XP[i]) lv = i;
