@@ -13,7 +13,7 @@
     const q = new URLSearchParams(location.search);
     const f = document.getElementById('f');
     f.width = q.get('w') || 390; f.height = q.get('h') || 844;
-    f.src = './?debug=1&shot=' + (q.get('shot') || 'menu');
+    f.src = './?debug=1&shot=' + (q.get('shot') || 'menu') + (q.get('lang') ? '&lang=' + q.get('lang') : '');
   </script>
 </body>
 </html>
