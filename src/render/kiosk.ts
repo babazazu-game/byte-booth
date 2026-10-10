@@ -215,7 +215,8 @@ export function buildKiosk(root: THREE.Group, inner: THREE.Light[]): KioskParts 
     add(pg, rbox(0.46, 0.42, 0.46, 0.03), std('#efe9df', { roughness: 0.7 }), 0, 0.21, 0);
     add(pg, rbox(0.5, 0.05, 0.5, 0.02), std('#d9d2c6', { roughness: 0.7 }), 0, 0.42, 0);
     add(pg, box(0.4, 0.02, 0.4), std('#4a3527', { roughness: 1 }), 0, 0.44, 0, 0, 0, 0, false);
-    const lf = [std('#4f8f3e', { roughness: 0.75 }), std('#67a84c', { roughness: 0.75 }), std('#3f7a33', { roughness: 0.75 })];
+    // листья гранёные и салатовые — в стиле деревьев парка (автор)
+    const lf = [std('#5f9a34', { roughness: 0.75, flatShading: true }), std('#78b23e', { roughness: 0.75, flatShading: true }), std('#4d8530', { roughness: 0.75, flatShading: true })];
     const pr = mulberry32(17);
     for (let i = 0; i < 40; i++) {
       // листья веером вверх и в стороны, как у растения на логотипе — пышно
@@ -226,7 +227,7 @@ export function buildKiosk(root: THREE.Group, inner: THREE.Light[]): KioskParts 
       const arm = new THREE.Group(); arm.rotation.z = -tilt; st.add(arm);
       // лист — вытянутый эллипсоид, нижний кончик ровно у точки роста (раньше висел над землёй)
       const hl = len * 0.5;
-      add(arm, sph(0.05, 12, 8), lf[i % 3], 0, hl, 0).scale.set(big ? 1.35 : 0.75, hl / 0.05, big ? 0.3 : 0.22);
+      add(arm, sph(0.05, 6, 4), lf[i % 3], 0, hl, 0).scale.set(big ? 1.35 : 0.75, hl / 0.05, big ? 0.3 : 0.22);
     }
   }
   const plinth = std('#3a3d42', { roughness: 0.8 });
@@ -475,7 +476,16 @@ export function buildKiosk(root: THREE.Group, inner: THREE.Light[]): KioskParts 
   // горшок — на левом краю компьютерного стола: справа стоят мышь и вентилятор
   const d1 = new THREE.Group(); d1.position.set(-0.49, 0.797, 1.98); root.add(d1);
   add(d1, cyl(0.07, 0.055, 0.12, 16), std('#f2f0eb', { roughness: 0.6 }), 0, 0.06, 0);
-  for (let i = 0; i < 6; i++) { const a = (i / 6) * TAU; tube(d1, [V(0, 0.1, 0), V(Math.cos(a) * 0.07, 0.25, Math.sin(a) * 0.07), V(Math.cos(a) * 0.125, 0.3, Math.sin(a) * 0.125)], 0.012, std('#5d9a48'), 12, 5); }
+  {
+    // гранёные листья веером — тот же стиль, что у куста в кашпо и деревьев парка
+    const dl = [std('#5f9a34', { roughness: 0.75, flatShading: true }), std('#78b23e', { roughness: 0.75, flatShading: true }), std('#93c64a', { roughness: 0.75, flatShading: true })];
+    for (let i = 0; i < 11; i++) {
+      const a = (i / 11) * TAU * 2.1, tilt = 0.15 + (i % 4) * 0.2, len = 0.15 + (i % 3) * 0.04;
+      const st = new THREE.Group(); st.position.set(0, 0.11, 0); st.rotation.set(0, -a, 0); d1.add(st);
+      const arm = new THREE.Group(); arm.rotation.z = -tilt; st.add(arm);
+      add(arm, sph(0.03, 6, 4), dl[i % 3], 0, len / 2, 0).scale.set(0.9, len / 0.06, 0.3);
+    }
+  }
   const d2 = new THREE.Group(); d2.position.set(K.x0 + 0.12, 2.25, 0.4); root.add(d2);
   const neon = canvasTex(512, 128, (g, w, h) => { g.clearRect(0, 0, w, h); g.strokeStyle = '#ff6fa8'; g.lineWidth = 8; g.shadowColor = '#ff6fa8'; g.shadowBlur = 20; g.font = '900 86px Rubik'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.strokeText('PC ♥', w / 2, h / 2); });
   add(d2, new THREE.PlaneGeometry(0.6, 0.15), own('#000', { map: neon, emissive: '#fff', emissiveMap: neon, emissiveIntensity: 3, transparent: true }), 0, 0, 0, 0, Math.PI / 2, 0, false);
@@ -528,6 +538,7 @@ export function buildKiosk(root: THREE.Group, inner: THREE.Light[]): KioskParts 
     const pts = [V(1.07, 1.12, -0.258), V(1.09, 1.04, -0.25), V(1.12, 0.99, -0.215), V(1.14, 0.98, -0.19)].map((p) => coffee.worldToLocal(p));
     tube(coffee, pts, 0.003, std('#1b1c20', { roughness: 0.6 }), 20, 5).castShadow = false;
   }
+  { const cb = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.32).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: canvasTex(64, 64, (g, w, h) => { const gr = g.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w / 2); gr.addColorStop(0, 'rgba(10,6,4,0.55)'); gr.addColorStop(1, 'rgba(10,6,4,0)'); g.fillStyle = gr; g.fillRect(0, 0, w, h); }), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 })); cb.position.y = 0.0005; cb.renderOrder = 2; coffee.add(cb); }
   coffee.userData.keep = true; coffee.visible = false;
   // свет: одна точка под световой панелью
   // потолочный свет — тёплый и с быстрым спадом: центр светлый, углы уходят в тень
@@ -553,10 +564,21 @@ export function buildKiosk(root: THREE.Group, inner: THREE.Light[]): KioskParts 
   // контактные тени под предметами на прилавке: мягкие тёмные пятна
   const blobT = radial('rgba(10,6,4,0.55)', 'rgba(10,6,4,0)');
   const blobM = new THREE.MeshBasicMaterial({ map: blobT, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
-  for (const [x, z, r] of [[-0.52, -0.24, 0.12], [-0.74, 0.24, 0.12], [0.6, 0.27, 0.14]] as const) {
-    const b = new THREE.Mesh(new THREE.PlaneGeometry(r * 2, r * 2), blobM);
-    b.rotation.x = -Math.PI / 2; b.position.set(x, K.counterY + 0.0255, z); b.renderOrder = 2; b.userData.keep = true; root.add(b);
-  }
+  /*
+   * Все пятна — одна склеенная сетка (один вызов отрисовки): под мелочами на
+   * прилавке, под кассой, на компьютерном столе. Без них предметы «висели» над
+   * поверхностью (разбор Codex: контактные тени — главный дешёвый выигрыш).
+   * [x, y, z, ширина, глубина]
+   */
+  const cY = K.counterY + 0.0255, dY = 0.7985;
+  const blobs: [number, number, number, number, number][] = [
+    [-0.52, cY, -0.24, 0.2, 0.2], [-0.74, cY, 0.24, 0.2, 0.2], [0.6, cY, 0.27, 0.2, 0.26],
+    [-1.14, cY, 0.22, 0.16, 0.16], [-1.02, cY, 0.3, 0.12, 0.12], [-0.9, cY, 0.33, 0.12, 0.1],
+    [0.875, cY, 0.245, 0.44, 0.36],
+    [0, dY, 2.0, 0.34, 0.26], [0, dY, 1.75, 0.5, 0.22], [0.53, dY, 1.95, 0.18, 0.18], [0.335, dY, 1.74, 0.12, 0.14],
+  ];
+  const blobGeo = mergeGeometries(blobs.map(([x, y, z, w, d]) => new THREE.PlaneGeometry(w, d).rotateX(-Math.PI / 2).translate(x, y, z)));
+  const blobMesh = new THREE.Mesh(blobGeo, blobM); blobMesh.renderOrder = 2; blobMesh.userData.keep = true; blobMesh.castShadow = false; root.add(blobMesh);
 
   /* ───────────── уют в духе ReStory ───────────── */
   // Мягкие затемнения в углах и на стыках стен с полом/потолком: запечённый

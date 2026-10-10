@@ -489,8 +489,12 @@ function buildHair(head: THREE.Group, L: PersonLook, hairM: THREE.Material, seed
   if (L.hair === 'bald') {
     // Венчик волос — по затылку и вискам. rx = −π/2 разворачивает дугу назад:
     // с +π/2 она ложилась на лоб «ободком».
-    const ring = add(head, new THREE.TorusGeometry(0.255, 0.045, 10, 40, Math.PI * 1.15), hairM, 0, 0.0, -0.02, -Math.PI / 2, 0, -Math.PI * 0.075);
-    ring.scale.set(1.1, 1, 0.8);
+    // Венчик — оболочкой по затылку и вискам до линии шеи (раньше был тонкий
+    // «бублик» вокруг головы, и сзади под ним торчала голая кожа).
+    const fringe = new THREE.SphereGeometry(1, 48, 20, Math.PI - 0.15, Math.PI + 0.3, 1.12, 0.86);
+    fringe.scale(0.293, 0.283, 0.272);
+    noiseDisplace(fringe, 0.004, 24, 17); fringe.computeVertexNormals();
+    add(head, fringe, hairM);
     return;
   }
   const hr = mulberry32(seed * 7 + 77);

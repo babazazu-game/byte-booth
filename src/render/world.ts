@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { add, std, phys, own, rbox, box, cyl, sph, canvasTex, blob, mulberry32, shade, mergeTree, flattenStatic, V, V2, TAU } from './kit.ts';
+import { add, std, phys, own, rbox, box, cyl, sph, canvasTex, mulberry32, mergeTree, flattenStatic, V, V2, TAU } from './kit.ts';
 import { buildProps, type Props } from './props.ts';
 import { buildKiosk } from './kiosk.ts';
 import { buildBlock, buildCenter } from './districts.ts';
@@ -68,48 +68,66 @@ function makeSky(): THREE.Mesh {
 /* ─────────────────────────────── парк ─────────────────────────────── */
 
 /*
- * Куст из нескольких комков листвы разных оттенков: тёмные внизу и внутри,
- * светлые сверху, плюс мелкие «вихры» по краю. Раньше был один шарик.
- * Материалы общие — mergeTree склеит всё в три вызова на весь парк.
+ * Деревья и кусты — в стиле нарисованных задников (автор: «деревья хуже, чем
+ * на рисунке»): кроны из гранёных шаров (икосаэдр, плоское затенение),
+ * сочная салатовая листва — светлее сверху, темнее снизу; у лиственных ствол
+ * с двумя ветками, ели — гранёные «свечки». Геометрия общая на всех, материалы
+ * общие — mergeTree склеивает парк в несколько вызовов отрисовки.
  */
-const BUSH_M = ['#3f7436', '#4f8a42', '#6aa552'].map((c) => std(c, { roughness: 0.9 }));
+const FOL = ['#5f9a34', '#78b23e', '#93c64a', '#a9d45c'].map((c) => std(c, { roughness: 0.85, flatShading: true }));
+const FOL_DARK = std('#4d8530', { roughness: 0.85, flatShading: true });
+const BARK = std('#7a5235', { roughness: 0.9 });
+const FLOWERS = ['#ffffff', '#ffc4d6', '#ffe08a'].map((c) => std(c, { roughness: 0.6, flatShading: true }));
+const facet = (r: number) => new THREE.IcosahedronGeometry(r, 1);
+
 function bush(r: () => number, seed: number): THREE.Group {
   const g = new THREE.Group();
-  const n = 5 + Math.floor(r() * 3);
+  const n = 4 + Math.floor(r() * 3);
   for (let i = 0; i < n; i++) {
-    const a = (i / n) * TAU + r() * 0.6, d = 0.18 + r() * 0.16, rad = 0.2 + r() * 0.12;
-    add(g, blob(rad, 1, 0.035, 9, seed * 13 + i), BUSH_M[0], Math.cos(a) * d, rad * 0.75, Math.sin(a) * d).scale.y = 0.8;
+    const a = (i / n) * TAU + r() * 0.5, d = 0.16 + r() * 0.12, rad = 0.2 + r() * 0.08;
+    add(g, facet(rad), i % 2 ? FOL[0] : FOL_DARK, Math.cos(a) * d, rad * 0.8, Math.sin(a) * d, r(), r(), 0).scale.y = 0.85;
   }
   for (let i = 0; i < 3; i++) {
-    const a = r() * TAU, d = r() * 0.14, rad = 0.2 + r() * 0.1;
-    add(g, blob(rad, 1, 0.035, 9, seed * 13 + 20 + i), BUSH_M[1], Math.cos(a) * d, 0.36 + r() * 0.12, Math.sin(a) * d).scale.y = 0.85;
+    const a = r() * TAU, d = r() * 0.12, rad = 0.19 + r() * 0.07;
+    add(g, facet(rad), FOL[1 + (i % 2)], Math.cos(a) * d, 0.36 + r() * 0.1, Math.sin(a) * d, r(), r(), 0);
   }
-  for (let i = 0; i < 6; i++) {
-    const a = r() * TAU, d = 0.12 + r() * 0.22, rad = 0.07 + r() * 0.06;
-    add(g, blob(rad, 1, 0.02, 12, seed * 13 + 40 + i), BUSH_M[2], Math.cos(a) * d, 0.42 + r() * 0.2, Math.sin(a) * d);
+  add(g, facet(0.14), FOL[3], 0, 0.55, 0, r(), r(), 0);
+  // у части кустов — цветочки, как на рисунке
+  if (seed % 3 === 0) for (let i = 0; i < 6; i++) {
+    const a = r() * TAU, d = 0.18 + r() * 0.12;
+    add(g, new THREE.IcosahedronGeometry(0.035, 0), FLOWERS[i % 3], Math.cos(a) * d, 0.3 + r() * 0.25, Math.sin(a) * d);
   }
   return g;
 }
 
 function tree(r: () => number, kind: number): THREE.Group {
   const g = new THREE.Group();
-  const bark = std('#6b4a32', { roughness: 0.9 });
-  const h = 1.6 + r() * 1.4;
-  add(g, cyl(0.07, 0.12, h, 10), bark, 0, h / 2, 0);
-  const greens = ['#5e8a4c', '#6d9858', '#527a45', '#7aa261', '#86a862'];
-  const leaf = std(greens[(kind + (r() * 3) | 0) % greens.length], { roughness: 0.85 });
-  const leaf2 = std(shade(greens[kind % greens.length], 0.85), { roughness: 0.85 });
+  const h = 1.5 + r() * 1.2;
   if (kind % 3 === 2) {
-    // ель: ярусы конусов
-    for (let i = 0; i < 4; i++) add(g, new THREE.ConeGeometry(0.9 - i * 0.18, 0.9, 12), leaf2, 0, h * 0.55 + i * 0.5, 0);
-  } else {
-    const n = 5 + ((r() * 4) | 0);
-    for (let i = 0; i < n; i++) {
-      const a = r() * TAU, d = r() * 0.55;
-      const m = add(g, blob(0.5 + r() * 0.35, 2, 0.05, 6, i + kind), i % 2 ? leaf : leaf2, Math.cos(a) * d, h + 0.2 + r() * 0.7, Math.sin(a) * d);
-      m.scale.y = 0.85;
-    }
+    // «свеча» (кипарис/ель с рисунка): гранёный вытянутый конус
+    add(g, cyl(0.06, 0.08, 0.4, 6), BARK, 0, 0.2, 0);
+    // округлая гранёная «капля», светлее кверху — как кипарисы на рисунке
+    add(g, facet(0.5), FOL_DARK, 0, 1.25, 0, r(), r(), 0).scale.set(1, 2.0, 1);
+    add(g, facet(0.38), FOL[0], 0, 2.15, 0, r(), r(), 0).scale.set(1, 1.9, 1);
+    add(g, facet(0.2), FOL[1], 0, 2.75, 0, r(), r(), 0).scale.set(1, 1.6, 1);
+    return g;
   }
+  add(g, cyl(0.07, 0.13, h, 7), BARK, 0, h / 2, 0);
+  // две ветки из ствола в крону
+  for (const s of [-1, 1]) {
+    const br = add(g, cyl(0.035, 0.055, 0.7, 6), BARK, s * 0.17, h * 0.85, 0, 0, 0, -s * 0.6);
+    br.rotation.y = r() * 0.6;
+  }
+  // крона: нижний тёмный ярус, средний, светлая верхушка — горкой
+  const tiers: [number, number, number, number][] = [[6, 0.55, 0.0, 0.42], [5, 0.38, 0.45, 0.4], [2, 0.16, 0.85, 0.36]];
+  tiers.forEach(([n, ring, dy, rad], t) => {
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * TAU + r() * 0.5;
+      const m = add(g, facet(rad * (0.85 + r() * 0.3)), t === 0 ? FOL[0] : t === 1 ? FOL[1 + (i % 2)] : FOL[3], Math.cos(a) * ring, h + 0.25 + dy + r() * 0.1, Math.sin(a) * ring, r(), r(), 0);
+      m.scale.y = 0.92;
+    }
+  });
+  add(g, facet(0.5), FOL[1], 0, h + 0.55, 0, r(), r(), 0);
   return g;
 }
 

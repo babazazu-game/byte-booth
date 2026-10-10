@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { add, std, phys, own, rbox, box, cyl, sph, canvasTex, blob, mulberry32, V, TAU } from './kit.ts';
+import { add, std, phys, own, rbox, box, cyl, sph, canvasTex, mulberry32, V, TAU } from './kit.ts';
 
 /**
  * Окружение ларька в спальном районе и в деловом центре.
@@ -80,15 +80,15 @@ function car(color: string): THREE.Group {
 }
 
 /** Берёза: белый ствол с чёрными чёрточками и светлая лёгкая крона. */
-function birch(r: () => number, i: number): THREE.Group {
+function birch(r: () => number, _i: number): THREE.Group {
   const g = new THREE.Group();
   const h = 2.2 + r() * 1.6;
   add(g, cyl(0.06, 0.1, h, 10), std('#ece8df', { roughness: 0.8 }), 0, h / 2, 0);
   for (let k = 0; k < 7; k++) add(g, box(0.08, 0.025, 0.02), std('#2a2a2a'), Math.cos(k * 2.1) * 0.07, 0.4 + k * (h / 8), Math.sin(k * 2.1) * 0.07, 0, k * 2.1, 0, false);
-  const leaf = [std('#93b85a', { roughness: 0.85 }), std('#7ea54c', { roughness: 0.85 })];
+  const leaf = [std('#a3d05a', { roughness: 0.85, flatShading: true }), std('#82b545', { roughness: 0.85, flatShading: true })];
   for (let k = 0; k < 6; k++) {
     const a = r() * TAU, d = r() * 0.45;
-    add(g, blob(0.38 + r() * 0.25, 1, 0.05, 7, i * 9 + k), leaf[k % 2], Math.cos(a) * d, h + r() * 0.8 - 0.1, Math.sin(a) * d).scale.y = 1.25;
+    add(g, new THREE.IcosahedronGeometry(0.38 + r() * 0.25, 1), leaf[k % 2], Math.cos(a) * d, h + r() * 0.8 - 0.1, Math.sin(a) * d, r(), r(), 0).scale.y = 1.2;
   }
   return g;
 }
@@ -169,7 +169,7 @@ export function buildBlock(g: THREE.Group): DistrictSet {
     if (x > -2 && x < 4 && z > -16) continue; // прямо перед окном — вид на дома
     const t = birch(r, i); t.position.set(x, 0, z); t.scale.setScalar(0.9 + r() * 0.4); g.add(t);
   }
-  const lilac = [std('#9d7fc7', { roughness: 0.85 }), std('#6c9a4c', { roughness: 0.85 })];
+  const lilac = [std('#b08fd8', { roughness: 0.85, flatShading: true }), std('#78b23e', { roughness: 0.85, flatShading: true })];
   // сирень обходит лавочки и фонари вдоль газона
   const busy: [number, number][] = [[-6, -4.4], [6.5, -4.4], [-7.5, -4.3], [7.0, -4.3], [15, -4.3]];
   for (let i = 0; i < 16; i++) {
@@ -177,7 +177,7 @@ export function buildBlock(g: THREE.Group): DistrictSet {
     if (Math.abs(x - 1.2) < 2 || busy.some(([bx, bz]) => Math.hypot(x - bx, z - bz) < 1.4)) continue;
     busy.push([x, z]);
     const b = new THREE.Group(); b.position.set(x, 0, z); g.add(b);
-    for (let k = 0; k < 5; k++) add(b, blob(0.28 + r() * 0.12, 1, 0.04, 9, i * 7 + k), lilac[k < 2 ? 0 : 1], (r() - 0.5) * 0.6, 0.35 + r() * 0.3, (r() - 0.5) * 0.4);
+    for (let k = 0; k < 5; k++) add(b, new THREE.IcosahedronGeometry(0.28 + r() * 0.12, 1), lilac[k < 2 ? 0 : 1], (r() - 0.5) * 0.6, 0.35 + r() * 0.3, (r() - 0.5) * 0.4);
   }
   for (const [x, z] of [[-6, -4.4], [6.5, -4.4], [-12, -9.2], [4, -9.2]] as const) { const b = bench(); b.position.set(x, 0, z); g.add(b); }
   for (const x of [-7.5, 7.0, 15]) { const L = lamp(set, false); L.position.set(x, 0, -4.3); g.add(L); }

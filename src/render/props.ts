@@ -54,7 +54,7 @@ export function buildProps(root: THREE.Group): Props {
   add(pot, cyl(0.046, 0.046, 0.01, 20), std('#4a3527', { roughness: 1 }), 0, 0.076, 0);
   for (let i = 0; i < 9; i++) {
     const a = (i / 9) * TAU, r = i < 5 ? 0.022 : 0.0;
-    const leaf = add(pot, new THREE.SphereGeometry(0.018, 10, 8), std(i % 2 ? '#6f9c5a' : '#88b06b', { roughness: 0.7 }), Math.cos(a) * r, 0.095 + (i < 5 ? 0 : 0.02), Math.sin(a) * r);
+    const leaf = add(pot, new THREE.SphereGeometry(0.018, 6, 4), std(i % 2 ? '#78b23e' : '#93c64a', { roughness: 0.75, flatShading: true }), Math.cos(a) * r, 0.095 + (i < 5 ? 0 : 0.02), Math.sin(a) * r);
     leaf.scale.set(0.7, 1.5, 0.7); leaf.rotation.z = Math.cos(a) * 0.5; leaf.rotation.x = Math.sin(a) * 0.5;
   }
   // стакан с отвёртками и ручками
@@ -101,13 +101,13 @@ export function buildProps(root: THREE.Group): Props {
   const ivy = new THREE.Group(); ivy.position.set(0.45, 0.0125, 0); top.add(ivy);
   add(ivy, new THREE.CylinderGeometry(0.055, 0.045, 0.09, 18), std('#e9e4d8', { roughness: 0.7 }), 0, 0.045, 0);
   add(ivy, cyl(0.05, 0.05, 0.008, 18), std('#4a3527', { roughness: 1 }), 0, 0.087, 0);
-  const leafM = std('#5f8f4e', { roughness: 0.7 }), leafM2 = std('#78a660', { roughness: 0.7 }), leafM3 = std('#4e7c41', { roughness: 0.7 });
+  const leafM = std('#5f9a34', { roughness: 0.75, flatShading: true }), leafM2 = std('#78b23e', { roughness: 0.75, flatShading: true }), leafM3 = std('#4d8530', { roughness: 0.75, flatShading: true });
   const rr = mulberry32(9);
   for (let i = 0; i < 26; i++) {
     const a = rr() * TAU, tilt = 0.25 + rr() * 0.75, len = 0.05 + rr() * 0.05;
     const leaf = new THREE.Group(); leaf.position.set(Math.cos(a) * 0.012, 0.09, Math.sin(a) * 0.012); leaf.rotation.set(0, -a, 0); ivy.add(leaf);
     const stem = new THREE.Group(); stem.rotation.z = -tilt; leaf.add(stem);
-    const m = add(stem, new THREE.SphereGeometry(0.018, 10, 8), [leafM, leafM2, leafM3][i % 3], 0, len, 0);
+    const m = add(stem, new THREE.SphereGeometry(0.018, 6, 4), [leafM, leafM2, leafM3][i % 3], 0, len, 0);
     m.scale.set(0.55, 1.5, 0.22);
   }
   // ── стена у окна: пробковая доска слева, полочки и удлинитель справа ──
@@ -147,7 +147,7 @@ export function buildProps(root: THREE.Group): Props {
   add(ws, rbox(0.1, 0.07, 0.08, 0.004), std('#c9a06a', { roughness: 0.9 }), -0.09, 1.765, 0.06);
   add(ws, rbox(0.07, 0.05, 0.08, 0.004), std('#3d5a80', { roughness: 0.9 }), 0.0, 1.755, 0.06);
   add(ws, new THREE.CylinderGeometry(0.03, 0.025, 0.05, 16), std('#c96f4a', { roughness: 0.85 }), 0.1, 1.755, 0.06);
-  add(ws, new THREE.CapsuleGeometry(0.016, 0.04, 4, 10), std('#6f9c5a', { roughness: 0.7 }), 0.1, 1.81, 0.06);
+  add(ws, new THREE.CapsuleGeometry(0.016, 0.04, 2, 6), std('#78b23e', { roughness: 0.75, flatShading: true }), 0.1, 1.81, 0.06);
   // удлинитель на стене и провода вниз к прилавку
   add(ws, rbox(0.06, 0.2, 0.03, 0.006), std('#e9e5dc', { roughness: 0.6 }), -0.11, 1.12, 0.015);
   for (let i = 0; i < 3; i++) add(ws, box(0.018, 0.012, 0.004), std('#2a2d32'), -0.11, 1.18 - i * 0.05, 0.032);
