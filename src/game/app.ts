@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { Save } from 'yg-core';
 import { core } from '../core.ts';
 import { watchRewarded, interstitialBetweenLevels } from '../ads.ts';
-import { Engine, type Quality } from '../render/engine.ts';
+import { Engine, CEIL, type Quality } from '../render/engine.ts';
 import { buildWorld, type World } from '../render/world.ts';
 import { Views, ZONES, type Zone } from '../render/views.ts';
 import { Director, walkerArchs } from './director.ts';
@@ -304,7 +304,9 @@ export class App {
     // На среднем гасим ещё и прожектор над верстаком (~5 мс на встроенной графике):
     // свет считается для КАЖДОГО материала сцены, а не только под лампой.
     const q = this.settings.quality;
-    for (const l of this.world.inner) l.visible = q === 'high' || (q === 'mid' && !(l as THREE.SpotLight).isSpotLight);
+    // потолочная лампа — не настоящий свет, а «дешёвый» в шейдере (engine.ts, CEIL): объект остаётся
+    // ориентиром позиции и яркости, сам в освещении не участвует
+    for (const l of this.world.inner) l.visible = !(l as THREE.PointLight).isPointLight && (q === 'high' || (q === 'mid' && !(l as THREE.SpotLight).isSpotLight));
     if (this.walkersQ !== this.settings.quality) this.spawnWalkers();
     this.resizeNow();
   }
@@ -1052,6 +1054,7 @@ export class App {
     // живые статуэтки: машущая кошка, переливающийся мини-ПК
     for (const slot of this.world.props.figSlots) for (const c of slot.children) (c.userData.tick as ((t: number) => void) | undefined)?.(t);
     this.cullOutdoor();
+    this.updateCeil();
     this.engine.render();
   }
 
@@ -1063,6 +1066,18 @@ export class App {
    * меняются: камера теней солнца видит слой 1 всегда. Свет остаётся на слое 0 —
    * иначе при переключении шейдеры пересобирались бы с подвисанием.
    */
+  /** Потолочная лампа → униформы «дешёвого» света (позиция в осях камеры, цвет × яркость). */
+  private readonly ceilV = new THREE.Vector3();
+  private updateCeil(): void {
+    const ceil = this.world.inner.find((l) => (l as THREE.PointLight).isPointLight) as THREE.PointLight | undefined;
+    if (!ceil || this.settings.quality === 'low') { CEIL.col.value.w = 0; return; }
+    const cam = this.engine.camera;
+    cam.updateMatrixWorld();
+    ceil.getWorldPosition(this.ceilV).applyMatrix4(cam.matrixWorldInverse);
+    CEIL.pos.value.set(this.ceilV.x, this.ceilV.y, this.ceilV.z, ceil.distance);
+    CEIL.col.value.set(ceil.color.r * ceil.intensity, ceil.color.g * ceil.intensity, ceil.color.b * ceil.intensity, 1);
+  }
+
   private outdoorTick = 99;
   private outdoorN = -1;
   private readonly kioskBox = new THREE.Box3(new THREE.Vector3(KIOSK.x0 - 0.3, -0.6, KIOSK.z0 - 0.45), new THREE.Vector3(KIOSK.x1 + 0.3, KIOSK.h + 1.6, KIOSK.z1 + 0.3));

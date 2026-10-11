@@ -19,6 +19,39 @@ import { setAnisotropy, setEnv } from './kit.ts';
 export type Quality = 'low' | 'mid' | 'high';
 
 /*
+ * Потолочная лампа ларька — «дешёвый» свет. Настоящий PointLight стоил ~4,5 мс
+ * из 17 на встроенной графике: three.js считает его на каждом пикселе каждого
+ * материала, вместе с бликами (GGX). Здесь та же лампа (позиция, цвет, яркость,
+ * радиус, спад как у PointLight с decay 2) добавлена прямо в общий шейдер:
+ * только рассеянный свет и только ближе радиуса — дальние пиксели (улица)
+ * пропускают его одной проверкой. Позиция — в осях камеры, её каждый кадр
+ * пишет игра (App.updateCeil). w у позиции — радиус; яркость 0 — лампы нет.
+ */
+// один объект на страницу: модуль может выполниться повторно (горячая перезагрузка)
+const G = globalThis as unknown as { __ceil?: { pos: { value: THREE.Vector4 }; col: { value: THREE.Vector4 } } };
+export const CEIL = (G.__ceil ??= { pos: { value: new THREE.Vector4() }, col: { value: new THREE.Vector4() } });
+if (!THREE.ShaderChunk.lights_pars_begin.includes('uCeilPos')) {
+THREE.ShaderChunk.lights_pars_begin += `
+uniform vec4 uCeilPos;
+uniform vec4 uCeilCol;
+`;
+THREE.ShaderChunk.lights_fragment_end = `
+#if defined( RE_IndirectDiffuse )
+{
+	vec3 cv = uCeilPos.xyz - geometryPosition;
+	float cd = length( cv );
+	if ( cd < uCeilPos.w && uCeilCol.a > 0.0 ) {
+		float att = getDistanceAttenuation( cd, uCeilPos.w, 2.0 );
+		reflectedLight.directDiffuse += saturate( dot( geometryNormal, cv / cd ) ) * att * uCeilCol.rgb * BRDF_Lambert( material.diffuseColor );
+	}
+}
+#endif
+` + THREE.ShaderChunk.lights_fragment_end;
+}
+// общие униформы — всем материалам (у своих onBeforeCompile в игре нет)
+THREE.Material.prototype.onBeforeCompile = function (sh: THREE.WebGLProgramParametersWithUniforms) { sh.uniforms.uCeilPos = CEIL.pos; sh.uniforms.uCeilCol = CEIL.col; };
+
+/*
  * Пропуск расчёта света там, куда он не достаёт (за радиусом лампы, вне конуса
  * прожектора). Штатный шейдер считает GGX для каждого света во всех пикселях;
  * при visible = false вклад и так нулевой, картинка идентична.
