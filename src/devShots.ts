@@ -135,6 +135,7 @@ async function runScene(app: App, scene: string): Promise<void> {
   // ?gpu2=1 — вторая видеокарта (ИИ-сборка)
   if (scene === 'bench3' && new URLSearchParams(location.search).get('gpu2')) { S.buy(s, sol.gpu!, 1); ins('gpu'); }
   if (scene === 'bench3') { ins('ram'); for (const k of ['cab24', 'cab8', 'cabGpu'] as const) S.toggleCable(s, k); }
+  (window as unknown as { __rig: unknown }).__rig = app.bench.rig; // для проверки пересечений из консоли
   app.bench.sync(false); app.go('bench');
   for (let i = 0; i < 40; i++) app.debugStep(0.05);
   app.bench.refresh();

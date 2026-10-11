@@ -143,7 +143,7 @@ export function canInstall(b: Build, id: string): Verdict {
         if (b.gpu !== p.id) return NO('why.gpu2Same');
         if (!m.pcie2) return NO('why.gpu2Board');
         if (c.size !== 'full') return NO('why.gpu2Case');
-        if (p.tdp >= 350) return NO('why.gpu2Thick'); // 3.5-слотовые не встают вплотную друг к другу
+        if (p.tdp >= 350 && !m.pcie2Wide) return NO('why.gpu2Thick'); // 3,5-слотовым нужен разнесённый второй слот
       }
       if (p.len > c.gpuMax) return NO('why.gpuLong', { len: p.len, max: c.gpuMax });
       return OK;

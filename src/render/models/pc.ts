@@ -47,7 +47,7 @@ function memoGrill(): THREE.Texture {
 /** Свои пропорции у моделей — с расстояния корпуса различаются силуэтом (автор: «все похожи»). */
 export const CASE_DIMS_ID: Record<string, [number, number, number]> = {
   'zalman-t8': [0.205, 0.44, 0.43], popmini: [0.215, 0.42, 0.42], ch560: [0.23, 0.5, 0.455], h5flow: [0.21, 0.465, 0.43],
-  y60: [0.285, 0.46, 0.46], skytwo: [0.23, 0.48, 0.44],
+  y60: [0.285, 0.48, 0.46], skytwo: [0.23, 0.48, 0.44],
 };
 /** Подсветка вентиляторов: у каждой модели свой цвет (null — радуга). */
 const CASE_GLOW: Record<string, string | null> = { cc560: '#2fe0cf', popmini: null, ch560: '#ff8a3c', o11evo: '#4fc8ff', y60: '#ff4fd0', skytwo: '#45a6ff' };

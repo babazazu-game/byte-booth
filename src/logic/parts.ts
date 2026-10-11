@@ -41,7 +41,7 @@ interface Base {
 
 export interface CPU extends Base { cat: 'cpu'; socket: Socket; cores: number; perf: number; tdp: number; vendor: 'intel' | 'amd' }
 export interface GPU extends Base { cat: 'gpu'; chip: string; vendor: 'nvidia' | 'amd'; perf: number; tdp: number; len: number; vram: number; fans: 2 | 3 }
-export interface MB extends Base { cat: 'mb'; socket: Socket; form: Form; ram: RamType; chipset: string; /** слотов памяти */ slots: 2 | 4; /** два слота x16 — под две видеокарты (ИИ-сборки) */ pcie2?: boolean }
+export interface MB extends Base { cat: 'mb'; socket: Socket; form: Form; ram: RamType; chipset: string; /** слотов памяти */ slots: 2 | 4; /** два слота x16 — под две видеокарты (ИИ-сборки) */ pcie2?: boolean; /** второй x16 разнесён на 4 слота вниз — встанет пара толстых карт (5080/5090) */ pcie2Wide?: boolean }
 export interface RAM extends Base { cat: 'ram'; type: RamType; gb: number; mhz: number; rgb: boolean }
 export interface SSD extends Base { cat: 'ssd'; gb: number; speed: number }
 export interface PSU extends Base { cat: 'psu'; watt: number; tier: string }
@@ -92,8 +92,8 @@ export const MBS: MB[] = [
   { id: 'z790', cat: 'mb', brand: 'Gigabyte', name: 'Z790 AORUS ELITE', price: 230, rep: 2, socket: 'LGA1700', form: 'ATX', ram: 'DDR5', chipset: 'Z790', slots: 4, pcie2: true, look: L('#16171b', '#f2a13a') },
   { id: 'b860m', cat: 'mb', brand: 'MSI', name: 'B860M GAMING PLUS', price: 165, rep: 3, socket: 'LGA1851', form: 'mATX', ram: 'DDR5', chipset: 'B860', slots: 4, look: L('#17181c', '#d8382f') },
   { id: 'b650i', cat: 'mb', brand: 'Gigabyte', name: 'B650I AORUS ULTRA', price: 255, rep: 3, socket: 'AM5', form: 'ITX', ram: 'DDR5', chipset: 'B650', slots: 2, look: L('#18191d', '#f2a13a') },
-  { id: 'z890', cat: 'mb', brand: 'ASUS', name: 'TUF GAMING Z890-PLUS', price: 300, rep: 4, socket: 'LGA1851', form: 'ATX', ram: 'DDR5', chipset: 'Z890', slots: 4, pcie2: true, look: L('#1e2024', '#f3c35a') },
-  { id: 'x870e', cat: 'mb', brand: 'ASUS', name: 'ROG STRIX X870E-E', price: 450, rep: 5, socket: 'AM5', form: 'ATX', ram: 'DDR5', chipset: 'X870E', slots: 4, pcie2: true, look: L('#101114', '#e2334a') },
+  { id: 'z890', cat: 'mb', brand: 'ASUS', name: 'TUF GAMING Z890-PLUS', price: 300, rep: 4, socket: 'LGA1851', form: 'ATX', ram: 'DDR5', chipset: 'Z890', slots: 4, pcie2: true, pcie2Wide: true, look: L('#1e2024', '#f3c35a') },
+  { id: 'x870e', cat: 'mb', brand: 'ASUS', name: 'ROG STRIX X870E-E', price: 450, rep: 5, socket: 'AM5', form: 'ATX', ram: 'DDR5', chipset: 'X870E', slots: 4, pcie2: true, pcie2Wide: true, look: L('#101114', '#e2334a') },
 ];
 
 /*
@@ -216,7 +216,7 @@ function specCore(p: Part, ru: boolean): string {
   switch (p.cat) {
     case 'cpu': return ru ? `${p.socket} · ${p.cores} ядер · ${p.tdp} Вт` : `${p.socket} · ${p.cores}C · ${p.tdp}W`;
     case 'gpu': return ru ? `${p.vram} ГБ · ${p.tdp} Вт · ${p.len} мм` : `${p.vram}GB · ${p.tdp}W · ${p.len}mm`;
-    case 'mb': return `${p.socket} · ${p.form} · ${p.ram} ×${p.slots}${p.pcie2 ? ' · 2×PCIe x16' : ''}`;
+    case 'mb': return `${p.socket} · ${p.form} · ${p.ram} ×${p.slots}${p.pcie2 ? (p.pcie2Wide ? ' · 2×PCIe x16 (широко)' : ' · 2×PCIe x16') : ''}`;
     case 'ram': return `${p.type} · ${ru ? '1 планка' : '1 stick'} ${p.gb}${ru ? ' ГБ' : 'GB'} · ${p.mhz}${ru ? ' МГц' : ''}`;
     case 'ssd': return `M.2 NVMe · ${p.gb >= 1000 ? p.gb / 1000 + 'TB' : p.gb + 'GB'}`;
     case 'psu': return `${p.watt}${ru ? ' Вт' : 'W'} · 80+ ${p.tier}`;

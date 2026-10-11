@@ -191,10 +191,12 @@ export function buildBoard(p: MB): BoardModel {
   add(group, rbox(0.018, 0.009, 0.012, 0.002), dark, c8.x, c8.y, c8.z);
   // чипсет, M.2, PCIe
   const pcieY = cpuY - (p.form === 'ITX' ? 0.075 : 0.105);
+  // второй x16: обычно на 75 мм ниже, у «широких» плат — на 4 слота (81 мм), чтобы встала пара 3,5-слотовых карт
+  const pcie2Y = pcieY - (p.pcie2Wide ? 0.083 : 0.075);
   add(group, rbox(0.089, 0.008, 0.009, 0.0015), steel, x0 + 0.06, pcieY, 0.0045);
   if (p.form !== 'ITX') {
-    // второй слот: у плат с двумя x16 — стальной, ниже на 75 мм (под вторую видеокарту)
-    if (p.pcie2) add(group, rbox(0.089, 0.008, 0.009, 0.0015), steel, x0 + 0.06, pcieY - 0.075, 0.0045);
+    // второй слот: у плат с двумя x16 — стальной (под вторую видеокарту)
+    if (p.pcie2) add(group, rbox(0.089, 0.008, 0.009, 0.0015), steel, x0 + 0.06, pcie2Y, 0.0045);
     else add(group, rbox(0.089, 0.007, 0.008, 0.0015), dark, x0 + 0.06, pcieY - 0.06, 0.004);
     add(group, rbox(0.045, 0.045, 0.008, 0.003), gray, w / 2 - 0.05, pcieY - 0.03, 0.004);
     const chipLogo = memo('chip' + p.id, () => canvasTex(128, 128, (g) => {
@@ -228,7 +230,7 @@ export function buildBoard(p: MB): BoardModel {
       ram: mk(ramX, ramY, 0.006),
       m2: mk(m2.x, m2.y, m2.z),
       pcie: mk(x0 + 0.06, pcieY, 0.009),
-      pcie2: mk(x0 + 0.06, pcieY - 0.075, 0.009),
+      pcie2: mk(x0 + 0.06, pcie2Y, 0.009),
       atx24: mk(atx.x, atx.y, atx.z + 0.006),
       cpu8: mk(c8.x, c8.y, c8.z + 0.006),
     },

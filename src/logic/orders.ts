@@ -138,7 +138,7 @@ function solveVia(req: Req, rep: number, price: (id: string) => number, rgbVia: 
   for (const cpu of avail(CPUS, rep)) {
     if (req.vendor && cpu.vendor !== req.vendor) continue;
     for (const gpu of avail(GPUS, rep)) {
-      if (req.ai && (gpu.vram < req.ai || gpu.tdp >= 350)) continue;
+      if (req.ai && gpu.vram < req.ai) continue;
       const gN = req.ai ? 2 : 1;
       const probe: Build = { cpu: cpu.id, gpu: gpu.id, ram: undefined };
       const ramPick = avail(RAMS, rep).filter((r) => (rgbVia !== 'ram' || r.rgb));
@@ -148,7 +148,7 @@ function solveVia(req: Req, rep: number, price: (id: string) => number, rgbVia: 
       if (req.score && gameScore(probe) < req.score) continue;
       if (req.work && workScore({ ...probe, ram: ramPick.find((r) => r.gb >= 32)?.id ?? probe.ram, ramN: 2 }) < req.work) continue;
       for (const mbType of ['DDR4', 'DDR5'] as const) {
-        const mbs = avail(MBS, rep).filter((m) => m.socket === cpu.socket && m.ram === mbType && (!req.itx || m.form === 'ITX') && (!req.ai || m.pcie2));
+        const mbs = avail(MBS, rep).filter((m) => m.socket === cpu.socket && m.ram === mbType && (!req.itx || m.form === 'ITX') && (!req.ai || (m.pcie2 && (gpu.tdp < 350 || m.pcie2Wide))));
         const rams = ramPick.filter((r) => r.type === mbType);
         if (!mbs.length || !rams.length) continue;
         // самая дешёвая комбинация «планка × количество» (пара — предпочтительно)

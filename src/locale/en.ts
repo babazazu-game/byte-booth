@@ -286,7 +286,7 @@ export const EN: Record<string, string> = {
   'why.gpu2Same': 'The second card must be the same model',
   'why.gpu2Board': 'This board has one x16 slot: you need one with two (B650, Z790, Z890, X870E)',
   'why.gpu2Case': 'Two cards fit only in a big case',
-  'why.gpu2Thick': 'A card this thick can’t go in pairs',
+  'why.gpu2Thick': 'A pair of cards this thick needs a board with widely spaced slots (Z890, X870E)',
   'why.itxTower': 'On an ITX board this tower hits the graphics card: use a low-profile cooler, a small tower (AG400) or an AIO',
   'why.coolerTall': 'Cooler {h} mm taller than case limit {max} mm',
   'why.aioNoRoom': "The AIO radiator won't fit this case",
