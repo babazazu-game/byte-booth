@@ -49,10 +49,10 @@ const MAJ = [0, 2, 4, 5, 7, 9, 11], MIN = [0, 2, 3, 5, 7, 8, 10];
  * Плейлист записанных треков (assets/music/<id>.mp3). Первые пять имеют
  * процедурных «двойников» в TRACKS — на случай, если файлы не загрузятся.
  */
-const FILES = ['park', 'solder', 'evening', 'market', 'overclock', 'jazzhop', 'acoustic', 'deephouse', 'nudisco', 'downtempo', 'synth:chiptune', 'synth:bossa', 'synth:surf'];
+const FILES = ['park', 'solder', 'evening', 'market', 'overclock', 'jazzhop', 'acoustic', 'deephouse', 'nudisco', 'downtempo', 'bossa', 'funk', 'reggae', 'synthwave', 'swing', 'synth:chiptune', 'synth:surf'];
 /*
- * Три трека другого стиля — синтезом прямо в игре (не mp3): восьмибитный
- * чиптюн, босса-нова с гитарой и флейтой, сёрф с «гитарными» пиками.
+ * Два трека синтезом прямо в игре (не mp3): восьмибитный чиптюн и сёрф
+ * с «гитарными» пиками. Босса-нова теперь записанная (bossa.mp3).
  * В плейлисте стоят рядом с записанными и звучат заметно иначе.
  */
 
