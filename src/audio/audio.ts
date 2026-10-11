@@ -1,7 +1,6 @@
 /**
- * Звук игры — синтез в WebAudio. Исключение — музыка: десять треков в
- * assets/music (ElevenLabs); их процедурные «двойники» в TRACKS играют, только
- * если файлы не загрузились.
+ * Звук игры — синтез в WebAudio. Исключение — музыка: только записанные
+ * треки в assets/music (ElevenLabs), процедурной музыки в игре нет.
  *
  * «Не 8 бит» здесь значит: шум и FM-синтез через фильтры, огибающие с
  * мягкими хвостами, общая реверберация, синтезированная из затухающего шума,
@@ -16,135 +15,8 @@ type Bus = 'sfx' | 'music' | 'voice' | 'amb';
 
 /* ───────────── треки ───────────── */
 
-/**
- * Трек — это не ноты, а «рецепт»: темп, гармония, рисунки партий по 16-м и
- * тембры. Мелодия сочиняется заново при каждом запуске из мотива на два такта,
- * поэтому треки узнаваемы по настроению, но не надоедают дословным повтором.
- * Рисунки: 16 символов на такт, x — сильный удар, o — слабый, . — пауза.
- */
-interface Track {
-  id: string;
-  bpm: number;
-  /** Задержка нечётных 16-х в долях шестнадцатой: свинг лоу-фая и босса-новы. */
-  swing: number;
-  /** По аккорду (MIDI) на такт; длина 4 или 8, чтобы делить восьмитактовую фразу. */
-  chords: number[][];
-  /** Лад мелодии: полутоны от тоники и тоника в нужном регистре. */
-  scale: number[];
-  root: number;
-  keys: 'epiano' | 'pad' | 'pluck' | 'stab' | 'arp' | 'guitar';
-  bass: 'sub' | 'saw' | 'pluck' | 'square';
-  lead: 'pluck' | 'bell' | 'epiano' | 'saw' | 'square' | 'flute';
-  comp: string; bassPat: string; kick: string; snare: string; hat: string; perc?: string;
-  /** Срез общего фильтра музыки, Гц: чем ниже, тем «теплее» и дальше. */
-  lpf: number;
-  crackle: number;
-  /** Насколько густо поёт мелодия (0..1). */
-  density: number;
-}
-
-const MAJ = [0, 2, 4, 5, 7, 9, 11], MIN = [0, 2, 3, 5, 7, 8, 10];
-
-/**
- * Плейлист записанных треков (assets/music/<id>.mp3). Первые пять имеют
- * процедурных «двойников» в TRACKS — на случай, если файлы не загрузятся.
- */
-const FILES = ['park', 'solder', 'evening', 'market', 'overclock', 'jazzhop', 'acoustic', 'deephouse', 'nudisco', 'downtempo', 'bossa', 'funk', 'reggae', 'synthwave', 'swing', 'synth:chiptune', 'synth:surf'];
-/*
- * Два трека синтезом прямо в игре (не mp3): восьмибитный чиптюн и сёрф
- * с «гитарными» пиками. Босса-нова теперь записанная (bossa.mp3).
- * В плейлисте стоят рядом с записанными и звучат заметно иначе.
- */
-
-const TRACKS: Track[] = [
-  { // «8 бит» — чиптюн: квадратные волны, быстрое арпеджио, бас-квадрат
-    id: 'chiptune', bpm: 138, swing: 0, chords: [[60, 64, 67], [57, 60, 64], [53, 57, 60], [55, 59, 62]],
-    scale: MAJ, root: 72, keys: 'arp', bass: 'square', lead: 'square',
-    comp: 'xxxxxxxxxxxxxxxx', bassPat: 'x.x.o.x.x.x.o.+.', kick: 'x...x...x...x...', snare: '....x.......x...', hat: '..x...x...x...x.',
-    lpf: 7000, crackle: 0, density: 0.65,
-  },
-  { // «Кафе у моря» — босса-нова: гитара с синкопами, флейта, щётки
-    id: 'bossa', bpm: 112, swing: 0.12, chords: [[50, 57, 60, 65], [55, 59, 62, 65], [48, 52, 55, 59], [57, 61, 64, 67]],
-    scale: MAJ, root: 74, keys: 'guitar', bass: 'pluck', lead: 'flute',
-    comp: 'x..x..x...x..x..', bassPat: 'x.....o.x.....o.', kick: 'x.....x.x.......', snare: '', hat: 'x.x.x.x.x.x.x.x.', perc: '...x..x....x..x.',
-    lpf: 4200, crackle: 0.02, density: 0.45,
-  },
-  { // «Сёрф» — бодрые гитарные пики, рок-барабан
-    id: 'surf', bpm: 150, swing: 0, chords: [[52, 56, 59], [57, 61, 64], [59, 63, 66], [57, 61, 64]],
-    scale: MAJ, root: 64, keys: 'stab', bass: 'pluck', lead: 'pluck',
-    comp: 'x.x.x.x.x.x.x.x.', bassPat: 'x.x.x.x.o.o.o.o.', kick: 'x.....x.x.......', snare: '....x.......x...', hat: 'xxxxxxxxxxxxxxxx',
-    lpf: 6000, crackle: 0, density: 0.6,
-  },
-  { // «Утро в парке» — лоу-фай: электропиано, свинг, винил
-    id: 'park', bpm: 76, swing: 0.45, chords: [[53, 57, 60, 64], [52, 55, 59, 62], [50, 53, 57, 60], [48, 52, 55, 59]],
-    scale: MAJ, root: 72, keys: 'epiano', bass: 'sub', lead: 'pluck',
-    comp: 'x.......x..o....', bassPat: 'x.......x.....o.', kick: 'x.........x.....', snare: '....x.......x...', hat: 'x.x.x.x.x.x.x.x.',
-    lpf: 3200, crackle: 0.05, density: 0.42,
-  },
-  { // «Паяльник и кофе» — сити-поп: синкопы, слэп-бас, стабы
-    id: 'solder', bpm: 104, swing: 0.08, chords: [[50, 57, 60, 64], [55, 59, 65, 69], [48, 55, 59, 64], [57, 61, 64, 67]],
-    scale: MAJ, root: 74, keys: 'stab', bass: 'pluck', lead: 'epiano',
-    comp: '..x...x...x..x..', bassPat: 'x..x..+.x.o..x..', kick: 'x...x...x...x...', snare: '....x.......x..o', hat: 'xoxoxoxoxoxoxoxo',
-    lpf: 5200, crackle: 0, density: 0.5,
-  },
-  { // «Вечерняя смена» — чиллвейв: подушки, колокольчики, неспешно
-    id: 'evening', bpm: 88, swing: 0, chords: [[57, 60, 64], [53, 57, 60], [48, 52, 55], [55, 59, 62]],
-    scale: MIN, root: 69, keys: 'pad', bass: 'saw', lead: 'bell',
-    comp: 'x.......x.......', bassPat: 'x.....x.x.....x.', kick: 'x......x..x.....', snare: '....x.......x...', hat: '..x...x...x...x.',
-    lpf: 2600, crackle: 0, density: 0.38,
-  },
-  { // «Рыночный день» — босса-нова: щипковые аккорды, клаве, шейкер
-    id: 'market', bpm: 124, swing: 0.1, chords: [[48, 52, 55, 59], [57, 61, 64, 67], [50, 53, 57, 60], [55, 59, 62, 65]],
-    scale: MAJ, root: 72, keys: 'pluck', bass: 'sub', lead: 'epiano',
-    comp: 'x..x..x...x..x..', bassPat: 'x.....o.x.....o.', kick: 'x.....o.x.....o.', snare: '................', hat: 'xoxoxoxoxoxoxoxo', perc: '...x..x...x..x..',
-    lpf: 4200, crackle: 0, density: 0.36,
-  },
-  { // «Ночной разгон» — синтвейв: пила-бас восьмыми, мелодия с вибрато
-    id: 'overclock', bpm: 108, swing: 0, chords: [[52, 55, 59], [48, 52, 55], [55, 59, 62], [50, 54, 57]],
-    scale: MIN, root: 76, keys: 'pad', bass: 'saw', lead: 'saw',
-    comp: 'x...............', bassPat: 'x.x.x.x.x.x.x.x.', kick: 'x...x...x...x...', snare: '....x.......x...', hat: '..x...x...x...x.',
-    lpf: 4800, crackle: 0, density: 0.5,
-  },
-];
-
-const mtof = (m: number) => 440 * Math.pow(2, (m - 69) / 12);
-
-/**
- * Восьмитактовая мелодия по форме A A' B A: двухтактовый мотив, его вариация,
- * ответ и возврат. На сильных долях нота подтягивается к ближайшему звуку
- * аккорда — иначе случайная прогулка по ладу звучит как ошибки.
- * Возвращает 128 шестнадцатых: 0 — пауза, иначе MIDI-нота.
- */
-function makeMelody(tr: Track, seed: number): number[] {
-  let a = seed >>> 0;
-  const r = () => { a = (a + 0x6d2b79f5) >>> 0; let x = a; x = Math.imul(x ^ (x >>> 15), x | 1); x ^= x + Math.imul(x ^ (x >>> 7), x | 61); return ((x ^ (x >>> 14)) >>> 0) / 4294967296; };
-  const motif = (): (number | null)[] => {
-    const out: (number | null)[] = [];
-    let d = 2 + ((r() * 3) | 0);
-    for (let i = 0; i < 32; i++) {
-      const p = i % 4 === 0 ? tr.density * 1.3 : i % 2 === 0 ? tr.density * 0.8 : tr.density * 0.2;
-      if (r() < p) { d = Math.max(0, Math.min(9, d + [-2, -1, -1, 0, 1, 1, 2][(r() * 7) | 0])); out.push(d); } else out.push(null);
-    }
-    return out;
-  };
-  const A = motif(), B = motif();
-  const A2 = A.map((d, i) => (i >= 24 && d !== null ? Math.max(0, Math.min(9, d + ((r() * 3) | 0) - 1)) : d));
-  const deg = [...A, ...A2, ...B, ...A];
-  // фраза заканчивается тоникой и паузой
-  for (let i = 112; i < 128; i++) deg[i] = null;
-  deg[112] = 0;
-  return deg.map((d, k) => {
-    if (d === null) return 0;
-    let m = tr.root + 12 * Math.floor(d / 7) + tr.scale[d % 7] - 12;
-    if (k % 8 === 0) {
-      const ch = tr.chords[Math.floor(k / 16) % tr.chords.length];
-      let best = m, bd = 99;
-      for (const c of ch) for (const o of [-24, -12, 0, 12, 24]) { const n = c + o; const dd = Math.abs(n - m); if (dd < bd) { bd = dd; best = n; } }
-      m = best;
-    }
-    return m;
-  });
-}
+/** Плейлист записанных треков (assets/music/<id>.mp3). */
+const FILES = ['park', 'solder', 'evening', 'market', 'overclock', 'jazzhop', 'acoustic', 'deephouse', 'nudisco', 'downtempo', 'bossa', 'funk', 'reggae', 'synthwave', 'swing'];
 
 class Sound {
   ctx: AudioContext | null = null;
@@ -157,7 +29,6 @@ class Sound {
   private musicOn = true;
   private ambOn = true;
   vol = { music: 0.55, sfx: 0.85, amb: 0.6 };
-  private musicTimer: ReturnType<typeof setInterval> | null = null;
   private ambTimer: ReturnType<typeof setInterval> | null = null;
   private fanNode: { src: AudioBufferSourceNode; gain: GainNode } | null = null;
 
@@ -451,28 +322,18 @@ class Sound {
     return dur;
   }
 
-  /* ───────────── музыка: пять процедурных треков в случайном порядке ───────────── */
+  /* ───────────── музыка: записанные треки в случайном порядке ───────────── */
 
   setMusic(on: boolean): void { this.musicOn = on; this.applyVolumes(); }
   setAmbience(on: boolean): void { this.ambOn = on; this.applyVolumes(); }
   /** Название играющего трека меняется — UI может показать «♪ …». */
   onTrack: ((id: string) => void) | null = null;
 
-  private musicBus!: BiquadFilterNode;
-  private crackleGain!: GainNode;
   private bag: number[] = [];
   private lastTrack = -1;
-  private cur: { tr: Track; step: number; bars: number; t: number; mel: number[] } | null = null;
 
   private startMusic(): void {
     const ctx = this.ctx!;
-    this.musicBus = ctx.createBiquadFilter(); this.musicBus.type = 'lowpass'; this.musicBus.frequency.value = 3400;
-    this.musicBus.connect(this.buses.music);
-    const send = ctx.createGain(); send.gain.value = 0.32; this.musicBus.connect(send).connect(this.revSend);
-    // виниловый треск — только у лоу-фай трека, громкость задаёт трек
-    const crackle = ctx.createBufferSource(); crackle.buffer = this.makeCrackle(); crackle.loop = true;
-    this.crackleGain = ctx.createGain(); this.crackleGain.gain.value = 0;
-    crackle.connect(this.crackleGain).connect(this.musicBus); crackle.start();
     this.fileBus = ctx.createGain(); this.fileBus.gain.value = 0.85; this.fileBus.connect(this.buses.music);
     void this.playFileTrack();
   }
@@ -481,7 +342,7 @@ class Sound {
    * Основная музыка — пять записанных треков (ElevenLabs, бесшовные петли по 30 с
    * в assets/music). Каждый крутится петлёй ~2,5 минуты, затем плавно уходит,
    * и из «мешка» встаёт следующий. Если файл не загрузился (нет сети, битый
-   * архив) — тихо переходим на процедурный синтез ниже: тишина хуже.
+   * архив) — через пару секунд пробуем следующий.
    */
   private fileBus!: GainNode;
   private curFile: { src: AudioBufferSourceNode; g: GainNode } | null = null;
@@ -494,11 +355,10 @@ class Sound {
       const { src, g } = this.curFile;
       g.gain.cancelScheduledValues(t); g.gain.setTargetAtTime(0.0001, t, 0.08);
       src.stop(t + 0.35); // onended запустит следующий трек
-    } else if (this.synthOnce && this.cur) { this.cur.step = (this.cur.bars + 1) * 16; } // синтез-трек: досрочно к следующему
-    else if (this.synthOn && this.ctx) this.nextTrack(this.ctx.currentTime + 0.3);
+    }
   }
   private buffers = new Map<string, Promise<AudioBuffer | null>>();
-  private synthOn = false;
+  private failed = 0;
   private loadTrack(id: string): Promise<AudioBuffer | null> {
     let p = this.buffers.get(id);
     if (!p) {
@@ -512,13 +372,14 @@ class Sound {
   }
   private async playFileTrack(): Promise<void> {
     const id = FILES[this.pickTrack()];
-    if (id.startsWith('synth:')) { this.playSynthOnce(id.slice(6)); return; }
     const buf = await this.loadTrack(id);
     const ctx = this.ctx!;
-    if (!buf) { this.startSynth(); return; }
+    // не загрузился — следующий через 2 с (после круга неудач — раз в полминуты)
+    if (!buf) { this.buffers.delete(id); this.failed++; setTimeout(() => void this.playFileTrack(), this.failed > FILES.length ? 30000 : 2000); return; }
+    this.failed = 0;
     // следующий трек грузим заранее, пока играет этот
     const next = FILES[this.peekTrack()];
-    if (!next.startsWith('synth:')) void this.loadTrack(next);
+    void this.loadTrack(next);
     // в памяти только текущий и следующий: разжатые 30 с стерео — ~10 МБ каждый
     for (const k of [...this.buffers.keys()]) if (k !== id && k !== next && !k.startsWith('test_')) this.buffers.delete(k);
     const t = ctx.currentTime + 0.1;
@@ -559,25 +420,6 @@ class Sound {
       this.zoneTrack = { id, src, g };
     });
   }
-  /** Один синтезированный трек в общей очереди; по его окончании — снова плейлист. */
-  private synthOnce = false;
-  private playSynthOnce(id: string): void {
-    const tr = TRACKS.find((x) => x.id === id); if (!tr || !this.ctx) { void this.playFileTrack(); return; }
-    this.synthOnce = true;
-    const at = this.ctx.currentTime + 0.3;
-    const bars = Math.max(24, Math.round((150 / ((60 / tr.bpm) * 4)) / 8) * 8);
-    this.cur = { tr, step: 0, bars, t: at, mel: makeMelody(tr, (Math.random() * 1e9) | 0) };
-    this.musicBus.frequency.setTargetAtTime(tr.lpf, at, 0.5);
-    this.crackleGain.gain.setTargetAtTime(tr.crackle, at, 0.5);
-    if (!this.musicTimer) this.musicTimer = setInterval(() => this.schedMusic(), 80);
-    this.onTrack?.(tr.id);
-  }
-  private startSynth(): void {
-    if (this.synthOn) return;
-    this.synthOn = true;
-    this.nextTrack(this.ctx!.currentTime + 0.3);
-    this.musicTimer = setInterval(() => this.schedMusic(), 80);
-  }
   /** «Мешок» без повторов: все треки по разу, затем новая перетасовка. */
   private pickTrack(): number {
     this.peekTrack();
@@ -593,156 +435,6 @@ class Sound {
       if (this.bag[0] === this.lastTrack) this.bag.push(this.bag.shift()!);
     }
     return this.bag[0];
-  }
-
-  /** Запасной путь: процедурный трек с тем же «рецептом», если mp3 не загрузился. */
-  private nextTrack(at: number): void {
-    const tr = TRACKS[this.pickTrack() % TRACKS.length];
-    // ~2,5 минуты, кратно 8 тактам: так фразы мелодии ложатся на форму
-    const bars = Math.max(24, Math.round((150 / ((60 / tr.bpm) * 4)) / 8) * 8);
-    this.cur = { tr, step: 0, bars, t: at, mel: makeMelody(tr, (Math.random() * 1e9) | 0) };
-    const t = this.ctx!.currentTime;
-    this.musicBus.frequency.setTargetAtTime(tr.lpf, t, 0.5);
-    this.crackleGain.gain.setTargetAtTime(tr.crackle, t, 0.5);
-    this.onTrack?.(tr.id);
-  }
-
-  private schedMusic(): void {
-    const ctx = this.ctx, c = this.cur;
-    if (!ctx || ctx.state !== 'running' || !c) return;
-    const s16 = 60 / c.tr.bpm / 4;
-    // после долгой паузы (реклама, свёрнутая вкладка) не догоняем пропущенное
-    if (c.t < ctx.currentTime - 0.5) c.t = ctx.currentTime + 0.05;
-    while (c.t < ctx.currentTime + 0.35) {
-      const bar = Math.floor(c.step / 16), i = c.step % 16;
-      // такт тишины между треками, затем следующий из мешка
-      if (bar > c.bars) {
-        if (this.synthOnce) { this.synthOnce = false; this.cur = null; void this.playFileTrack(); return; }
-        this.nextTrack(c.t); return;
-      }
-      if (bar < c.bars) this.playStep(c.tr, c.mel, bar, i, c.bars, c.t + (i % 2 ? c.tr.swing * s16 : 0), s16);
-      c.step++; c.t += s16;
-    }
-  }
-
-  private playStep(tr: Track, mel: number[], bar: number, i: number, n: number, t: number, s16: number): void {
-    const bus = this.musicBus;
-    const intro = bar < 4, outro = bar >= n - 4;
-    const brk = bar >= n / 2 - 4 && bar < n / 2 + 4;
-    const v = outro ? Math.max(0.15, 1 - ((bar - (n - 4)) * 16 + i) / 64) : 1;
-    const ch = tr.chords[bar % tr.chords.length];
-    const at = (p: string) => p[i] ?? '.';
-    // ударные: во вступлении только хэт, в брейке и концовке — без бочки и малого
-    if (!intro && !brk && !outro) {
-      if (at(tr.kick) !== '.') this.kick(t, bus, at(tr.kick) === 'x' ? 1 : 0.6);
-      if (at(tr.snare) !== '.') this.snare(t, bus, at(tr.snare) === 'x' ? 1 : 0.5);
-      if (tr.perc && at(tr.perc) !== '.') this.burst(t, 2600, 6, at(tr.perc) === 'x' ? 0.05 : 0.03, 0.03, bus);
-    }
-    if (!outro && at(tr.hat) !== '.') this.hat(t, bus, (at(tr.hat) === 'x' ? 0.028 : 0.014) * (brk ? 0.6 : 1));
-    // аккомпанемент: длительность — до следующего удара в рисунке
-    const comp = at(tr.comp);
-    if (comp !== '.') {
-      let len = 1; while (len < 16 && tr.comp[(i + len) % 16] === '.') len++;
-      this.keys(tr.keys, t, ch, s16 * len, v * (comp === 'x' ? 1 : 0.6));
-    }
-    // бас: x — тоника, o — квинта, + — октава
-    const b = at(tr.bassPat);
-    if (b !== '.' && !(outro && bar >= n - 2)) {
-      const root = ch[0] - 12 * (ch[0] >= 52 ? 2 : 1);
-      const note = b === 'o' ? root + 7 : b === '+' ? root + 12 : root;
-      let len = 1; while (len < 8 && tr.bassPat[(i + len) % 16] === '.') len++;
-      this.bassNote(tr.bass, t, mtof(note), s16 * len, v);
-    }
-    // мелодия: восьмитактовая фраза, в брейке тише, во вступлении и концовке молчит
-    if (!intro && !outro) {
-      const k = (bar % 8) * 16 + i, m = mel[k];
-      if (m) {
-        let len = 1; while (len < 6 && !mel[(k + len) % mel.length]) len++;
-        this.leadNote(tr.lead, t, mtof(m), s16 * len * 1.05, brk ? 0.6 : 1);
-      }
-    }
-  }
-
-  private keys(kind: Track['keys'], t: number, ch: number[], dur: number, v: number): void {
-    const bus = this.musicBus;
-    if (kind === 'epiano') ch.forEach((n, k) => this.epiano(t + k * 0.012, mtof(n), 0.045 * v, Math.max(0.3, dur), bus));
-    else if (kind === 'pluck') ch.forEach((n, k) => this.fmPluck(t + k * 0.018, mtof(n), 0.03 * v, Math.max(0.25, dur * 0.9), bus, 0.9));
-    else if (kind === 'stab') ch.forEach((n) => this.tone(t, mtof(n + 12), 0.018 * v, Math.min(0.18, dur), bus, 'sawtooth', undefined, 0.004));
-    else if (kind === 'arp') { const n = ch[Math.floor(t * 1000) % ch.length]; this.tone(t, mtof(n + 12), 0.016 * v, Math.min(0.11, dur), bus, 'square', undefined, 0.002); }
-    else if (kind === 'guitar') ch.forEach((n, k) => this.fmPluck(t + k * 0.025, mtof(n - 12), 0.03 * v, Math.max(0.35, dur), bus, 0.6));
-    else ch.forEach((n) => this.pad(t, mtof(n), 0.022 * v, Math.max(0.6, dur)));
-  }
-  /** Подушка: два расстроенных пилообразных через мягкий фильтр, медленная атака. */
-  private pad(t: number, f: number, peak: number, dur: number): void {
-    const ctx = this.ctx!;
-    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.setValueAtTime(600, t); lp.frequency.linearRampToValueAtTime(1600, t + dur * 0.5);
-    const g = ctx.createGain();
-    g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(peak, t + Math.min(0.35, dur * 0.4)); g.gain.setTargetAtTime(0.0001, t + dur * 0.85, 0.12);
-    lp.connect(g).connect(this.musicBus);
-    for (const d of [-7, 7]) { const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f; o.detune.value = d; o.connect(lp); o.start(t); o.stop(t + dur + 0.6); }
-  }
-  private bassNote(kind: Track['bass'], t: number, f: number, dur: number, v: number): void {
-    const bus = this.musicBus;
-    if (kind === 'sub') this.tone(t, f, 0.13 * v, dur * 0.9, bus, 'sine', undefined, 0.015);
-    else if (kind === 'pluck') this.fmPluck(t, f, 0.1 * v, Math.max(0.12, dur * 0.8), bus, 3);
-    else if (kind === 'square') this.tone(t, f, 0.05 * v, Math.max(0.08, dur * 0.7), bus, 'square', undefined, 0.003);
-    else {
-      // пила через закрывающийся фильтр — «синтвейв»-бас
-      const ctx = this.ctx!;
-      const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f;
-      const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.Q.value = 4;
-      lp.frequency.setValueAtTime(1400, t); lp.frequency.exponentialRampToValueAtTime(180, t + Math.max(0.08, dur * 0.8));
-      const g = ctx.createGain(); this.env(g, t, 0.005, 0.07 * v, Math.max(0.08, dur * 0.9));
-      o.connect(lp).connect(g).connect(bus); o.start(t); o.stop(t + dur + 0.1);
-      this.tone(t, f, 0.06 * v, dur * 0.85, bus, 'sine', undefined, 0.01);
-    }
-  }
-  private leadNote(kind: Track['lead'], t: number, f: number, dur: number, v: number): void {
-    const bus = this.musicBus;
-    if (kind === 'pluck') this.fmPluck(t, f, 0.04 * v, Math.max(0.2, dur * 1.3), bus, 1.2);
-    else if (kind === 'bell') this.bellTone(t, f, 0.03 * v, Math.max(0.5, dur * 2), bus, [1, 2, 3.01, 4.2], [1, 0.35, 0.15, 0.06]);
-    else if (kind === 'epiano') this.epiano(t, f, 0.05 * v, Math.max(0.25, dur * 1.2), bus);
-    else if (kind === 'square') this.tone(t, f, 0.022 * v, Math.max(0.08, dur * 0.9), bus, 'square', undefined, 0.003);
-    else if (kind === 'flute') {
-      // флейта: синус с дыханием (шум) и мягким вибрато
-      this.tone(t, f, 0.035 * v, Math.max(0.2, dur * 1.1), bus, 'sine', undefined, 0.05);
-      this.burst(t, f * 2, 2, 0.008 * v, Math.max(0.15, dur), bus, 'bandpass');
-    }
-    else {
-      // мягкая пила с вибрато — вести синтвейв-мелодию
-      const ctx = this.ctx!;
-      const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f;
-      const vib = ctx.createOscillator(); vib.frequency.value = 5.2; const vg = ctx.createGain(); vg.gain.setValueAtTime(0, t); vg.gain.linearRampToValueAtTime(f * 0.006, t + 0.25);
-      vib.connect(vg).connect(o.frequency);
-      const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2200;
-      const g = ctx.createGain(); this.env(g, t, 0.02, 0.028 * v, Math.max(0.15, dur));
-      o.connect(lp).connect(g).connect(bus); o.start(t); vib.start(t); o.stop(t + dur + 0.1); vib.stop(t + dur + 0.1);
-    }
-  }
-
-  private epiano(t: number, f: number, peak: number, dur: number, dst: AudioNode): void {
-    const ctx = this.ctx!;
-    const car = ctx.createOscillator(); car.frequency.value = f;
-    const mod = ctx.createOscillator(); mod.frequency.value = f * 14;
-    const mg = ctx.createGain(); mg.gain.setValueAtTime(f * 0.6, t); mg.gain.exponentialRampToValueAtTime(1, t + 0.25);
-    mod.connect(mg).connect(car.frequency);
-    const trem = ctx.createOscillator(); trem.frequency.value = 4.5; const tg = ctx.createGain(); tg.gain.value = 0.15;
-    const g = ctx.createGain(); this.env(g, t, 0.01, peak, dur);
-    trem.connect(tg).connect(g.gain);
-    car.connect(g).connect(dst);
-    car.start(t); mod.start(t); trem.start(t);
-    car.stop(t + dur + 0.1); mod.stop(t + dur + 0.1); trem.stop(t + dur + 0.1);
-  }
-  private kick(t: number, dst: AudioNode, v = 1): void { this.tone(t, 110, 0.35 * v, 0.28, dst, 'sine', 42, 0.003); this.burst(t, 1200, 1, 0.04 * v, 0.01, dst, 'lowpass'); }
-  private snare(t: number, dst: AudioNode, v = 1): void { this.burst(t, 1800, 0.8, 0.07 * v, 0.16, dst); this.tone(t, 190, 0.05 * v, 0.07, dst, 'triangle', 150); }
-  private hat(t: number, dst: AudioNode, v: number): void { this.burst(t, 8000, 1, v, 0.035, dst, 'highpass'); }
-  private makeCrackle(): AudioBuffer {
-    const ctx = this.ctx!;
-    const len = ctx.sampleRate * 3;
-    const b = ctx.createBuffer(1, len, ctx.sampleRate);
-    const d = b.getChannelData(0);
-    for (let i = 0; i < len; i++) { d[i] = (Math.random() * 2 - 1) * 0.02; if (Math.random() < 0.0004) d[i] = (Math.random() * 2 - 1) * 0.6; }
-    return b;
   }
 
   /* ───────────── фон: парк ───────────── */
@@ -779,7 +471,6 @@ class Sound {
   }
 
   dispose(): void {
-    if (this.musicTimer) clearInterval(this.musicTimer);
     if (this.ambTimer) clearInterval(this.ambTimer);
   }
 }
