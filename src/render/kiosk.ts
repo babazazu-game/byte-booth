@@ -573,22 +573,34 @@ export function buildKiosk(root: THREE.Group, inner: THREE.Light[]): KioskParts 
   const decor: THREE.Group[] = [d1, d2];
   /*
    * «Неоновая вывеска» (улучшение sign) видна снаружи — на обшивке по бокам
-   * окна: 1-й уровень — «ОТКРЫТО», 2-й — «PC» с монитором. Раньше улучшение
+   * окна: 1-й уровень — «ОТКРЫТО», 2-й — «PC» с монитором, 3-й — широкая
+   * «геймпад + ИГРОВЫЕ ПК» на прилавке под надписью. Раньше улучшение
    * только добавляло клиентов, и купленного не было видно ни в игре, ни в меню.
    */
-  const neonSign = (x: number, draw: (g: CanvasRenderingContext2D, w: number, h: number) => void, color: string): THREE.Group => {
-    const n = new THREE.Group(); n.position.set(x, 1.62, K.z0 - 0.072); n.rotation.y = Math.PI; root.add(n);
-    add(n, rbox(0.44, 0.26, 0.012, 0.004), std('#14161b', { roughness: 0.3, metalness: 0.2 }), 0, 0, -0.006, 0, 0, 0, false);
-    const t2 = canvasTex(512, 300, (g, w, h) => { g.clearRect(0, 0, w, h); g.strokeStyle = color; g.fillStyle = color; g.shadowColor = color; g.shadowBlur = 24; g.lineWidth = 9; g.lineJoin = 'round'; draw(g, w, h); });
-    add(n, new THREE.PlaneGeometry(0.42, 0.246), own('#000', { map: t2, emissive: '#fff', emissiveMap: t2, emissiveIntensity: 3, transparent: true, depthWrite: false }), 0, 0, 0.002, 0, 0, 0, false);
+  const neonSign = (x: number, draw: (g: CanvasRenderingContext2D, w: number, h: number) => void, color: string, y = 1.62, sw = 0.44, sh = 0.26): THREE.Group => {
+    const n = new THREE.Group(); n.position.set(x, y, K.z0 - 0.072); n.rotation.y = Math.PI; root.add(n);
+    add(n, rbox(sw, sh, 0.012, 0.004), std('#14161b', { roughness: 0.3, metalness: 0.2 }), 0, 0, -0.006, 0, 0, 0, false);
+    const t2 = canvasTex(Math.round((512 * sw) / 0.44 / 2) * 2, 300, (g, w, h) => { g.clearRect(0, 0, w, h); g.strokeStyle = color; g.fillStyle = color; g.shadowColor = color; g.shadowBlur = 24; g.lineWidth = 9; g.lineJoin = 'round'; draw(g, w, h); });
+    add(n, new THREE.PlaneGeometry(sw - 0.02, sh - 0.014), own('#000', { map: t2, emissive: '#fff', emissiveMap: t2, emissiveIntensity: 3, transparent: true, depthWrite: false }), 0, 0, 0.002, 0, 0, 0, false);
     const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: canvasTex(128, 128, (g, w, h) => { const gr = g.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w / 2); gr.addColorStop(0, color + '66'); gr.addColorStop(1, color + '00'); g.fillStyle = gr; g.fillRect(0, 0, w, h); }), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
-    halo.scale.set(0.8, 0.55, 1); halo.position.z = 0.01; n.add(halo);
+    halo.scale.set(sw * 1.8, sh * 2.1, 1); halo.position.z = 0.01; n.add(halo);
     n.userData.keep = true; n.visible = false;
     return n;
   };
   const neonA = neonSign(-1.21, (g, w, h) => { g.font = '900 96px Rubik'; g.textAlign = 'center'; g.textBaseline = 'middle'; fitText(g, tr('ОТКРЫТО', 'OPEN'), w / 2, h / 2 - 30, w - 50, 110, 900); g.strokeRect(24, 24, w - 48, h - 48); g.font = '700 44px Rubik'; fitText(g, tr('сборка ПК', 'PC builds'), w / 2, h - 70, w - 120, 50, 700); }, '#ff5fa2');
   const neonB = neonSign(1.21, (g, w) => { g.strokeRect(w / 2 - 120, 40, 240, 150); g.beginPath(); g.moveTo(w / 2, 190); g.lineTo(w / 2, 230); g.moveTo(w / 2 - 60, 240); g.lineTo(w / 2 + 60, 240); g.stroke(); g.textAlign = 'center'; g.textBaseline = 'middle'; fitText(g, 'PC', w / 2, 116, 200, 100, 900); }, '#4fe0ff');
-  const neonUp: THREE.Group[] = [neonA, neonB];
+  // 3-я ступень: широкая жёлто-зелёная — геймпад и «ИГРОВЫЕ ПК», на прилавке под надписью
+  const neonC = neonSign(0, (g, w, h) => {
+    g.strokeRect(20, 20, w - 40, h - 40);
+    // геймпад
+    const cx = 150, cy = h / 2;
+    g.beginPath(); g.roundRect(cx - 95, cy - 50, 190, 100, 50); g.stroke();
+    g.beginPath(); g.moveTo(cx - 55, cy - 20); g.lineTo(cx - 55, cy + 20); g.moveTo(cx - 75, cy); g.lineTo(cx - 35, cy); g.stroke();
+    for (const [dx, dy] of [[45, -14], [70, 10]]) { g.beginPath(); g.arc(cx + dx, cy + dy, 9, 0, Math.PI * 2); g.fill(); }
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    fitText(g, tr('ИГРОВЫЕ ПК', 'GAMING PCs'), (w + 270) / 2, cy, w - 330, 120, 900);
+  }, '#b6ff3a', 0.28, 1.25, 0.3);
+  const neonUp: THREE.Group[] = [neonA, neonB, neonC];
   /*
    * Кофемашина (улучшение «Кофемашина») — на правом конце прилавка у окна,
    * справа от кассы: ближе к центру стоит ПК клиента при выдаче.
