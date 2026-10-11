@@ -263,18 +263,20 @@ export class PcRig {
     if (art) { const at = canvasTex(256, 512, (g, w, h) => { g.clearRect(0, 0, w, h); art(g, w, h); }); const am = decal(P, D - 0.03, H - 0.03, at, 0.0035, 0, 0, 0, Math.PI / 2, 0, { depthWrite: false }); am.castShadow = false; am.renderOrder = 3; }
     // яркая подсветка у «световых» корпусов: светодиодная лента по верху и низу внутри
     this.leds = []; this.halos = [];
+    // на светлом корпусе добавочное свечение быстро выбивает в белое — там ореол вдвое слабее
+    const haloK = new THREE.Color(c.look.main).getHSL({ h: 0, s: 0, l: 0 }).l > 0.6 ? 0.55 : 1;
     if (c.rgb) for (const y of [H / 2 - 0.012, -H / 2 + 0.012]) {
       const lm = own('#111', { emissive: CASE_GLOW[c.id] ?? '#ff4d8d', emissiveIntensity: 3 }); this.leds.push(lm); add(B, box(0.006, 0.004, D - 0.06), lm, W / 2 - 0.02, y, 0, 0, 0, 0, false);
       // «блум» ленты: мягкое свечение полосой вдоль неё (постобработки в игре нет — дорого)
       const hm = new THREE.MeshBasicMaterial({ map: stripGlowTex(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, color: lm.emissive });
       const hp = new THREE.Mesh(new THREE.PlaneGeometry(D - 0.02, 0.07), hm); hp.position.set(W / 2 - 0.016, y + (y > 0 ? -0.02 : 0.02), 0); hp.rotation.y = Math.PI / 2; hp.userData.keep = true; hp.castShadow = false; hp.renderOrder = 4;
-      B.add(hp); this.halos.push({ m: hm, src: lm, k: 1.2 });
+      B.add(hp); this.halos.push({ m: hm, src: lm, k: 0.7 * haloK });
     }
     // ореол вокруг светящихся вентиляторов корпуса — без него RGB читается как просто цветной пластик
     if (c.rgb) for (const f of this.fans) {
       const sm = new THREE.SpriteMaterial({ map: fanGlowTex(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
       const sp = new THREE.Sprite(sm); sp.scale.set(0.24, 0.24, 1); sp.position.copy(f.group.position); sp.position.x += 0.02; sp.renderOrder = 4; sp.userData.keep = true;
-      B.add(sp); this.halos.push({ m: sm, src: f.rgb[0], k: 1 });
+      B.add(sp); this.halos.push({ m: sm, src: f.rgb[0], k: 0.8 * haloK });
     }
     P.position.x = W / 2 - 0.001;
     // зона «боковая панель»
@@ -576,7 +578,7 @@ export class PcRig {
       // светящаяся башня процессорного кулера — радуга со сдвигом
       for (const [i, f] of (this.content.cooler?.cooler?.fans ?? []).entries()) { c.setHSL((t * 0.15 + 0.5 + i * 0.2) % 1, 0.9, 0.55); for (const m of f.rgb) m.emissive.copy(c); }
     }
-    for (const h of this.halos) { if (h.src) h.m.color.copy(h.src.emissive); h.m.opacity = h.k * (0.6 + 0.4 * p) * (this.panel.visible && !this.caseRef?.glass ? 0 : 1); }
+    for (const h of this.halos) { if (h.src) h.m.color.copy(h.src.emissive); h.m.opacity = h.k * (0.5 + 0.5 * p) * (this.panel.visible && !this.caseRef?.glass ? 0 : 1); }
   }
 
   /*
