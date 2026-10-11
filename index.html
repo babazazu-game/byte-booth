@@ -22,7 +22,9 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>Железный ларёк · Byte Booth</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect x=%224%22 y=%223%22 width=%2224%22 height=%2226%22 rx=%224%22 fill=%22%23ff8a5c%22/%3E%3Ccircle cx=%2216%22 cy=%2216%22 r=%227%22 fill=%22%232a1a10%22/%3E%3C/svg%3E">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <meta property="og:image" content="banner.jpg">
 
   <!--
     SDK площадки.
@@ -98,23 +100,27 @@
 
     /* ФИГУРА ИГРЫ. Рисуется разметкой намеренно: ждать загрузки картинки
        на экране загрузки было бы странно. Заменить на свою. */
-    #splash-mark {
-      width: 22vmin;
-      height: 22vmin;
-      max-width: 140px;
-      max-height: 140px;
-      border-radius: 42% 58% 54% 46% / 48% 44% 56% 52%;
-      background: radial-gradient(circle at 34% 30%, #ffb38a, #ff8a5c 55%, #e2674f); border-radius: 22% !important;
-      box-shadow: 0 .8vmin 0 rgba(74, 55, 40, .18);
-      animation: pulse 1.5s ease-in-out infinite;
-    }
-    @keyframes pulse {
-      0%, 100% { transform: scale(1) rotate(-3deg); }
-      50%      { transform: scale(1.08) rotate(3deg); }
-    }
+    /* Монитор, который «загружается»: экран с бегущей строкой и мигающим
+       курсором, рядом системник с мигающим светодиодом. Всё разметкой. */
+    #splash-mark { position: relative; width: 38vmin; height: 30vmin; max-width: 250px; max-height: 200px; display: flex; align-items: flex-end; gap: 6%; animation: bob 2.4s ease-in-out infinite; }
+    #splash-mark .mon { position: relative; flex: 1; height: 82%; display: flex; flex-direction: column; align-items: center; }
+    #splash-mark .scr { width: 100%; height: 78%; box-sizing: border-box; border: 1.4vmin solid #ffd25e; border-radius: 1.6vmin; background: #10202a; box-shadow: 0 .8vmin 0 rgba(0,0,0,.25), inset 0 0 3vmin rgba(79,200,255,.35); overflow: hidden; padding: 9% 10%; display: flex; flex-direction: column; gap: 9%; }
+    #splash-mark .ln { height: 9%; border-radius: 99px; background: #4fd1c0; opacity: .85; transform-origin: left; animation: type 1.8s steps(6) infinite; }
+    #splash-mark .ln:nth-child(2) { width: 70%; animation-delay: .3s; background: #ffd25e; }
+    #splash-mark .ln:nth-child(3) { width: 45%; animation-delay: .6s; }
+    #splash-mark .cur { width: 10%; height: 12%; background: #fbead6; animation: blink .8s steps(1) infinite; }
+    #splash-mark .neck { width: 14%; height: 12%; background: #e9b94a; }
+    #splash-mark .foot { width: 46%; height: 6%; border-radius: 99px; background: #ffd25e; }
+    #splash-mark .pc { width: 26%; height: 82%; border-radius: 1.2vmin; background: #3a3f47; border: .6vmin solid #ffd25e; box-sizing: border-box; position: relative; box-shadow: 0 .8vmin 0 rgba(0,0,0,.25); }
+    #splash-mark .pc::before { content: ''; position: absolute; left: 50%; top: 38%; width: 52%; aspect-ratio: 1; transform: translate(-50%, -50%); border-radius: 50%; border: .5vmin dashed #ff8a5c; animation: spin 1s linear infinite; }
+    #splash-mark .pc::after { content: ''; position: absolute; left: 50%; bottom: 10%; width: 14%; aspect-ratio: 1; transform: translateX(-50%); border-radius: 50%; background: #5fd38a; box-shadow: 0 0 1.2vmin #5fd38a; animation: blink 1.1s steps(1) infinite; }
+    @keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-1vmin); } }
+    @keyframes type { 0% { transform: scaleX(.1); } 100% { transform: scaleX(1); } }
+    @keyframes blink { 50% { opacity: 0; } }
+    @keyframes spin { to { transform: translate(-50%, -50%) rotate(360deg); } }
     /* Уважаем системную настройку «меньше движения». */
     @media (prefers-reduced-motion: reduce) {
-      #splash-mark { animation: none; }
+      #splash-mark, #splash-mark * , #splash-mark .pc::before, #splash-mark .pc::after { animation: none !important; }
     }
 
     #splash-bar {
@@ -131,7 +137,7 @@
       width: 0;
       height: 100%;
       border-radius: 999px;
-      background: #ff8a5c;          /* АКЦЕНТНЫЙ ЦВЕТ ИГРЫ */
+      background: #ffd25e;          /* АКЦЕНТНЫЙ ЦВЕТ ИГРЫ */
       transition: width .2s ease;
     }
     #splash-text {
@@ -150,7 +156,7 @@
   <div id="ui"></div>
 
   <div id="splash">
-    <div id="splash-mark"></div>
+    <div id="splash-mark"><div class="mon"><div class="scr"><div class="ln"></div><div class="ln"></div><div class="ln"></div><div class="cur"></div></div><div class="neck"></div><div class="foot"></div></div><div class="pc"></div></div>
     <div id="splash-bar"><div id="splash-fill"></div></div>
     <div id="splash-text"></div>
   </div>

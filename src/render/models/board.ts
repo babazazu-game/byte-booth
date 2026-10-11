@@ -32,7 +32,7 @@ export interface BoardModel {
   w: number; h: number;
   /** Крепёжные отверстия (в плоскости платы) — туда встают винты. */
   holes: [number, number][];
-  anchors: { cpu: THREE.Object3D; ram: THREE.Object3D; m2: THREE.Object3D; pcie: THREE.Object3D; atx24: THREE.Object3D; cpu8: THREE.Object3D };
+  anchors: { cpu: THREE.Object3D; ram: THREE.Object3D; m2: THREE.Object3D; pcie: THREE.Object3D; pcie2: THREE.Object3D; atx24: THREE.Object3D; cpu8: THREE.Object3D };
 }
 
 /**
@@ -193,7 +193,9 @@ export function buildBoard(p: MB): BoardModel {
   const pcieY = cpuY - (p.form === 'ITX' ? 0.075 : 0.105);
   add(group, rbox(0.089, 0.008, 0.009, 0.0015), steel, x0 + 0.06, pcieY, 0.0045);
   if (p.form !== 'ITX') {
-    add(group, rbox(0.089, 0.007, 0.008, 0.0015), dark, x0 + 0.06, pcieY - 0.06, 0.004);
+    // второй слот: у плат с двумя x16 — стальной, ниже на 75 мм (под вторую видеокарту)
+    if (p.pcie2) add(group, rbox(0.089, 0.008, 0.009, 0.0015), steel, x0 + 0.06, pcieY - 0.075, 0.0045);
+    else add(group, rbox(0.089, 0.007, 0.008, 0.0015), dark, x0 + 0.06, pcieY - 0.06, 0.004);
     add(group, rbox(0.045, 0.045, 0.008, 0.003), gray, w / 2 - 0.05, pcieY - 0.03, 0.004);
     const chipLogo = memo('chip' + p.id, () => canvasTex(128, 128, (g) => {
       g.fillStyle = '#4a4f59'; g.fillRect(0, 0, 128, 128);
@@ -226,6 +228,7 @@ export function buildBoard(p: MB): BoardModel {
       ram: mk(ramX, ramY, 0.006),
       m2: mk(m2.x, m2.y, m2.z),
       pcie: mk(x0 + 0.06, pcieY, 0.009),
+      pcie2: mk(x0 + 0.06, pcieY - 0.075, 0.009),
       atx24: mk(atx.x, atx.y, atx.z + 0.006),
       cpu8: mk(c8.x, c8.y, c8.z + 0.006),
     },
@@ -470,7 +473,7 @@ export function buildCooler(p: Cooler, radiatorAt?: THREE.Vector3): CoolerModel 
   if (p.kind === 'tower') {
     // Двухбашенные (NH-D15, Peerless Assassin) — две стопки рёбер и вентилятор
     // между ними; маленький AG400 — узкая башня с 92-мм вентилятором.
-    const dual = p.id === 'nhd15' || p.id === 'pa120';
+    const dual = p.id === 'nhd15' || p.id === 'pa120' || p.id === 'pa120w';
     const small = p.id === 'ag400';
     const H = p.height / 1000, finH = H - 0.03;
     const finW = small ? 0.042 : 0.05, finL = small ? 0.1 : 0.12;
@@ -503,7 +506,7 @@ export function buildCooler(p: Cooler, radiatorAt?: THREE.Vector3): CoolerModel 
     const brown = noctua;
     const R = small ? 0.044 : 0.056;
     const fanAt = (x: number) => {
-      const f = buildFan({ R, frame: true, frameColor: brown ? '#7a5a46' : p.look.main === '#c9cdd4' ? '#1d1f24' : p.look.main, logo, blade: brown ? '#c9a98a' : '#2a2d35', n: brown ? 7 : 9, sweep: brown ? 0.9 : 0.72, w0: brown ? 0.26 : 0.2, w1: brown ? 0.4 : 0.3 });
+      const f = buildFan({ R, rgb: !!p.rgb, frame: true, frameColor: p.rgb ? '#f4f4f2' : brown ? '#7a5a46' : p.look.main === '#c9cdd4' ? '#1d1f24' : p.look.main, logo, blade: brown ? '#c9a98a' : '#2a2d35', n: brown ? 7 : 9, sweep: brown ? 0.9 : 0.72, w0: brown ? 0.26 : 0.2, w1: brown ? 0.4 : 0.3 });
       f.group.rotation.y = Math.PI / 2;
       f.group.position.set(x, 0, 0.03 + finH / 2);
       group.add(f.group); fans.push(f);

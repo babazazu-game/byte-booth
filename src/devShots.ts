@@ -51,7 +51,7 @@ async function runScene(app: App, scene: string): Promise<void> {
       else if (cat === 'gpu') { o = M.buildGPU(p as never).group; o.rotation.x = 0.5; }
       else if (cat === 'cooler') { o = M.buildCooler(p as never).group; o.rotation.x = 0.3; o.rotation.y = 0.5; }
       else if (cat === 'ram') { o = M.buildRAM(p as never, [0]); o.rotation.y = -1.25; o.rotation.x = 0.15; }
-      else { const r = new M.PcRig(); r.sync({ case: p.id, panel: false } as never); r.update(0, 0, false); o = r.group; o.rotation.y = Math.PI - 0.55; }
+      else { const r = new M.PcRig(); r.sync({ case: p.id, panel: false } as never); r.update(1, 1, true); o = r.group; o.rotation.y = new URLSearchParams(location.search).get('side') ? -Math.PI / 2 - 0.5 : Math.PI - 0.55; }
       list.push({ obj: o, name: p.brand + ' ' + p.name });
     }
     const n = list.length, cols = Math.ceil(Math.sqrt(n * 1.6)), rows = Math.ceil(n / cols);
@@ -132,6 +132,8 @@ async function runScene(app: App, scene: string): Promise<void> {
   ins('case'); ins('psu'); ins('mb');
   if (scene === 'bench2' || scene === 'bench3') { ins('cpu'); S.applyPaste(s); ins('cooler'); ins('ram'); ins('ssd'); ins('gpu'); }
   // bench3: собранный ПК целиком — вторая планка, кабели, панель снята (проверка пересечений)
+  // ?gpu2=1 — вторая видеокарта (ИИ-сборка)
+  if (scene === 'bench3' && new URLSearchParams(location.search).get('gpu2')) { S.buy(s, sol.gpu!, 1); ins('gpu'); }
   if (scene === 'bench3') { ins('ram'); for (const k of ['cab24', 'cab8', 'cabGpu'] as const) S.toggleCable(s, k); }
   app.bench.sync(false); app.go('bench');
   for (let i = 0; i < 40; i++) app.debugStep(0.05);

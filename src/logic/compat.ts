@@ -18,6 +18,8 @@
 import { part, type CPU, type GPU, type MB, type RAM, type SSD, type PSU, type Cooler, type Case, type Form, type Cat } from './parts.ts';
 
 export interface Build {
+  /** Сколько видеокарт стоит (одинаковых); 2 — ИИ-сборка. */
+  gpuN?: number;
   case?: string;
   mb?: string;
   cpu?: string;
@@ -113,6 +115,9 @@ export function canInstall(b: Build, id: string): Verdict {
       const c = g.case(b);
       if (c && p.kind === 'tower' && p.height > c.coolerMax) return NO('why.coolerTall', { h: p.height, max: c.coolerMax });
       if (c && p.kind === 'aio' && c.size === 'mini') return NO('why.aioNoRoom');
+      // на ITX-плате процессор в 7 см от слота видеокарты: широкая башня упирается
+      // в видеокарту и задний вентилятор — только низкий кулер, маленькая башня или СВО
+      if (g.mb(b)?.form === 'ITX' && p.kind === 'tower' && p.id !== 'ag400') return NO('why.itxTower');
       return OK;
     }
     case 'ram': {
@@ -132,7 +137,14 @@ export function canInstall(b: Build, id: string): Verdict {
       const m = g.mb(b);
       const c = g.case(b);
       if (!m || !c) return NO('why.needMb');
-      if (b.gpu) return NO('why.slotBusy');
+      if (b.gpu) {
+        // вторая видеокарта (ИИ-сборка): такая же модель, плата с двумя x16 и большой корпус
+        if ((b.gpuN ?? 1) >= 2) return NO('why.slotBusy');
+        if (b.gpu !== p.id) return NO('why.gpu2Same');
+        if (!m.pcie2) return NO('why.gpu2Board');
+        if (c.size !== 'full') return NO('why.gpu2Case');
+        if (p.tdp >= 350) return NO('why.gpu2Thick'); // 3.5-слотовые не встают вплотную друг к другу
+      }
       if (p.len > c.gpuMax) return NO('why.gpuLong', { len: p.len, max: c.gpuMax });
       return OK;
     }
@@ -185,8 +197,11 @@ export function ramTotal(b: Build): number {
   return b.ram ? (g.ram(b)?.gb ?? 0) * (b.ramN ?? 1) : 0;
 }
 
+/** Видеопамять всех карт (ГБ) — для ИИ-сборок. */
+export function vramTotal(b: Build): number { const v = g.gpu(b); return v ? v.vram * (b.gpuN ?? 1) : 0; }
+
 export function powerDraw(b: Build): number {
-  return (g.cpu(b)?.tdp ?? 0) + (g.gpu(b)?.tdp ?? 0) + 75;
+  return (g.cpu(b)?.tdp ?? 0) + (g.gpu(b)?.tdp ?? 0) * (b.gpu ? b.gpuN ?? 1 : 0) + 75;
 }
 
 /** Рекомендованная мощность БП: потребление × 1.2 с округлением вверх до 50. */

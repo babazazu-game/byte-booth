@@ -47,11 +47,27 @@ function memoGrill(): THREE.Texture {
 /** Свои пропорции у моделей — с расстояния корпуса различаются силуэтом (автор: «все похожи»). */
 export const CASE_DIMS_ID: Record<string, [number, number, number]> = {
   'zalman-t8': [0.205, 0.44, 0.43], popmini: [0.215, 0.42, 0.42], ch560: [0.23, 0.5, 0.455], h5flow: [0.21, 0.465, 0.43],
+  y60: [0.285, 0.46, 0.46], skytwo: [0.23, 0.48, 0.44],
 };
 /** Подсветка вентиляторов: у каждой модели свой цвет (null — радуга). */
-const CASE_GLOW: Record<string, string | null> = { cc560: '#2fe0cf', popmini: null, ch560: '#ff8a3c', o11evo: '#4fc8ff' };
+const CASE_GLOW: Record<string, string | null> = { cc560: '#2fe0cf', popmini: null, ch560: '#ff8a3c', o11evo: '#4fc8ff', y60: '#ff4fd0', skytwo: '#45a6ff' };
 /** Оттенок бокового стекла. */
-const CASE_GLASS: Record<string, [string, number]> = { cc560: ['#2a3038', 0.34], h5flow: ['#3a3446', 0.3], nr200p: ['#7f9fe0', 0.18], o11evo: ['#dbe8f0', 0.1] };
+const CASE_GLASS: Record<string, [string, number]> = { cc560: ['#2a3038', 0.34], h5flow: ['#3a3446', 0.3], nr200p: ['#7f9fe0', 0.18], o11evo: ['#dbe8f0', 0.1], y60: ['#ffd8ea', 0.12], skytwo: ['#cfe6ff', 0.14] };
+/**
+ * Рисунок на боковой панели (сталь или стекло): у каждой модели свой —
+ * с метра корпуса узнаются по нему. Канвас 256×512 в плоскости панели.
+ */
+const CASE_ART: Record<string, (g: CanvasRenderingContext2D, w: number, h: number) => void> = {
+  'zalman-t8': (g, w, h) => { g.fillStyle = 'rgba(200,205,212,.85)'; for (let i = 0; i < 5; i++) { g.save(); g.translate(w * 0.1 + i * 30, h * 0.98); g.rotate(0.45); g.fillRect(0, -h * 0.55, 12, h * 0.55); g.restore(); } },
+  cc560: (g, w, h) => { g.fillStyle = 'rgba(47,224,207,.8)'; g.font = '900 52px Rubik'; g.save(); g.translate(w - 34, h - 20); g.rotate(-Math.PI / 2); g.fillText('DEEPCOOL', 0, 0); g.restore(); g.fillRect(w - 18, 30, 6, h - 60); },
+  ch560: (g, _w, h) => { g.fillStyle = 'rgba(255,138,60,.85)'; for (let i = 0; i < 6; i++) { g.beginPath(); g.moveTo(20 + i * 38, h - 20); g.lineTo(38 + i * 38, h - 60); g.lineTo(56 + i * 38, h - 20); g.fill(); } },
+  h5flow: (g, w, h) => { g.strokeStyle = 'rgba(138,91,255,.9)'; g.lineWidth = 8; g.beginPath(); g.moveTo(20, h * 0.85); g.lineTo(w - 20, h * 0.85); g.stroke(); g.fillStyle = 'rgba(138,91,255,.9)'; g.font = '900 34px Rubik'; g.fillText('NZXT', 22, h * 0.82); },
+  popmini: (g, _w, h) => { const cs = ['#ff5a6a', '#ffd25e', '#5fd38a', '#45a6ff', '#b06ad8']; cs.forEach((c, i) => { g.fillStyle = c; g.globalAlpha = 0.75; g.fillRect(16 + i * 18, h - 150, 10, 130); }); },
+  nr200p: (g, w, h) => { g.fillStyle = 'rgba(91,124,255,.75)'; for (let y = 24; y < h - 20; y += 22) for (let x = 24; x < w - 20; x += 22) if ((x + y) % 44 === 0) g.fillRect(x, y, 6, 6); },
+  o11evo: (g, _w, h) => { g.fillStyle = 'rgba(79,209,192,.8)'; g.font = '900 40px Rubik'; g.fillText('O11', 20, h - 30); },
+  y60: (g, w, h) => { g.fillStyle = 'rgba(255,255,255,.85)'; for (let i = 0; i < 14; i++) { const x = 30 + (i * 53) % (w - 60), y = 40 + (i * 97) % (h - 80), r = 6 + (i % 3) * 4; g.beginPath(); for (let k = 0; k < 10; k++) { const a = (k / 10) * Math.PI * 2, q = k % 2 ? r * 0.45 : r; if (k) g.lineTo(x + Math.cos(a) * q, y + Math.sin(a) * q); else g.moveTo(x + Math.cos(a) * q, y + Math.sin(a) * q); } g.fill(); } },
+  skytwo: (g, w, h) => { const gr = g.createLinearGradient(0, h, w, 0); gr.addColorStop(0, 'rgba(58,139,255,.0)'); gr.addColorStop(1, 'rgba(58,139,255,.75)'); g.fillStyle = gr; g.beginPath(); g.moveTo(0, h); g.lineTo(w, h * 0.3); g.lineTo(w, h); g.fill(); },
+};
 export const CASE_DIMS: Record<Case['size'], [number, number, number]> = {
   mid: [0.22, 0.47, 0.44],
   mini: [0.19, 0.31, 0.38],
@@ -154,7 +170,7 @@ export class PcRig {
     bz.holes.push(rrPath(THREE.Path, W - 0.032, H - 0.07, 0.008));
     add(B, extrude(bz, 0.014, 0.003, 12), shell, 0, 0, -D / 2 - 0.004);
     // Фронт у каждой модели свой: по нему корпус узнают с первого взгляда.
-    const pattern = c.id === 'zalman-t8' ? 'slots' : c.id === 'cc560' ? 'tri' : c.id === 'popmini' ? 'hex' : c.id === 'nr200p' ? 'square' : c.id === 'h5flow' ? 'fine' : c.id === 'o11evo' ? 'glass' : 'dots';
+    const pattern = c.id === 'y60' ? 'glass' : c.id === 'skytwo' ? 'hex' : c.id === 'zalman-t8' ? 'slots' : c.id === 'cc560' ? 'tri' : c.id === 'popmini' ? 'hex' : c.id === 'nr200p' ? 'square' : c.id === 'h5flow' ? 'fine' : c.id === 'o11evo' ? 'glass' : 'dots';
     const holes = canvasTex(256, 512, (g, w, h) => {
       g.fillStyle = '#fff'; g.fillRect(0, 0, w, h); g.fillStyle = '#000';
       if (pattern === 'dots') for (let y = 6; y < h; y += 12) for (let x = 6 + ((y / 12) % 2) * 6; x < w; x += 12) { g.beginPath(); g.arc(x, y, 3.8, 0, TAU); g.fill(); }
@@ -220,6 +236,12 @@ export class PcRig {
       decal(P, 0.004 + 0.001, 0.12, vent, 0.0026, 0.05, 0.1, 0, Math.PI / 2, 0).scale.set(1, 1, 1);
     }
     for (const [y, z] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) add(P, cyl(0.006, 0.006, 0.006, 16), metal('#b9bec6'), 0.004, y * (H / 2 - 0.03), z * (D / 2 - 0.03), 0, 0, Math.PI / 2);
+    // рисунок на боковой панели
+    const art = CASE_ART[c.id];
+    if (art) { const at = canvasTex(256, 512, (g, w, h) => { g.clearRect(0, 0, w, h); art(g, w, h); }); const am = decal(P, D - 0.03, H - 0.03, at, 0.0035, 0, 0, 0, Math.PI / 2, 0, { depthWrite: false }); am.castShadow = false; am.renderOrder = 3; }
+    // яркая подсветка у «световых» корпусов: светодиодная лента по верху и низу внутри
+    this.leds = [];
+    if (c.rgb) for (const y of [H / 2 - 0.012, -H / 2 + 0.012]) { const lm = own('#111', { emissive: CASE_GLOW[c.id] ?? '#ff4d8d', emissiveIntensity: 3 }); this.leds.push(lm); add(B, box(0.006, 0.004, D - 0.06), lm, W / 2 - 0.02, y, 0, 0, 0, 0, false); }
     P.position.x = W / 2 - 0.001;
     // зона «боковая панель»
     this.zone('panel', box(0.02, H, D), V(W / 2, 0, 0));
@@ -336,6 +358,19 @@ export class PcRig {
       return { id: b.gpu!, obj: gm.group, gpu: gm };
     });
     if (b.gpu) this.content.gpu?.gpu?.setPaste(b.gpuOldPaste ? 'old' : 'new');
+    // вторая видеокарта (ИИ-сборка) — такая же, во втором слоте x16
+    const want2 = b.gpu && (b.gpuN ?? 1) >= 2 ? b.gpu : '';
+    if (this.gpu2Id !== want2 || (this.gpu2 && this.gpu2.group.parent !== bd.group)) {
+      this.gpu2?.group.removeFromParent(); this.gpu2 = null; this.gpu2Id = want2;
+      if (want2) {
+        const gm = buildGPU(part(want2) as GPU);
+        gm.group.rotation.x = Math.PI / 2;
+        const f = gm.finger.clone().applyEuler(gm.group.rotation);
+        gm.group.position.copy(bd.anchors.pcie2.position).sub(f).add(V(0, 0, 0.002));
+        gm.group.userData.slot = 'gpu';
+        bd.group.add(gm.group); this.gpu2 = gm; this.justPlaced.push('gpu');
+      }
+    }
     this.syncCables(b);
     this.syncCovers();
     this.glowDirty = true;
@@ -488,18 +523,22 @@ export class PcRig {
     if (this.glowDirty) this.collectGlow();
     const p = this.power;
     this.powerLed.emissiveIntensity = running ? 3.2 : p * 3.2;
-    for (const g of this.glow) g.m.emissiveIntensity = g.base * (0.08 + 0.92 * p);
+    for (const g of this.glow) g.m.emissiveIntensity = g.base * (0.3 + 0.7 * p); // подсветка видна и у выключенного ПК (как дежурный режим)
     if (p > 0.01) {
       for (const [i, f] of this.fans.entries()) f.rotor.rotation.z -= dt * (9 + i * 0.4) * p;
       this.content.gpu?.gpu?.update(dt * p, true);
+      this.gpu2?.update(dt * p, true);
       for (const f of this.content.cooler?.cooler?.fans ?? []) f.rotor.rotation.z -= dt * 12 * p;
       const c = new THREE.Color();
       const glow = this.caseRef ? CASE_GLOW[this.caseRef.id] : null;
+      for (const [i, m] of this.leds.entries()) { if (glow) m.emissive.set(glow); else c.setHSL((t * 0.12 + i * 0.3) % 1, 0.9, 0.55), m.emissive.copy(c); }
       for (const [i, f] of this.fans.entries()) {
         if (glow) c.set(glow).multiplyScalar(0.75 + 0.25 * Math.sin(t * 2 + i)); // свой цвет, мягкое «дыхание»
         else c.setHSL((t * 0.12 + i * 0.12) % 1, 0.9, 0.55);
         for (const m of f.rgb) m.emissive.copy(c);
       }
+      // светящаяся башня процессорного кулера — радуга со сдвигом
+      for (const [i, f] of (this.content.cooler?.cooler?.fans ?? []).entries()) { c.setHSL((t * 0.15 + 0.5 + i * 0.2) % 1, 0.9, 0.55); for (const m of f.rgb) m.emissive.copy(c); }
     }
   }
 
@@ -514,6 +553,10 @@ export class PcRig {
   private covers: { m: THREE.Mesh; y: number }[] = [];
   private ioShield: THREE.Mesh | null = null;
   private caseRef: Case | null = null;
+  /** Вторая видеокарта (ИИ-сборки). */
+  gpu2: GpuModel | null = null; private gpu2Id = '';
+  /** Светодиодные ленты корпуса (у корпусов с подсветкой). */
+  private leds: THREE.MeshStandardMaterial[] = [];
   /** Высота нижней крышки корпуса (у мини-корпуса ниже). */
   private coverH = 0.09;
   private rearGeo(): { io: number[]; fan: number[]; slots: number[]; psu: number[] } {

@@ -16,7 +16,7 @@ import { DISTRICTS, type District } from './districts.ts';
 
 export type Kind = 'build' | 'upgrade' | 'clean';
 
-export interface Preset { id: string; score?: number; work?: number; ram: number; ssd: number; itx?: boolean }
+export interface Preset { id: string; score?: number; work?: number; ram: number; ssd: number; itx?: boolean; /** ИИ-сборка: две одинаковые видеокарты, у каждой не меньше vram ГБ */ ai?: number }
 
 export const PRESETS: Record<string, Preset> = {
   office: { id: 'office', score: 14, ram: 16, ssd: 500 },
@@ -27,6 +27,8 @@ export const PRESETS: Record<string, Preset> = {
   stream: { id: 'stream', score: 66, work: 62, ram: 32, ssd: 1000 },
   uhd: { id: 'uhd', score: 84, ram: 32, ssd: 2000 },
   work: { id: 'work', work: 84, ram: 64, ssd: 2000 },
+  // ИИ-станция: две видеокарты по 16 ГБ, 64 ГБ памяти, большой корпус и мощный БП
+  ai: { id: 'ai', ram: 64, ssd: 2000, ai: 16 },
 };
 
 export interface Req {
@@ -46,6 +48,8 @@ export interface Req {
   main?: 'white' | 'rgb' | 'silent' | 'vendor' | 'reliable' | 'score';
   /** Апгрейд: какую категорию заменить. */
   upCat?: Cat;
+  /** ИИ-сборка: две видеокарты, у каждой не меньше стольких ГБ видеопамяти. */
+  ai?: number;
 }
 
 export interface Customer { arch: Arch; nameIdx: number; seed: number; look: PersonLook }
@@ -98,6 +102,8 @@ export interface Order {
   bargain?: number;
   /** Повторный визит постоянного клиента: сколько звёзд было в прошлый раз. */
   regular?: { stars: number };
+  /** Пришёл «по теме дня» (THEMES в state.ts). */
+  themed?: string;
   /** Слоты, куда мастер поставил б/у детали, и решение «заметил ли клиент» (сумма скидки или 0). */
   usedIn?: string[];
   usedNotice?: number;
@@ -132,6 +138,8 @@ function solveVia(req: Req, rep: number, price: (id: string) => number, rgbVia: 
   for (const cpu of avail(CPUS, rep)) {
     if (req.vendor && cpu.vendor !== req.vendor) continue;
     for (const gpu of avail(GPUS, rep)) {
+      if (req.ai && (gpu.vram < req.ai || gpu.tdp >= 350)) continue;
+      const gN = req.ai ? 2 : 1;
       const probe: Build = { cpu: cpu.id, gpu: gpu.id, ram: undefined };
       const ramPick = avail(RAMS, rep).filter((r) => (rgbVia !== 'ram' || r.rgb));
       if (!ramPick.length) continue;
@@ -140,7 +148,7 @@ function solveVia(req: Req, rep: number, price: (id: string) => number, rgbVia: 
       if (req.score && gameScore(probe) < req.score) continue;
       if (req.work && workScore({ ...probe, ram: ramPick.find((r) => r.gb >= 32)?.id ?? probe.ram, ramN: 2 }) < req.work) continue;
       for (const mbType of ['DDR4', 'DDR5'] as const) {
-        const mbs = avail(MBS, rep).filter((m) => m.socket === cpu.socket && m.ram === mbType && (!req.itx || m.form === 'ITX'));
+        const mbs = avail(MBS, rep).filter((m) => m.socket === cpu.socket && m.ram === mbType && (!req.itx || m.form === 'ITX') && (!req.ai || m.pcie2));
         const rams = ramPick.filter((r) => r.type === mbType);
         if (!mbs.length || !rams.length) continue;
         // самая дешёвая комбинация «планка × количество» (пара — предпочтительно)
@@ -152,19 +160,19 @@ function solveVia(req: Req, rep: number, price: (id: string) => number, rgbVia: 
         }
         if (!ram) continue;
         if (req.work && workScore({ cpu: cpu.id, gpu: gpu.id, ram: ram.id, ramN: ram.n }) < req.work) continue;
-        const draw = cpu.tdp + gpu.tdp + 75;
+        const draw = cpu.tdp + gpu.tdp * gN + 75;
         const psu = cheapest(avail(PSUS, rep).filter((p) => req.reliable ? p.watt >= draw * RELIABLE_PSU && GOLD.includes(p.tier) : p.watt >= draw * 1.2), price);
         const coolerNeed = Math.max(req.silent ? cpu.tdp * 1.6 : cpu.tdp * 1.05, req.reliable ? cpu.tdp * 1.3 : 0);
         const ssd = cheapest(avail(SSDS, rep).filter((s) => s.gb >= req.ssd), price);
         if (!psu || !ssd) continue;
         for (const mb of mbs) {
           if (ram.n > mb.slots) continue;
-          const cs = cases.filter((c) => c.gpuMax >= gpu.len && (c.form === 'ATX' || mb.form === 'ITX' || (c.form === 'mATX' && mb.form !== 'ATX')));
+          const cs = cases.filter((c) => c.gpuMax >= gpu.len && (!req.ai || c.size === 'full') && (c.form === 'ATX' || mb.form === 'ITX' || (c.form === 'mATX' && mb.form !== 'ATX')));
           for (const cs1 of cs) {
-            const cool = cheapest(avail(COOLERS, rep).filter((c) => c.cap >= coolerNeed && (c.kind !== 'tower' || c.height <= cs1.coolerMax) && !(c.kind === 'aio' && cs1.size === 'mini')), price);
+            const cool = cheapest(avail(COOLERS, rep).filter((c) => c.cap >= coolerNeed && (c.kind !== 'tower' || c.height <= cs1.coolerMax) && !(c.kind === 'aio' && cs1.size === 'mini') && !(mb.form === 'ITX' && c.kind === 'tower' && c.id !== 'ag400')), price);
             if (!cool) continue;
-            const b: Build = { case: cs1.id, mb: mb.id, cpu: cpu.id, cooler: cool.id, ram: ram.id, ramN: ram.n, ssd: ssd.id, gpu: gpu.id, psu: psu.id };
-            const cost = [cs1.id, mb.id, cpu.id, cool.id, ssd.id, gpu.id, psu.id].reduce((s, id) => s + price(id), 0) + ram.cost;
+            const b: Build = { case: cs1.id, mb: mb.id, cpu: cpu.id, cooler: cool.id, ram: ram.id, ramN: ram.n, ssd: ssd.id, gpu: gpu.id, gpuN: gN, psu: psu.id };
+            const cost = [cs1.id, mb.id, cpu.id, cool.id, ssd.id, gpu.id, psu.id].reduce((s, id) => s + price(id), 0) + ram.cost + price(gpu.id) * (gN - 1);
             if (!best || cost < best.cost) best = { build: b, cost };
           }
         }
@@ -179,7 +187,7 @@ function solveVia(req: Req, rep: number, price: (id: string) => number, rgbVia: 
 // С какого уровня репутации пресет может прийти — пресет должен быть решаем
 // каталогом этого уровня (проверяется прогоном `npm run sim`).
 // QHD — с 3-й репутации: на 2-й нужного железа ещё нет (балл 57 < 62, аудит Codex)
-const PRESET_REP: Record<string, number> = { office: 1, esports: 1, fhd: 2, mini: 3, qhd: 3, stream: 3, uhd: 5, work: 5 };
+export const PRESET_REP: Record<string, number> = { office: 1, esports: 1, fhd: 2, mini: 3, qhd: 3, stream: 3, uhd: 5, work: 5, ai: 6 };
 
 export function pickArch(rng: Rng, rep: number, only: Arch[] | null = null): Arch {
   const pool = (Object.keys(ARCHS) as Arch[]).filter((a) => ARCHS[a].minRep <= rep);
@@ -222,7 +230,7 @@ function makeOrderRaw(rng: Rng, id: number, rep: number, day: number, basePrice:
 
 function makeBuild(rng: Rng, id: number, rep: number, day: number, cust: Customer, basePrice: (id: string) => number, presetId: string): Order {
   const P = PRESETS[presetId];
-  const req: Req = { preset: P.id, score: P.score, work: P.work, ram: P.ram, ssd: P.ssd, itx: P.itx };
+  const req: Req = { preset: P.id, score: P.score, work: P.work, ram: P.ram, ssd: P.ssd, itx: P.itx, ai: P.ai };
   // Пожелания сверху — чем выше репутация, тем привередливее публика.
   if (rep >= 2 && rng.chance(0.3)) req.white = true;
   if (rep >= 2 && rng.chance(0.25) && P.id !== 'office') req.rgb = true;
@@ -343,8 +351,9 @@ export function evaluate(o: Order, b: Build, tipK: number): Evaluation {
     if (r.ram) checks.push({ key: 'chk.ram', ok: ramTotal(b) >= r.ram, vars: { need: r.ram } });
     if (r.ssd) checks.push({ key: 'chk.ssd', ok: (g.ssd(b)?.gb ?? 0) >= r.ssd, vars: { need: r.ssd >= 1000 ? r.ssd / 1000 + 'TB' : r.ssd + 'GB' } });
     if (r.itx) checks.push({ key: 'chk.itx', ok: g.case(b)?.size === 'mini' });
+    if (r.ai) checks.push({ key: 'chk.ai', ok: (b.gpuN ?? 1) >= 2 && (g.gpu(b)?.vram ?? 0) >= r.ai, vars: { n: r.ai }, major: true });
     if (r.white) checks.push({ key: 'chk.white', ok: g.case(b)?.color === 'white' });
-    if (r.rgb) checks.push({ key: 'chk.rgb', ok: !!g.ram(b)?.rgb || !!g.case(b)?.rgb });
+    if (r.rgb) checks.push({ key: 'chk.rgb', ok: !!g.ram(b)?.rgb || !!g.case(b)?.rgb || !!g.cooler(b)?.rgb });
     if (r.silent) checks.push({ key: 'chk.silent', ok: (g.cooler(b)?.cap ?? 0) >= (g.cpu(b)?.tdp ?? 999) * 1.6 });
     if (r.vendor) checks.push({ key: 'chk.vendor', ok: g.cpu(b)?.vendor === r.vendor, vars: { v: r.vendor === 'amd' ? 'AMD' : 'Intel' } });
     checks.push({ key: 'chk.temps', ok: test.stage !== 'throttle' });

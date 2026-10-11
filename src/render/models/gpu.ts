@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { GPU } from '../../logic/parts.ts';
-import { add, std, phys, metal, rbox, box, cyl, extrude, rrPath, circ, canvasTex, decal, tube, fitText, rgbMatH, mulberry32, shade, inkFor, mergeTree, V } from '../kit.ts';
+import { add, std, own, phys, metal, rbox, box, cyl, extrude, rrPath, circ, canvasTex, decal, tube, fitText, rgbMatH, mulberry32, shade, inkFor, mergeTree, V } from '../kit.ts';
 import { buildFan, hubTex, type Fan } from './fan.ts';
 import { makeDust, type Dust } from './dust.ts';
 
@@ -79,21 +79,36 @@ const crackTex = () => memo('crack', () => {
   });
 });
 
+/*
+ * Бэкплейт — то, что видно сквозь стекло корпуса. У GeForce и Radeon он
+ * узнаётся сразу: зелёная диагональ и крупное «GEFORCE RTX» против красной
+ * волны и «RADEON». Плюс цвет акцента конкретной модели.
+ */
 function backTex(p: GPU): THREE.Texture {
   return memo('back' + p.id, () => canvasTex(1024, 410, (g, w, h) => {
     g.clearRect(0, 0, w, h);
-    g.save(); g.translate(180, h / 2); g.rotate(-0.12);
-    g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.lineWidth = 5; g.strokeStyle = 'rgba(140,148,165,.55)';
-    g.font = '900 170px Rubik';
-    g.strokeText(p.vendor === 'nvidia' ? 'RTX' : 'RX', 60, 6);
-    g.restore();
-    g.strokeStyle = p.look.accent; g.lineWidth = 6;
-    g.beginPath(); g.moveTo(40, h - 40); g.lineTo(520, h - 40); g.lineTo(560, h - 80); g.stroke();
+    const nv = p.vendor === 'nvidia';
+    const brand = nv ? '#76b900' : '#ed1c24';
+    if (nv) {
+      // зелёная диагональная полоса через весь бэкплейт
+      g.fillStyle = brand; g.globalAlpha = 0.85;
+      g.beginPath(); g.moveTo(w * 0.52, 0); g.lineTo(w * 0.6, 0); g.lineTo(w * 0.42, h); g.lineTo(w * 0.34, h); g.fill();
+      g.globalAlpha = 0.35; g.beginPath(); g.moveTo(w * 0.63, 0); g.lineTo(w * 0.66, 0); g.lineTo(w * 0.48, h); g.lineTo(w * 0.45, h); g.fill();
+    } else {
+      // красная волна снизу
+      g.fillStyle = brand; g.globalAlpha = 0.85;
+      g.beginPath(); g.moveTo(0, h); for (let x = 0; x <= w; x += 16) g.lineTo(x, h * 0.72 + Math.sin(x / 90) * 26); g.lineTo(w, h); g.fill();
+    }
+    g.globalAlpha = 1;
+    g.textBaseline = 'middle';
+    g.fillStyle = 'rgba(235,238,244,.92)'; g.textAlign = 'left';
+    fitText(g, nv ? 'GEFORCE RTX' : 'RADEON', 40, h * 0.42, 560, 92, 900);
+    g.fillStyle = p.look.accent;
+    fitText(g, p.brand.toUpperCase(), 40, h * 0.62, 400, 46, 800);
+    g.fillStyle = 'rgba(210,214,224,.75)';
+    fitText(g, `${p.name} · ${p.vram}GB`, 40, 50, 620, 26, 600);
     g.fillStyle = '#121419';
-    for (let i = 0; i < 9; i++) { g.beginPath(); g.roundRect(640 + i * 36, 70, 16, 270, 8); g.fill(); }
-    g.fillStyle = 'rgba(210,214,224,.85)'; g.textAlign = 'left'; g.textBaseline = 'alphabetic';
-    fitText(g, `${p.brand} · ${p.name} · ${p.vram}GB`, 40, 52, 580, 24, 600);
+    for (let i = 0; i < 7; i++) { g.beginPath(); g.roundRect(720 + i * 36, 70, 16, 270, 8); g.fill(); }
   }));
 }
 function topTex(p: GPU, bg: string): THREE.Texture {
@@ -236,11 +251,14 @@ export function buildGPU(p: GPU): GpuModel {
   const az = shroudZ + top;
   // ── фирменный рисунок модели ──
   if (st.accent === 'between' || st.accent === 'diag') {
-    const wide = st.accent === 'diag' ? 0.013 : 0.008;
+    // цветная дуга-«бровь» над каждым вентилятором (вместо полос поперёк кожуха)
     const m = st.rgb === 'diag' ? rgbMatH() : acc;
-    for (let i = 0; i < n - 1; i++) {
-      const cx = (fx[i] + fx[i + 1]) / 2;
-      add(front, extrude(polyShape([[cx - wide, -H * 0.45], [cx + wide * 0.5, -H * 0.45], [cx + wide, H * 0.45], [cx - wide * 0.5, H * 0.45]]), 0.002, 0.0008, 4), m, 0, 0, az + 0.0002);
+    const arc = st.accent === 'diag' ? Math.PI * 0.55 : Math.PI * 0.4;
+    for (const [i, x] of fx.entries()) {
+      const t = new THREE.Mesh(new THREE.TorusGeometry(R + 0.009, 0.0026, 6, 32, arc), m);
+      t.position.set(x, 0, az + 0.0016);
+      t.rotation.z = st.accent === 'diag' ? (i % 2 ? Math.PI * 1.22 : Math.PI * 0.22) : Math.PI / 2 - arc / 2;
+      front.add(t);
     }
   }
   if (st.accent === 'stripes' || st.accent === 'between') {
@@ -258,8 +276,8 @@ export function buildGPU(p: GPU): GpuModel {
     const g = canvasTex(64, 256, (c, w, h) => { c.fillStyle = '#121418'; c.fillRect(0, 0, w, h); c.fillStyle = '#2c3038'; for (let y = 6; y < h; y += 10) for (let x = 6 + ((y / 10) % 2) * 5; x < w; x += 10) { c.beginPath(); c.arc(x, y, 3, 0, 6.28); c.fill(); } });
     for (let i = 0; i < n - 1; i++) {
       const cx = (fx[i] + fx[i + 1]) / 2;
-      add(front, rbox(0.024, H * 0.86, 0.0022, 0.002), std('#fff', { map: g, roughness: 0.6 }), cx, 0, az);
-      add(front, rbox(0.003, H * 0.86, 0.0026, 0.001), acc, cx - 0.0135, 0, az);
+      // решётка только в просвете между кольцами — сверху и снизу, где кожух шире
+      for (const sy of [1, -1]) add(front, rbox(0.016, H * 0.22, 0.0022, 0.002), std('#fff', { map: g, roughness: 0.6 }), cx, sy * H * 0.33, az);
     }
   }
   if (st.accent === 'facets') {
@@ -268,7 +286,6 @@ export function buildGPU(p: GPU): GpuModel {
     add(front, extrude(polyShape([[-L / 2 + 0.004, H / 2 - 0.016], [-L / 2 + 0.05, H / 2 - 0.016], [-L / 2 + 0.03, -H / 2 + 0.03], [-L / 2 + 0.004, -H / 2 + 0.03]]), 0.003, 0.0008, 4), faceM, 0, 0, az);
     add(front, extrude(polyShape([[L / 2 - 0.004, -H / 2 + 0.032], [L / 2 - 0.04, -H / 2 + 0.006], [L / 2 - 0.004, -H / 2 + 0.006]]), 0.003, 0.0008, 4), faceM, 0, 0, az);
     add(front, rbox(L * 0.7, 0.0022, 0.002, 0.0008), acc, 0.01, H / 2 - 0.009, az + 0.001);
-    for (let i = 0; i < n - 1; i++) add(front, rbox(0.0025, H * 0.7, 0.0022, 0.001), acc, (fx[i] + fx[i + 1]) / 2, 0, az);
   }
   if (st.screws) {
     const hx = metal('#9aa0a8', 0.3);
@@ -289,12 +306,14 @@ export function buildGPU(p: GPU): GpuModel {
   // логотип на торце — с подсветкой, как у настоящих карт: загорается при тесте
   const tt = topTex(p, p.look.main);
   decal(front, 0.11, 0.0138, tt, -L / 2 + 0.075, H / 2 + 0.0003, 0.0065 + hsT / 2 + 0.002, -Math.PI / 2, 0, 0, { emissive: '#ffffff', emissiveMap: tt, emissiveIntensity: 0.9 });
+  // светящаяся полоса вендора по торцу (видна в корпусе): зелёная у GeForce, красная у Radeon
+  { const vm = own('#111', { emissive: p.vendor === 'nvidia' ? '#76b900' : '#ff2a2a', emissiveIntensity: 1.6 }); add(front, rbox(L * 0.35, 0.0025, 0.004, 0.001), vm, L * 0.12, H / 2 + 0.0006, 0.0065 + hsT / 2 + 0.002); }
   if (st.rgb === 'top' || st.rgb === 'ring') add(front, rbox(st.rgb === 'ring' ? L * 0.5 : 0.075, 0.0032, 0.0045, 0.0012), rgbMatH(), L / 2 - (st.rgb === 'ring' ? L * 0.3 : 0.09), H / 2 + 0.0007, 0.0065 + hsT / 2 + 0.002);
 
   // ── бэкплейт (у бюджетных карт его нет — видна изнанка платы) ───────────
   if (st.plateBack !== false) {
-    add(back, rbox(L - 0.006, H - 0.004, 0.0022, 0.002), std(st.metal ? shade(p.look.main, 0.8) : '#2a2d35', { metalness: 0.65, roughness: 0.42 }), 0, 0, -0.0035);
-    decal(back, L - 0.02, ((L - 0.02) * 410) / 1024, backTex(p), 0, 0, -0.0048, 0, Math.PI, 0, { metalness: 0.3 });
+    add(back, rbox(L - 0.006, H - 0.004, 0.0022, 0.002), std(shade(p.look.main, st.metal ? 0.8 : 0.7), { metalness: 0.65, roughness: 0.42 }), 0, 0, -0.0035);
+    decal(back, L - 0.02, ((L - 0.02) * 410) / 1024, backTex(p), 0, 0, -0.0048, 0, Math.PI, Math.PI, { metalness: 0.3 });
   } else {
     add(back, rbox(L - 0.012, H - 0.006, 0.0006, 0.0003, 1), std('#fff', { map: pcbTex(), roughness: 0.55 }), 0.004, 0, -0.0012);
   }

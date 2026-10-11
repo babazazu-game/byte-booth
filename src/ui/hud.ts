@@ -6,7 +6,7 @@ import { g as G, gameScore, workScore, ramTotal, powerDraw, temps } from '../log
 import { GOLD, RELIABLE_PSU, RELIABLE_TEMP } from '../logic/orders.ts';
 import * as S from '../logic/state.ts';
 import { t, money, lang } from '../i18n.ts';
-import { h, btn, icon, thumb, confirmBox, modal } from './dom.ts';
+import { h, btn, icon, thumb, confirmBox, modal, toast } from './dom.ts';
 import { sound } from '../audio/audio.ts';
 import type { Zone } from '../render/views.ts';
 
@@ -50,6 +50,8 @@ export class Hud {
     this.top.append(
       h('div', { class: 'chip cash live ' + (s.cash < 0 ? 'neg' : '') }, money(s.cash)),
       h('div', { class: 'chip' }, t('hud.day', { n: s.day }), h('span', { class: 'sub' }, t('hud.visits', { n: s.visitsToday, max: S.visitsMax(s) }))),
+      // тема дня — значок; нажатие напоминает, что сегодня происходит
+      s.theme ? (() => { const el = h('button', { class: 'chip', 'aria-label': t('theme.' + s.theme) }, ({ heat: '☀️', school: '🎒', lan: '🎮', stream: '🎥', aiboom: '🤖', office: '💼', night: '🌙' } as Record<string, string>)[s.theme!] ?? '📰'); el.addEventListener('click', () => toast(t('theme.' + s.theme))); return el; })() : '',
       // репутация — с числами до следующего уровня; нажатие открывает объяснение
       (() => { const el = h('button', { class: 'chip rep live', 'aria-label': t('rep.title') }, h('span', {}, '★ ' + t('hud.rep', { n: lv })), h('div', { class: 'repbar' }, h('i', { style: `width:${pct}%` })), h('span', { class: 'sub repn' }, REP_XP[lv + 1] ? `${s.xp - cur}/${next - cur}` : 'MAX')); el.addEventListener('click', () => this.repInfo()); return el; })(),
       h('div', { class: 'spacer' }),
@@ -133,9 +135,10 @@ export class Hud {
     if (r.work) out.push({ text: t('ord.req.work', { n: r.work }), ok: has && b.cpu ? workScore(b) >= r.work : undefined });
     if (r.ram) out.push({ text: t('ord.req.ram', { n: r.ram }), ok: b.ram ? ramTotal(b) >= r.ram : undefined });
     if (r.ssd) out.push({ text: t('ord.req.ssd', { n: r.ssd >= 1000 ? r.ssd / 1000 + 'TB' : r.ssd + 'GB' }), ok: b.ssd ? G.ssd(b)!.gb >= r.ssd : undefined });
+    if (r.ai) out.push({ text: t('ord.req.ai', { n: r.ai }), ok: b.gpu ? (b.gpuN ?? 1) >= 2 && G.gpu(b)!.vram >= r.ai : undefined });
     if (r.itx) out.push({ text: t('ord.req.itx'), ok: b.case ? G.case(b)!.size === 'mini' : undefined });
     if (r.white) out.push({ text: t('ord.req.white'), ok: b.case ? G.case(b)!.color === 'white' : undefined });
-    if (r.rgb) out.push({ text: t('ord.req.rgb'), ok: (b.ram && G.ram(b)!.rgb) || (b.case && G.case(b)!.rgb) ? true : b.ram && b.case ? false : undefined });
+    if (r.rgb) out.push({ text: t('ord.req.rgb'), ok: (b.ram && G.ram(b)!.rgb) || (b.case && G.case(b)!.rgb) || (b.cooler && G.cooler(b)!.rgb) ? true : b.ram && b.case ? false : undefined });
     if (r.silent) out.push({ text: t('ord.req.silent'), ok: b.cooler && b.cpu ? G.cooler(b)!.cap >= G.cpu(b)!.tdp * 1.6 : undefined });
     if (r.vendor) out.push({ text: t('ord.req.vendor', { v: r.vendor === 'amd' ? 'AMD' : 'Intel' }), ok: b.cpu ? G.cpu(b)!.vendor === r.vendor : undefined });
     if (r.reliable) {

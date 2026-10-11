@@ -487,6 +487,7 @@ export class Bench {
       for (const k of ['psu', 'mb', 'cpu'] as const) if (!b[k]) return k;
       if (!b.paste) return b.cooler ? 'removeCooler' : b.oldPaste ? 'wipe' : 'paste';
       for (const k of ['cooler', 'ram', 'ssd', 'gpu'] as const) if (!b[k]) return k;
+      if (o.req.ai && (b.gpuN ?? 1) < 2) return 'gpu';
       if (!b.cab24 || !b.cab8 || !b.cabGpu) return 'cables';
     }
     // Сначала тест при открытой панели (как делают сборщики — и видно, как ПК

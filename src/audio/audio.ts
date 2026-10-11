@@ -32,9 +32,9 @@ interface Track {
   /** Лад мелодии: полутоны от тоники и тоника в нужном регистре. */
   scale: number[];
   root: number;
-  keys: 'epiano' | 'pad' | 'pluck' | 'stab';
-  bass: 'sub' | 'saw' | 'pluck';
-  lead: 'pluck' | 'bell' | 'epiano' | 'saw';
+  keys: 'epiano' | 'pad' | 'pluck' | 'stab' | 'arp' | 'guitar';
+  bass: 'sub' | 'saw' | 'pluck' | 'square';
+  lead: 'pluck' | 'bell' | 'epiano' | 'saw' | 'square' | 'flute';
   comp: string; bassPat: string; kick: string; snare: string; hat: string; perc?: string;
   /** Срез общего фильтра музыки, Гц: чем ниже, тем «теплее» и дальше. */
   lpf: number;
@@ -49,9 +49,32 @@ const MAJ = [0, 2, 4, 5, 7, 9, 11], MIN = [0, 2, 3, 5, 7, 8, 10];
  * Плейлист записанных треков (assets/music/<id>.mp3). Первые пять имеют
  * процедурных «двойников» в TRACKS — на случай, если файлы не загрузятся.
  */
-const FILES = ['park', 'solder', 'evening', 'market', 'overclock', 'jazzhop', 'acoustic', 'deephouse', 'nudisco', 'downtempo'];
+const FILES = ['park', 'solder', 'evening', 'market', 'overclock', 'jazzhop', 'acoustic', 'deephouse', 'nudisco', 'downtempo', 'synth:chiptune', 'synth:bossa', 'synth:surf'];
+/*
+ * Три трека другого стиля — синтезом прямо в игре (не mp3): восьмибитный
+ * чиптюн, босса-нова с гитарой и флейтой, сёрф с «гитарными» пиками.
+ * В плейлисте стоят рядом с записанными и звучат заметно иначе.
+ */
 
 const TRACKS: Track[] = [
+  { // «8 бит» — чиптюн: квадратные волны, быстрое арпеджио, бас-квадрат
+    id: 'chiptune', bpm: 138, swing: 0, chords: [[60, 64, 67], [57, 60, 64], [53, 57, 60], [55, 59, 62]],
+    scale: MAJ, root: 72, keys: 'arp', bass: 'square', lead: 'square',
+    comp: 'xxxxxxxxxxxxxxxx', bassPat: 'x.x.o.x.x.x.o.+.', kick: 'x...x...x...x...', snare: '....x.......x...', hat: '..x...x...x...x.',
+    lpf: 7000, crackle: 0, density: 0.65,
+  },
+  { // «Кафе у моря» — босса-нова: гитара с синкопами, флейта, щётки
+    id: 'bossa', bpm: 112, swing: 0.12, chords: [[50, 57, 60, 65], [55, 59, 62, 65], [48, 52, 55, 59], [57, 61, 64, 67]],
+    scale: MAJ, root: 74, keys: 'guitar', bass: 'pluck', lead: 'flute',
+    comp: 'x..x..x...x..x..', bassPat: 'x.....o.x.....o.', kick: 'x.....x.x.......', snare: '', hat: 'x.x.x.x.x.x.x.x.', perc: '...x..x....x..x.',
+    lpf: 4200, crackle: 0.02, density: 0.45,
+  },
+  { // «Сёрф» — бодрые гитарные пики, рок-барабан
+    id: 'surf', bpm: 150, swing: 0, chords: [[52, 56, 59], [57, 61, 64], [59, 63, 66], [57, 61, 64]],
+    scale: MAJ, root: 64, keys: 'stab', bass: 'pluck', lead: 'pluck',
+    comp: 'x.x.x.x.x.x.x.x.', bassPat: 'x.x.x.x.o.o.o.o.', kick: 'x.....x.x.......', snare: '....x.......x...', hat: 'xxxxxxxxxxxxxxxx',
+    lpf: 6000, crackle: 0, density: 0.6,
+  },
   { // «Утро в парке» — лоу-фай: электропиано, свинг, винил
     id: 'park', bpm: 76, swing: 0.45, chords: [[53, 57, 60, 64], [52, 55, 59, 62], [50, 53, 57, 60], [48, 52, 55, 59]],
     scale: MAJ, root: 72, keys: 'epiano', bass: 'sub', lead: 'pluck',
@@ -471,7 +494,8 @@ class Sound {
       const { src, g } = this.curFile;
       g.gain.cancelScheduledValues(t); g.gain.setTargetAtTime(0.0001, t, 0.08);
       src.stop(t + 0.35); // onended запустит следующий трек
-    } else if (this.synthOn && this.ctx) this.nextTrack(this.ctx.currentTime + 0.3);
+    } else if (this.synthOnce && this.cur) { this.cur.step = (this.cur.bars + 1) * 16; } // синтез-трек: досрочно к следующему
+    else if (this.synthOn && this.ctx) this.nextTrack(this.ctx.currentTime + 0.3);
   }
   private buffers = new Map<string, Promise<AudioBuffer | null>>();
   private synthOn = false;
@@ -488,12 +512,13 @@ class Sound {
   }
   private async playFileTrack(): Promise<void> {
     const id = FILES[this.pickTrack()];
+    if (id.startsWith('synth:')) { this.playSynthOnce(id.slice(6)); return; }
     const buf = await this.loadTrack(id);
     const ctx = this.ctx!;
     if (!buf) { this.startSynth(); return; }
     // следующий трек грузим заранее, пока играет этот
     const next = FILES[this.peekTrack()];
-    void this.loadTrack(next);
+    if (!next.startsWith('synth:')) void this.loadTrack(next);
     // в памяти только текущий и следующий: разжатые 30 с стерео — ~10 МБ каждый
     for (const k of [...this.buffers.keys()]) if (k !== id && k !== next && !k.startsWith('test_')) this.buffers.delete(k);
     const t = ctx.currentTime + 0.1;
@@ -533,6 +558,19 @@ class Sound {
       src.connect(g).connect(this.buses.music); src.start(now);
       this.zoneTrack = { id, src, g };
     });
+  }
+  /** Один синтезированный трек в общей очереди; по его окончании — снова плейлист. */
+  private synthOnce = false;
+  private playSynthOnce(id: string): void {
+    const tr = TRACKS.find((x) => x.id === id); if (!tr || !this.ctx) { void this.playFileTrack(); return; }
+    this.synthOnce = true;
+    const at = this.ctx.currentTime + 0.3;
+    const bars = Math.max(24, Math.round((150 / ((60 / tr.bpm) * 4)) / 8) * 8);
+    this.cur = { tr, step: 0, bars, t: at, mel: makeMelody(tr, (Math.random() * 1e9) | 0) };
+    this.musicBus.frequency.setTargetAtTime(tr.lpf, at, 0.5);
+    this.crackleGain.gain.setTargetAtTime(tr.crackle, at, 0.5);
+    if (!this.musicTimer) this.musicTimer = setInterval(() => this.schedMusic(), 80);
+    this.onTrack?.(tr.id);
   }
   private startSynth(): void {
     if (this.synthOn) return;
@@ -578,7 +616,10 @@ class Sound {
     while (c.t < ctx.currentTime + 0.35) {
       const bar = Math.floor(c.step / 16), i = c.step % 16;
       // такт тишины между треками, затем следующий из мешка
-      if (bar > c.bars) { this.nextTrack(c.t); return; }
+      if (bar > c.bars) {
+        if (this.synthOnce) { this.synthOnce = false; this.cur = null; void this.playFileTrack(); return; }
+        this.nextTrack(c.t); return;
+      }
       if (bar < c.bars) this.playStep(c.tr, c.mel, bar, i, c.bars, c.t + (i % 2 ? c.tr.swing * s16 : 0), s16);
       c.step++; c.t += s16;
     }
@@ -627,6 +668,8 @@ class Sound {
     if (kind === 'epiano') ch.forEach((n, k) => this.epiano(t + k * 0.012, mtof(n), 0.045 * v, Math.max(0.3, dur), bus));
     else if (kind === 'pluck') ch.forEach((n, k) => this.fmPluck(t + k * 0.018, mtof(n), 0.03 * v, Math.max(0.25, dur * 0.9), bus, 0.9));
     else if (kind === 'stab') ch.forEach((n) => this.tone(t, mtof(n + 12), 0.018 * v, Math.min(0.18, dur), bus, 'sawtooth', undefined, 0.004));
+    else if (kind === 'arp') { const n = ch[Math.floor(t * 1000) % ch.length]; this.tone(t, mtof(n + 12), 0.016 * v, Math.min(0.11, dur), bus, 'square', undefined, 0.002); }
+    else if (kind === 'guitar') ch.forEach((n, k) => this.fmPluck(t + k * 0.025, mtof(n - 12), 0.03 * v, Math.max(0.35, dur), bus, 0.6));
     else ch.forEach((n) => this.pad(t, mtof(n), 0.022 * v, Math.max(0.6, dur)));
   }
   /** Подушка: два расстроенных пилообразных через мягкий фильтр, медленная атака. */
@@ -642,6 +685,7 @@ class Sound {
     const bus = this.musicBus;
     if (kind === 'sub') this.tone(t, f, 0.13 * v, dur * 0.9, bus, 'sine', undefined, 0.015);
     else if (kind === 'pluck') this.fmPluck(t, f, 0.1 * v, Math.max(0.12, dur * 0.8), bus, 3);
+    else if (kind === 'square') this.tone(t, f, 0.05 * v, Math.max(0.08, dur * 0.7), bus, 'square', undefined, 0.003);
     else {
       // пила через закрывающийся фильтр — «синтвейв»-бас
       const ctx = this.ctx!;
@@ -658,6 +702,12 @@ class Sound {
     if (kind === 'pluck') this.fmPluck(t, f, 0.04 * v, Math.max(0.2, dur * 1.3), bus, 1.2);
     else if (kind === 'bell') this.bellTone(t, f, 0.03 * v, Math.max(0.5, dur * 2), bus, [1, 2, 3.01, 4.2], [1, 0.35, 0.15, 0.06]);
     else if (kind === 'epiano') this.epiano(t, f, 0.05 * v, Math.max(0.25, dur * 1.2), bus);
+    else if (kind === 'square') this.tone(t, f, 0.022 * v, Math.max(0.08, dur * 0.9), bus, 'square', undefined, 0.003);
+    else if (kind === 'flute') {
+      // флейта: синус с дыханием (шум) и мягким вибрато
+      this.tone(t, f, 0.035 * v, Math.max(0.2, dur * 1.1), bus, 'sine', undefined, 0.05);
+      this.burst(t, f * 2, 2, 0.008 * v, Math.max(0.15, dur), bus, 'bandpass');
+    }
     else {
       // мягкая пила с вибрато — вести синтвейв-мелодию
       const ctx = this.ctx!;

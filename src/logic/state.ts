@@ -10,8 +10,8 @@
 import { part, ALL, GPUS, type Cat, type Paste, RAM_LEGACY } from './parts.ts';
 import { newMarket, nextDay as marketNextDay, priceOf, sellPriceOf, type MarketState } from './market.ts';
 import { canInstall, canRemove, SLOT_OF, ramSlotsOf, RAM_ORDER4, type SlotKey, type Build } from './compat.ts';
-import { makeOrder, evaluate, repLevel, type Order, type Evaluation, type Kind } from './orders.ts';
-import { type Arch, makeLook } from './customers.ts';
+import { makeOrder, evaluate, repLevel, PRESET_REP, solve, type Order, type Evaluation, type Kind } from './orders.ts';
+import { type Arch, ARCHS, makeLook } from './customers.ts';
 import { Rng } from './rng.ts';
 import { progress, type Daily } from './daily.ts';
 import { bump, type StatKey } from './achievements.ts';
@@ -140,6 +140,12 @@ export interface GameState {
   built: number;
   /** Ежедневный бонус и задания (daily.ts). */
   daily?: Daily;
+  /** Виды последних заказов (не больше двух чисток подряд). */
+  recentKinds?: string[];
+  /** Последние сборки-пресеты: один и тот же заказ не идёт три раза подряд. */
+  recentPresets?: string[];
+  /** Тема дня (THEMES): в городе событие, и к ларьку идёт своя публика. */
+  theme?: string;
   /** Куплен «Свой магазин» — игра пройдена (можно продолжать). */
   shopOwned?: boolean;
   /** Счётчики для достижений и открытые достижения (achievements.ts). */
@@ -296,6 +302,35 @@ export function sell(s: GameState, uid: number): Err {
 /* ─────────────────────────────── клиенты ─────────────────────────────── */
 
 /** Позвать следующего клиента к окну. */
+/**
+ * Темы дня: в городе что-то происходит, и половина посетителей приходит «по
+ * теме» — со своими заказами и пожеланиями, иногда за надбавку. Так дни не
+ * похожи один на другой, даже когда репутация и район те же.
+ */
+export interface Theme { archs: Arch[]; presets?: string[]; kind?: Kind; payK?: number; rgb?: boolean; white?: boolean; reliable?: boolean; silent?: boolean; minRep?: number }
+export const THEMES: Record<string, Theme> = {
+  heat: { archs: ['office', 'dad', 'grandma', 'builder', 'gamer'], kind: 'clean', payK: 1.25 },
+  school: { archs: ['student', 'schoolkid', 'teen'], presets: ['office', 'esports', 'mini'], payK: 1.05 },
+  lan: { archs: ['gamer', 'gamergirl', 'teen'], presets: ['esports', 'fhd', 'qhd'], rgb: true, payK: 1.1 },
+  stream: { archs: ['streamer', 'gamergirl'], presets: ['stream', 'qhd', 'fhd'], white: true, payK: 1.1, minRep: 2 },
+  aiboom: { archs: ['coder', 'designer', 'crypto', 'boss'], presets: ['ai', 'work', 'qhd'], payK: 1.15, minRep: 3 },
+  office: { archs: ['office', 'boss', 'builder'], presets: ['office', 'esports'], reliable: true, payK: 1.1 },
+  night: { archs: ['coder', 'gamer', 'designer', 'student'], presets: ['qhd', 'work', 'fhd', 'mini'], silent: true, payK: 1.1, minRep: 2 },
+};
+
+/** Подобрать посетителя под тему дня (null — тема не подходит по репутации). */
+function themeVisit(s: GameState, r: Rng): { arch?: Arch; kind?: Kind; preset?: string } | null {
+  const th = s.theme ? THEMES[s.theme] : null;
+  if (!th) return null;
+  const rep = level(s);
+  const archs = th.archs.filter((a) => ARCHS[a].minRep <= rep);
+  if (!archs.length) return null;
+  if (th.kind) return { arch: r.pick(archs), kind: th.kind };
+  const ps = (th.presets ?? []).filter((p) => PRESET_REP[p] <= rep && !(s.recentPresets ?? []).slice(-2).includes(p));
+  if (!ps.length) return null;
+  return { arch: r.pick(archs), kind: 'build', preset: r.pick(ps) };
+}
+
 export function callCustomer(s: GameState, basePrice: (id: string) => number, forced?: { arch?: Arch; kind?: Kind; preset?: string }): Err {
   if (s.pending) return 'err.busyWindow';
   if (s.visitsToday >= visitsMax(s)) return 'err.dayOver';
@@ -309,9 +344,29 @@ export function callCustomer(s: GameState, basePrice: (id: string) => number, fo
   }
   // Касса почти пуста (всё ушло в ларёк) — чаще приходят на чистку: для неё
   // детали не нужны, только паста, и игрок может заработать на закупку.
-  if (!forced && s.cash < 450 && s.day >= 2 && r.chance(0.85)) forced = { kind: 'clean' };
-  const o = makeOrder(r, s.nextOrder++, level(s), s.day, basePrice, forced, districtOf(s));
+  // чисток не больше двух подряд (игрок получил четыре подряд — скучно);
+  // мало денег — чистка вероятнее, но тоже не больше двух подряд
+  const recent = (s.recentKinds ??= []);
+  const twoCleans = recent.length >= 2 && recent.slice(-2).every((k) => k === 'clean');
+  let themed = false;
+  const th = s.theme ? THEMES[s.theme] : undefined;
+  if (!forced && th && r.chance(0.5) && !(twoCleans && th.kind === 'clean')) { const v = themeVisit(s, r); if (v) { forced = v; themed = true; } }
+  if (!forced && twoCleans) forced = { kind: r.chance(0.5) || level(s) < 2 ? 'build' : 'upgrade' };
+  else if (!forced && s.cash < 450 && s.day >= 2 && r.chance(0.6)) forced = { kind: 'clean' };
+  const rp = (s.recentPresets ??= []);
+  let o = makeOrder(r, s.nextOrder, level(s), s.day, basePrice, forced, districtOf(s));
+  // тот же заказ, что и два последних, — перебрасываем (до трёх раз): иначе «опять игровой на FHD»
+  for (let k = 0; k < 3 && !forced?.preset && o.kind === 'build' && rp.slice(-2).includes(o.req.preset ?? ''); k++) o = makeOrder(r, s.nextOrder, level(s), s.day, basePrice, forced, districtOf(s));
+  s.nextOrder++;
+  if (themed && th) {
+    o.themed = s.theme;
+    if (th.payK) o.pay = Math.round((o.pay * th.payK) / 5) * 5;
+    // пожелание темы — только если такая сборка вообще собирается из доступного
+    if (o.kind === 'build') for (const k of ['rgb', 'white', 'reliable', 'silent'] as const) if (th[k] && !o.req[k]) { o.req[k] = true; if (!solve(o.req, level(s), basePrice)) delete o.req[k]; }
+  }
   s.pending = o;
+  recent.push(o.kind); if (recent.length > 4) recent.shift();
+  if (o.kind === 'build' && o.req.preset) { rp.push(o.req.preset); if (rp.length > 4) rp.shift(); }
   if (!forced && o.kind === 'build') {
     // Блогер: не чаще раза в 4 дня и с репутации 2 — иначе обзоры обесцениваются.
     if (level(s) >= 2 && s.day - (s.lastBlogger ?? -99) >= 4 && r.chance(0.12)) {
@@ -409,7 +464,8 @@ export function install(s: GameState, uidOrLoose: { uid?: number; looseId?: stri
     if (at === undefined || used.includes(at) || at >= total) return 'why.slotBusy';
     if (b.ram === id) b.ramN = (b.ramN ?? 1) + 1; else { b.ram = id; b.ramN = 1; }
     b.ramSlots = [...used, at];
-  } else (b as Record<string, unknown>)[slot] = id;
+  } else if (slot === 'gpu' && b.gpu) b.gpuN = 2; // вторая видеокарта
+  else { (b as Record<string, unknown>)[slot] = id; if (slot === 'gpu') b.gpuN = 1; }
   if (uidOrLoose.uid !== undefined) {
     s.inv = s.inv.filter((x) => x.uid !== uidOrLoose.uid);
     s.src[slot] = { used, ...extra };
@@ -487,6 +543,8 @@ export function remove(s: GameState, slot: SlotKey): Err {
   if (slot === 'gpu') { delete b.fakeGpu; delete b.fakeKnown; }
   if (src?.owner !== undefined && o.ownUsed) o.ownUsed = o.ownUsed.filter((k) => k !== slot);
   if (o.usedIn) o.usedIn = o.usedIn.filter((k) => k !== slot);
+  // вторая видеокарта снимается первой
+  if (slot === 'gpu' && (b.gpuN ?? 1) > 1) { b.gpuN = 1; return null; }
   // планки снимаются по одной
   if (slot === 'ram' && (b.ramN ?? 1) > 1) {
     const total = (part(b.mb!) as { slots: number }).slots;
@@ -801,6 +859,13 @@ export function startNextDay(s: GameState): void {
       const g0 = r.pick(pool);
       s.deals.push({ id: g0.id, price: Math.round((priceOf(s.market, g0.id) * r.range(0.45, 0.6)) / 5) * 5, fake: r.chance(0.6) });
     }
+  }
+  // тема дня: с третьего дня, примерно через день, и не та же, что вчера
+  const prevTheme = s.theme;
+  s.theme = undefined;
+  if (s.day >= 3 && r.chance(0.55)) {
+    const pool = Object.keys(THEMES).filter((k) => k !== prevTheme && (THEMES[k].minRep ?? 1) <= level(s));
+    if (pool.length) { s.theme = r.pick(pool); s.market.news.unshift({ day: s.day, key: 'theme.' + s.theme, kind: 'start' }); }
   }
   saveRng(s, r);
   s.visitsToday = 0;

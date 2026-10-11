@@ -69,7 +69,7 @@ export function buildFan(o: FanOpts = {}): Fan {
   group.add(rotor);
   const res: Fan = { group, rotor, rgb: [] };
   let bm: THREE.MeshStandardMaterial;
-  if (o.rgb) { bm = own('#a4a4ac', { transparent: true, opacity: 0.88, emissive: '#ff4d8d', emissiveIntensity: 0.5, roughness: 0.25, side: THREE.DoubleSide }); res.rgb.push(bm); }
+  if (o.rgb) { bm = own('#a4a4ac', { transparent: true, opacity: 0.88, emissive: '#ff4d8d', emissiveIntensity: 1.3, roughness: 0.25, side: THREE.DoubleSide }); res.rgb.push(bm); }
   else bm = std(o.blade ?? '#253049', { roughness: 0.42, side: THREE.DoubleSide });
   const bg = bladeGeo(R * 0.33, R * 0.96, o.sweep ?? 0.72, o.w0 ?? 0.2, o.w1 ?? 0.3, R * 0.032, 0.55);
   for (let i = 0; i < n; i++) { const m = add(rotor, bg, bm); m.rotation.z = (i * TAU) / n; m.castShadow = false; }

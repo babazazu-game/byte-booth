@@ -41,12 +41,12 @@ interface Base {
 
 export interface CPU extends Base { cat: 'cpu'; socket: Socket; cores: number; perf: number; tdp: number; vendor: 'intel' | 'amd' }
 export interface GPU extends Base { cat: 'gpu'; chip: string; vendor: 'nvidia' | 'amd'; perf: number; tdp: number; len: number; vram: number; fans: 2 | 3 }
-export interface MB extends Base { cat: 'mb'; socket: Socket; form: Form; ram: RamType; chipset: string; /** слотов памяти */ slots: 2 | 4 }
+export interface MB extends Base { cat: 'mb'; socket: Socket; form: Form; ram: RamType; chipset: string; /** слотов памяти */ slots: 2 | 4; /** два слота x16 — под две видеокарты (ИИ-сборки) */ pcie2?: boolean }
 export interface RAM extends Base { cat: 'ram'; type: RamType; gb: number; mhz: number; rgb: boolean }
 export interface SSD extends Base { cat: 'ssd'; gb: number; speed: number }
 export interface PSU extends Base { cat: 'psu'; watt: number; tier: string }
-export interface Cooler extends Base { cat: 'cooler'; cap: number; kind: 'tower' | 'aio' | 'low'; height: number }
-export interface Case extends Base { cat: 'case'; form: Form; gpuMax: number; coolerMax: number; color: 'white' | 'black'; glass: boolean; size: 'mid' | 'mini' | 'full';
+export interface Cooler extends Base { cat: 'cooler'; cap: number; kind: 'tower' | 'aio' | 'low'; height: number; /** Вентиляторы с подсветкой. */ rgb?: boolean }
+export interface Case extends Base { cat: 'case'; form: Form; gpuMax: number; coolerMax: number; color: 'white' | 'black' | 'pink' | 'blue'; glass: boolean; size: 'mid' | 'mini' | 'full';
   /** Вентиляторы с цветной подсветкой (ARGB) — засчитывается в заказ «с подсветкой». */
   rgb?: boolean }
 export interface Paste extends Base { cat: 'paste'; uses: number }
@@ -88,12 +88,12 @@ export const MBS: MB[] = [
   { id: 'h610m', cat: 'mb', brand: 'MSI', name: 'PRO H610M-E DDR4', price: 85, rep: 1, socket: 'LGA1700', form: 'mATX', ram: 'DDR4', chipset: 'H610', slots: 2, look: L('#2b2421', '#4a8fd8') },
   { id: 'b550m', cat: 'mb', brand: 'ASRock', name: 'B550M Pro4', price: 100, rep: 1, socket: 'AM4', form: 'mATX', ram: 'DDR4', chipset: 'B550', slots: 4, look: L('#1c1d21', '#d8dde4') },
   { id: 'b760m', cat: 'mb', brand: 'ASRock', name: 'B760M Steel Legend', price: 135, rep: 1, socket: 'LGA1700', form: 'mATX', ram: 'DDR5', chipset: 'B760', slots: 4, look: L('#e6e4df', '#9aa3ad') },
-  { id: 'b650', cat: 'mb', brand: 'MSI', name: 'MAG B650 TOMAHAWK', price: 200, rep: 2, socket: 'AM5', form: 'ATX', ram: 'DDR5', chipset: 'B650', slots: 4, look: L('#141518', '#9aa0a8') },
-  { id: 'z790', cat: 'mb', brand: 'Gigabyte', name: 'Z790 AORUS ELITE', price: 230, rep: 2, socket: 'LGA1700', form: 'ATX', ram: 'DDR5', chipset: 'Z790', slots: 4, look: L('#16171b', '#f2a13a') },
+  { id: 'b650', cat: 'mb', brand: 'MSI', name: 'MAG B650 TOMAHAWK', price: 200, rep: 2, socket: 'AM5', form: 'ATX', ram: 'DDR5', chipset: 'B650', slots: 4, pcie2: true, look: L('#141518', '#9aa0a8') },
+  { id: 'z790', cat: 'mb', brand: 'Gigabyte', name: 'Z790 AORUS ELITE', price: 230, rep: 2, socket: 'LGA1700', form: 'ATX', ram: 'DDR5', chipset: 'Z790', slots: 4, pcie2: true, look: L('#16171b', '#f2a13a') },
   { id: 'b860m', cat: 'mb', brand: 'MSI', name: 'B860M GAMING PLUS', price: 165, rep: 3, socket: 'LGA1851', form: 'mATX', ram: 'DDR5', chipset: 'B860', slots: 4, look: L('#17181c', '#d8382f') },
   { id: 'b650i', cat: 'mb', brand: 'Gigabyte', name: 'B650I AORUS ULTRA', price: 255, rep: 3, socket: 'AM5', form: 'ITX', ram: 'DDR5', chipset: 'B650', slots: 2, look: L('#18191d', '#f2a13a') },
-  { id: 'z890', cat: 'mb', brand: 'ASUS', name: 'TUF GAMING Z890-PLUS', price: 300, rep: 4, socket: 'LGA1851', form: 'ATX', ram: 'DDR5', chipset: 'Z890', slots: 4, look: L('#1e2024', '#f3c35a') },
-  { id: 'x870e', cat: 'mb', brand: 'ASUS', name: 'ROG STRIX X870E-E', price: 450, rep: 5, socket: 'AM5', form: 'ATX', ram: 'DDR5', chipset: 'X870E', slots: 4, look: L('#101114', '#e2334a') },
+  { id: 'z890', cat: 'mb', brand: 'ASUS', name: 'TUF GAMING Z890-PLUS', price: 300, rep: 4, socket: 'LGA1851', form: 'ATX', ram: 'DDR5', chipset: 'Z890', slots: 4, pcie2: true, look: L('#1e2024', '#f3c35a') },
+  { id: 'x870e', cat: 'mb', brand: 'ASUS', name: 'ROG STRIX X870E-E', price: 450, rep: 5, socket: 'AM5', form: 'ATX', ram: 'DDR5', chipset: 'X870E', slots: 4, pcie2: true, look: L('#101114', '#e2334a') },
 ];
 
 /*
@@ -126,17 +126,18 @@ export const SSDS: SSD[] = [
 
 export const PSUS: PSU[] = [
   { id: 'pk550', cat: 'psu', brand: 'DeepCool', name: 'PK550D 550W', price: 52, rep: 1, watt: 550, tier: 'Bronze', look: L('#22252b', '#4fd1c0') },
-  { id: 'sp10-650', cat: 'psu', brand: 'be quiet!', name: 'System Power 10 650W', price: 72, rep: 1, watt: 650, tier: 'Bronze', look: L('#202124', '#d9d6cf') },
-  { id: 'rm750e', cat: 'psu', brand: 'Corsair', name: 'RM750e 750W', price: 98, rep: 1, watt: 750, tier: 'Gold', look: L('#1b1c20', '#f3c35a') },
+  { id: 'sp10-650', cat: 'psu', brand: 'be quiet!', name: 'System Power 10 650W', price: 72, rep: 1, watt: 650, tier: 'Bronze', look: L('#3a3f47', '#d9d6cf') },
+  { id: 'rm750e', cat: 'psu', brand: 'Corsair', name: 'RM750e 750W', price: 98, rep: 1, watt: 750, tier: 'Gold', look: L('#2f4f7a', '#f3c35a') },
   { id: 'gx850', cat: 'psu', brand: 'Seasonic', name: 'Focus GX-850 White', price: 132, rep: 2, watt: 850, tier: 'Gold', look: L('#ecebe7', '#c9a24a') },
-  { id: 'dp13-1000', cat: 'psu', brand: 'be quiet!', name: 'Dark Power 13 1000W', price: 225, rep: 4, watt: 1000, tier: 'Titanium', look: L('#141518', '#f2a13a') },
-  { id: 'hx1500', cat: 'psu', brand: 'Corsair', name: 'HX1500i 1500W', price: 370, rep: 6, watt: 1500, tier: 'Platinum', look: L('#1b1c20', '#e8e8ea') },
+  { id: 'dp13-1000', cat: 'psu', brand: 'be quiet!', name: 'Dark Power 13 1000W', price: 225, rep: 4, watt: 1000, tier: 'Titanium', look: L('#5a2a2a', '#f2a13a') },
+  { id: 'hx1500', cat: 'psu', brand: 'Corsair', name: 'HX1500i 1500W', price: 370, rep: 6, watt: 1500, tier: 'Platinum', look: L('#9aa1aa', '#1b1c20') },
 ];
 
 export const COOLERS: Cooler[] = [
   { id: 'ag400', cat: 'cooler', brand: 'DeepCool', name: 'AG400', price: 24, rep: 1, cap: 120, kind: 'tower', height: 150, look: L('#1d1f24', '#c9cdd4') },
   { id: 'ak400', cat: 'cooler', brand: 'DeepCool', name: 'AK400', price: 35, rep: 1, cap: 170, kind: 'tower', height: 155, look: L('#2a2d35', '#efe6da') },
   { id: 'pa120', cat: 'cooler', brand: 'Thermalright', name: 'Peerless Assassin 120', price: 40, rep: 2, cap: 220, kind: 'tower', height: 157, look: L('#c9cdd4', '#1d1f24') },
+  { id: 'pa120w', cat: 'cooler', brand: 'Thermalright', name: 'Peerless Assassin 120 White ARGB', price: 52, rep: 2, cap: 220, kind: 'tower', height: 157, rgb: true, look: L('#ecebe7', '#c9cdd4') },
   { id: 'l9i', cat: 'cooler', brand: 'Noctua', name: 'NH-L9i chromax', price: 50, rep: 2, cap: 95, kind: 'low', height: 37, look: L('#1d1f24', '#7a5a46') },
   { id: 'lf3-360', cat: 'cooler', brand: 'Arctic', name: 'Liquid Freezer III 360', price: 110, rep: 3, cap: 300, kind: 'aio', height: 50, look: L('#16171b', '#e9e8e4') },
   { id: 'nhd15', cat: 'cooler', brand: 'Noctua', name: 'NH-D15 G2', price: 150, rep: 4, cap: 260, kind: 'tower', height: 168, look: L('#c9a98a', '#7a5a46') },
@@ -149,6 +150,9 @@ export const CASES: Case[] = [
   { id: 'ch560', cat: 'case', brand: 'DeepCool', name: 'CH560 WH', price: 95, rep: 2, form: 'ATX', gpuMax: 380, coolerMax: 175, color: 'white', glass: true, size: 'mid', rgb: true, look: L('#e4e1da', '#ff8a5c') },
   { id: 'h5flow', cat: 'case', brand: 'NZXT', name: 'H5 Flow', price: 95, rep: 2, form: 'ATX', gpuMax: 365, coolerMax: 165, color: 'black', glass: true, size: 'mid', look: L('#1d1f24', '#8a5bff') },
   { id: 'nr200p', cat: 'case', brand: 'Cooler Master', name: 'NR200P', price: 100, rep: 3, form: 'ITX', gpuMax: 330, coolerMax: 155, color: 'white', glass: true, size: 'mini', look: L('#e4e1da', '#5b7cff') },
+  // цветные корпуса: розовая «панорама» со стеклом спереди и сбоку, голубой с яркой подсветкой
+  { id: 'y60', cat: 'case', brand: 'HYTE', name: 'Y60 Pink', price: 150, rep: 3, form: 'ATX', gpuMax: 375, coolerMax: 160, color: 'pink', glass: true, size: 'full', rgb: true, look: L('#f2a7c3', '#ff4fb0') },
+  { id: 'skytwo', cat: 'case', brand: 'Montech', name: 'SKY TWO Blue', price: 85, rep: 2, form: 'ATX', gpuMax: 400, coolerMax: 175, color: 'blue', glass: true, size: 'mid', rgb: true, look: L('#7fb6e8', '#3a8bff') },
   { id: 'o11evo', cat: 'case', brand: 'Lian Li', name: 'O11 Dynamic EVO', price: 165, rep: 4, form: 'ATX', gpuMax: 420, coolerMax: 167, color: 'white', glass: true, size: 'full', rgb: true, look: L('#ecebe7', '#4fd1c0') },
 ];
 
@@ -183,7 +187,7 @@ export function specLine(p: Part, ru = false): string {
  * переводит hex в оттенок/светлоту и выбирает слово.
  */
 export function colorName(p: Part, ru = false): string {
-  if (p.cat === 'case') return p.color === 'white' ? (ru ? 'белый' : 'white') : (ru ? 'чёрный' : 'black');
+  if (p.cat === 'case') return ({ white: ['белый', 'white'], black: ['чёрный', 'black'], pink: ['розовый', 'pink'], blue: ['голубой', 'blue'] } as const)[p.color][ru ? 0 : 1];
   const hex = p.look.main.replace('#', '');
   const r = parseInt(hex.slice(0, 2), 16) / 255, g = parseInt(hex.slice(2, 4), 16) / 255, b = parseInt(hex.slice(4, 6), 16) / 255;
   const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, d = mx - mn;
@@ -212,12 +216,12 @@ function specCore(p: Part, ru: boolean): string {
   switch (p.cat) {
     case 'cpu': return ru ? `${p.socket} · ${p.cores} ядер · ${p.tdp} Вт` : `${p.socket} · ${p.cores}C · ${p.tdp}W`;
     case 'gpu': return ru ? `${p.vram} ГБ · ${p.tdp} Вт · ${p.len} мм` : `${p.vram}GB · ${p.tdp}W · ${p.len}mm`;
-    case 'mb': return `${p.socket} · ${p.form} · ${p.ram} ×${p.slots}`;
+    case 'mb': return `${p.socket} · ${p.form} · ${p.ram} ×${p.slots}${p.pcie2 ? ' · 2×PCIe x16' : ''}`;
     case 'ram': return `${p.type} · ${ru ? '1 планка' : '1 stick'} ${p.gb}${ru ? ' ГБ' : 'GB'} · ${p.mhz}${ru ? ' МГц' : ''}`;
     case 'ssd': return `M.2 NVMe · ${p.gb >= 1000 ? p.gb / 1000 + 'TB' : p.gb + 'GB'}`;
     case 'psu': return `${p.watt}${ru ? ' Вт' : 'W'} · 80+ ${p.tier}`;
     case 'cooler': return `${p.kind === 'aio' ? (ru ? 'СВО 360' : 'AIO 360') : p.kind === 'low' ? (ru ? 'Низкий' : 'Low-profile') : (ru ? 'Башня' : 'Tower')} · ${p.cap}W`;
-    case 'case': return `${p.form} · ${ru ? 'видеокарта' : 'GPU'} ≤${p.gpuMax}${ru ? ' мм' : 'mm'} · ${p.color === 'white' ? (ru ? 'белый' : 'White') : (ru ? 'чёрный' : 'Black')}${p.glass ? (ru ? ' · стекло' : ' · Glass') : ''}${p.rgb ? (ru ? ' · подсветка вентиляторов' : ' · RGB fans') : ''}`;
+    case 'case': return `${p.form} · ${ru ? 'видеокарта' : 'GPU'} ≤${p.gpuMax}${ru ? ' мм' : 'mm'} · ${colorName(p, ru)}${p.glass ? (ru ? ' · стекло' : ' · Glass') : ''}${p.rgb ? (ru ? ' · подсветка вентиляторов' : ' · RGB fans') : ''}`;
     case 'paste': return ru ? `×${p.uses} нанесений` : `×${p.uses} uses`;
   }
 }
