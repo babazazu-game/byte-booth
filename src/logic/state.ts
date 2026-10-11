@@ -41,7 +41,8 @@ export type UpId = 'shelf' | 'slots' | 'sign' | 'coffee' | 'analytics' | 'wholes
 export const UPGRADES: Record<UpId, { prices: number[]; values: number[] }> = {
   shelf: { prices: [350, 1000], values: [14, 24, 40] },
   slots: { prices: [350, 900], values: [2, 3, 4] },
-  sign: { prices: [500, 1600], values: [0, 1, 2] },
+  // неоновая вывеска — единственный способ получить больше клиентов в день: 3 → 6
+  sign: { prices: [300, 400, 500], values: [0, 1, 2, 3] },
   coffee: { prices: [350], values: [0, 1] },
   analytics: { prices: [700], values: [0, 1] },
   wholesale: { prices: [900, 2200], values: [0, 0.05, 0.1] },
@@ -176,7 +177,8 @@ export const level = (s: GameState): number => repLevel(s.xp);
 export const upVal = (s: GameState, id: UpId): number => UPGRADES[id].values[s.up[id]];
 export const capacity = (s: GameState): number => upVal(s, 'shelf');
 export const slotsMax = (s: GameState): number => upVal(s, 'slots');
-export const visitsMax = (s: GameState): number => Math.max(1, 3 + upVal(s, 'sign') + Math.floor(level(s) / 3) + (s.buzz?.day === s.day ? s.buzz.n : 0));
+/** Клиентов в день: 3 и по одному за каждую ступень вывески; больше шести не бывает (даже с шумихой от блогера). */
+export const visitsMax = (s: GameState): number => Math.min(6, 3 + upVal(s, 'sign') + (s.buzz?.day === s.day ? s.buzz.n : 0));
 export const rent = (s: GameState): number => Math.round((30 + level(s) * 9 + s.up.shelf * 10) * districtOf(s).rentK);
 export const buyPrice = (s: GameState, id: string): number => priceOf(s.market, id, upVal(s, 'wholesale'));
 export const activeOrders = (s: GameState): Order[] => s.orders.filter((o) => o.state === 'active' || o.state === 'bench' || o.state === 'ready');
