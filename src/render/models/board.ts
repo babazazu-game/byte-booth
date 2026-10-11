@@ -507,14 +507,15 @@ export function buildCooler(p: Cooler, radiatorAt?: THREE.Vector3): CoolerModel 
     if (!small) decal(group, finL * 0.8, finW - 0.004, capTex, stacks[stacks.length - 1], 0, H + 0.0012, 0, 0, Math.PI / 2);
     const brown = noctua;
     const R = small ? 0.044 : 0.056;
-    const fanAt = (x: number) => {
+    const fanAt = (x: number, dz = 0) => {
       const f = buildFan({ R, rgb: !!p.rgb, frame: true, frameColor: p.rgb ? '#f4f4f2' : brown ? '#7a5a46' : p.look.main === '#c9cdd4' ? '#1d1f24' : p.look.main, logo, blade: brown ? '#c9a98a' : '#2a2d35', n: brown ? 7 : 9, sweep: brown ? 0.9 : 0.72, w0: brown ? 0.26 : 0.2, w1: brown ? 0.4 : 0.3 });
       f.group.rotation.y = Math.PI / 2;
-      f.group.position.set(x, 0, 0.03 + finH / 2);
+      f.group.position.set(x, 0, 0.03 + finH / 2 + dz);
       group.add(f.group); fans.push(f);
-      const d = makeDust(R * 2, R * 2); d.rotation.y = Math.PI / 2; d.position.set(x + 0.014, 0, 0.03 + finH / 2); group.add(d); dust.push(d);
+      const d = makeDust(R * 2, R * 2); d.rotation.y = Math.PI / 2; d.position.set(x + 0.014, 0, 0.03 + finH / 2 + dz); group.add(d); dust.push(d);
     };
-    if (dual) { fanAt(0); fanAt(0.038 + finW / 2 + 0.014); } else fanAt(finW / 2 + 0.015);
+    // внешний вентилятор над памятью приподнят на 8–12 мм (RGB-рамка толще) — как делают сборщики, чтобы не задеть высокие планки
+    if (dual) { fanAt(0); fanAt(0.038 + finW / 2 + 0.014, p.rgb ? 0.012 : 0.008); } else fanAt(finW / 2 + 0.015);
     const d2 = makeDust(finW, finL); d2.position.set(stacks[0], 0, H + 0.003); group.add(d2); dust.push(d2);
     mergeTree(group);
     return { group, fans, dust, height: H };

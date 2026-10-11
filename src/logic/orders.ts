@@ -169,7 +169,7 @@ function solveVia(req: Req, rep: number, price: (id: string) => number, rgbVia: 
           if (ram.n > mb.slots) continue;
           const cs = cases.filter((c) => c.gpuMax >= gpu.len && (!req.ai || c.size === 'full') && (c.form === 'ATX' || mb.form === 'ITX' || (c.form === 'mATX' && mb.form !== 'ATX')));
           for (const cs1 of cs) {
-            const cool = cheapest(avail(COOLERS, rep).filter((c) => c.cap >= coolerNeed && (c.kind !== 'tower' || c.height <= cs1.coolerMax) && !(c.kind === 'aio' && cs1.size === 'mini') && !(mb.form === 'ITX' && c.kind === 'tower' && c.id !== 'ag400')), price);
+            const cool = cheapest(avail(COOLERS, rep).filter((c) => c.cap >= coolerNeed && (c.kind !== 'tower' || c.height <= cs1.coolerMax) && !(c.kind === 'aio' && (cs1.size === 'mini' || cs1.rad360 === false)) && !(mb.form === 'ITX' && c.kind === 'tower' && c.id !== 'ag400')), price);
             if (!cool) continue;
             const b: Build = { case: cs1.id, mb: mb.id, cpu: cpu.id, cooler: cool.id, ram: ram.id, ramN: ram.n, ssd: ssd.id, gpu: gpu.id, gpuN: gN, psu: psu.id };
             const cost = [cs1.id, mb.id, cpu.id, cool.id, ssd.id, gpu.id, psu.id].reduce((s, id) => s + price(id), 0) + ram.cost + price(gpu.id) * (gN - 1);

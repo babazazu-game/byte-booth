@@ -31,6 +31,15 @@ async function runScene(app: App, scene: string): Promise<void> {
   app.persist = () => {};
   app.saveSettings = () => {};
   if (scene === 'menu') return;
+  if (scene === 'sweep') {
+    // перебор всех допустимых сборок: ищем детали, вошедшие друг в друга
+    const { runSweep } = await import('./devSweep.ts');
+    const pre = document.createElement('pre'); pre.style.cssText = 'position:fixed;inset:0;margin:0;padding:12px;overflow:auto;background:#fff;color:#123;font:12px monospace;z-index:999';
+    document.body.append(pre);
+    const res = await runSweep((l) => { pre.textContent = l; });
+    pre.textContent = res.join(String.fromCharCode(10)); (window as unknown as { __sweep: string[] }).__sweep = res;
+    return;
+  }
   if (scene === 'tut') { app.play(true); for (let i = 0; i < 60; i++) app.debugStep(0.05); return; }
   if (scene === 'lineup') {
     // витрина деталей одной категории: ?shot=lineup&cat=mb|psu|gpu|cooler|ram|case

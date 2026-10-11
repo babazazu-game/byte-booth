@@ -21,7 +21,7 @@ import { part, partOrNull } from '../logic/parts.ts';
 import { ARCHS, makeLook } from '../logic/customers.ts';
 import { buildPerson } from '../render/models/person.ts';
 import { setLabelLang } from '../render/kit.ts';
-import { BENCH } from '../render/kiosk.ts';
+import { BENCH, KIOSK } from '../render/kiosk.ts';
 import { PcRig } from '../render/models/pc.ts';
 import { buildFigurine } from '../render/models/figurine.ts';
 import { wallOf, POSTERS } from '../logic/collect.ts';
@@ -1051,7 +1051,44 @@ export class App {
     if (!this.views.menu && !this.world.props.spider.visible && Math.random() < dt / 180) this.world.props.showSpider((Math.random() * 4) | 0);
     // живые статуэтки: машущая кошка, переливающийся мини-ПК
     for (const slot of this.world.props.figSlots) for (const c of slot.children) (c.userData.tick as ((t: number) => void) | undefined)?.(t);
+    this.cullOutdoor();
     this.engine.render();
+  }
+
+  /*
+   * Улица видна только через окно ларька. Всё, что целиком снаружи (парк, дома,
+   * задники, прохожие, небо), лежит на слое 1, и камера рисует его, только когда
+   * она сама снаружи (меню) или окно попадает в кадр. У верстака, полки и
+   * монитора это ~половина треугольников кадра, а картинка та же. Тени не
+   * меняются: камера теней солнца видит слой 1 всегда. Свет остаётся на слое 0 —
+   * иначе при переключении шейдеры пересобирались бы с подвисанием.
+   */
+  private outdoorTick = 99;
+  private outdoorN = -1;
+  private readonly kioskBox = new THREE.Box3(new THREE.Vector3(KIOSK.x0 - 0.3, -0.6, KIOSK.z0 - 0.45), new THREE.Vector3(KIOSK.x1 + 0.3, KIOSK.h + 1.6, KIOSK.z1 + 0.3));
+  private readonly winBox = new THREE.Box3(new THREE.Vector3(KIOSK.x0 + 0.05, KIOSK.counterY - 0.15, KIOSK.z0 - 0.35), new THREE.Vector3(KIOSK.x1 - 0.05, KIOSK.h, KIOSK.z0 + 0.1));
+  private readonly frustum = new THREE.Frustum();
+  private readonly tmpBox = new THREE.Box3();
+  private readonly tmpM = new THREE.Matrix4();
+  private cullOutdoor(): void {
+    const root = this.world.root, cam = this.engine.camera;
+    if (++this.outdoorTick >= 30 || root.children.length !== this.outdoorN) {
+      this.outdoorTick = 0; this.outdoorN = root.children.length;
+      const setL = (o: THREE.Object3D, out: boolean) => o.traverse((x) => { if (!(x as THREE.Light).isLight) { if (out) x.layers.set(1); else x.layers.set(0); } });
+      for (const c of root.children) {
+        this.tmpBox.setFromObject(c);
+        const out = !this.tmpBox.isEmpty() && !this.tmpBox.intersectsBox(this.kioskBox);
+        if (c.userData.outdoor !== out) { c.userData.outdoor = out; setL(c, out); }
+        else if (out) c.traverse((x) => { if (!(x as THREE.Light).isLight && x.layers.mask !== 2) x.layers.set(1); }); // новые части (одежда, детали) у прохожих
+      }
+      if (this.world.sky.layers.mask !== 2) this.world.sky.layers.set(1);
+      this.world.sun.shadow.camera.layers.enable(1);
+    }
+    cam.updateMatrixWorld();
+    const inside = this.kioskBox.containsPoint(cam.getWorldPosition(this.tmpBox.min.clone()));
+    this.frustum.setFromProjectionMatrix(this.tmpM.multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse));
+    const see = !inside || this.frustum.intersectsBox(this.winBox);
+    if (see) cam.layers.enable(1); else cam.layers.disable(1);
   }
 }
 

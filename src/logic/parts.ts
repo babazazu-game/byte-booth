@@ -48,7 +48,9 @@ export interface PSU extends Base { cat: 'psu'; watt: number; tier: string }
 export interface Cooler extends Base { cat: 'cooler'; cap: number; kind: 'tower' | 'aio' | 'low'; height: number; /** Вентиляторы с подсветкой. */ rgb?: boolean }
 export interface Case extends Base { cat: 'case'; form: Form; gpuMax: number; coolerMax: number; color: 'white' | 'black' | 'pink' | 'blue'; glass: boolean; size: 'mid' | 'mini' | 'full';
   /** Вентиляторы с цветной подсветкой (ARGB) — засчитывается в заказ «с подсветкой». */
-  rgb?: boolean }
+  rgb?: boolean;
+  /** false — 360-мм радиатор не помещается под крышей. */
+  rad360?: boolean }
 export interface Paste extends Base { cat: 'paste'; uses: number }
 
 export type Part = CPU | GPU | MB | RAM | SSD | PSU | Cooler | Case | Paste;
@@ -144,9 +146,9 @@ export const COOLERS: Cooler[] = [
 ];
 
 export const CASES: Case[] = [
-  { id: 'zalman-t8', cat: 'case', brand: 'Zalman', name: 'T8', price: 40, rep: 1, form: 'ATX', gpuMax: 320, coolerMax: 160, color: 'black', glass: false, size: 'mid', look: L('#2a2c31', '#9aa0a8') },
-  { id: 'cc560', cat: 'case', brand: 'DeepCool', name: 'CC560', price: 62, rep: 1, form: 'ATX', gpuMax: 370, coolerMax: 163, color: 'black', glass: true, size: 'mid', rgb: true, look: L('#2a2c31', '#4fd1c0') },
-  { id: 'popmini', cat: 'case', brand: 'Fractal', name: 'Pop Mini Air', price: 78, rep: 1, form: 'mATX', gpuMax: 325, coolerMax: 170, color: 'white', glass: true, size: 'mid', rgb: true, look: L('#e4e1da', '#3d4048') },
+  { id: 'zalman-t8', cat: 'case', brand: 'Zalman', name: 'T8', price: 40, rep: 1, form: 'ATX', gpuMax: 320, coolerMax: 160, color: 'black', glass: false, size: 'mid', look: L('#474a51', '#9aa0a8') },
+  { id: 'cc560', cat: 'case', brand: 'DeepCool', name: 'CC560', price: 62, rep: 1, form: 'ATX', gpuMax: 370, coolerMax: 163, color: 'black', glass: true, size: 'mid', rgb: true, look: L('#3f434b', '#4fd1c0') },
+  { id: 'popmini', cat: 'case', brand: 'Fractal', name: 'Pop Mini Air', price: 78, rep: 1, form: 'mATX', gpuMax: 325, coolerMax: 170, color: 'white', glass: true, size: 'mid', rgb: true, rad360: false, look: L('#e4e1da', '#3d4048') },
   { id: 'ch560', cat: 'case', brand: 'DeepCool', name: 'CH560 WH', price: 95, rep: 2, form: 'ATX', gpuMax: 380, coolerMax: 175, color: 'white', glass: true, size: 'mid', rgb: true, look: L('#e4e1da', '#ff8a5c') },
   { id: 'h5flow', cat: 'case', brand: 'NZXT', name: 'H5 Flow', price: 95, rep: 2, form: 'ATX', gpuMax: 365, coolerMax: 165, color: 'black', glass: true, size: 'mid', look: L('#1d1f24', '#8a5bff') },
   { id: 'nr200p', cat: 'case', brand: 'Cooler Master', name: 'NR200P', price: 100, rep: 3, form: 'ITX', gpuMax: 330, coolerMax: 155, color: 'white', glass: true, size: 'mini', look: L('#e4e1da', '#5b7cff') },

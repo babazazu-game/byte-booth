@@ -76,6 +76,28 @@ export const CASE_DIMS: Record<Case['size'], [number, number, number]> = {
 
 type Content = { id: string; obj: THREE.Object3D; gpu?: GpuModel; cooler?: CoolerModel };
 
+/** Мягкое пятно света для ореола вентилятора (одна текстура на все). */
+let fanGlow: THREE.Texture | null = null;
+function fanGlowTex(): THREE.Texture {
+  return (fanGlow ??= canvasTex(128, 128, (g, w, h) => {
+    const gr = g.createRadialGradient(w / 2, h / 2, w * 0.12, w / 2, h / 2, w / 2);
+    gr.addColorStop(0, 'rgba(255,255,255,0.9)'); gr.addColorStop(0.4, 'rgba(255,255,255,0.45)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+    g.clearRect(0, 0, w, h); g.fillStyle = gr; g.fillRect(0, 0, w, h);
+  }));
+}
+/** Полоса света вдоль светодиодной ленты: ярко в середине, гаснет к краям. */
+let stripGlow: THREE.Texture | null = null;
+function stripGlowTex(): THREE.Texture {
+  return (stripGlow ??= canvasTex(256, 64, (g, w, h) => {
+    g.clearRect(0, 0, w, h);
+    const gy = g.createLinearGradient(0, 0, 0, h); gy.addColorStop(0, 'rgba(255,255,255,0)'); gy.addColorStop(0.5, 'rgba(255,255,255,0.85)'); gy.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = gy; g.fillRect(0, 0, w, h);
+    g.globalCompositeOperation = 'destination-in';
+    const gx = g.createLinearGradient(0, 0, w, 0); gx.addColorStop(0, 'rgba(0,0,0,0)'); gx.addColorStop(0.1, '#000'); gx.addColorStop(0.9, '#000'); gx.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = gx; g.fillRect(0, 0, w, h);
+  }));
+}
+
 export class PcRig {
   readonly group = new THREE.Group();
   /** Всё, кроме съёмной боковой панели. */
@@ -240,8 +262,20 @@ export class PcRig {
     const art = CASE_ART[c.id];
     if (art) { const at = canvasTex(256, 512, (g, w, h) => { g.clearRect(0, 0, w, h); art(g, w, h); }); const am = decal(P, D - 0.03, H - 0.03, at, 0.0035, 0, 0, 0, Math.PI / 2, 0, { depthWrite: false }); am.castShadow = false; am.renderOrder = 3; }
     // яркая подсветка у «световых» корпусов: светодиодная лента по верху и низу внутри
-    this.leds = [];
-    if (c.rgb) for (const y of [H / 2 - 0.012, -H / 2 + 0.012]) { const lm = own('#111', { emissive: CASE_GLOW[c.id] ?? '#ff4d8d', emissiveIntensity: 3 }); this.leds.push(lm); add(B, box(0.006, 0.004, D - 0.06), lm, W / 2 - 0.02, y, 0, 0, 0, 0, false); }
+    this.leds = []; this.halos = [];
+    if (c.rgb) for (const y of [H / 2 - 0.012, -H / 2 + 0.012]) {
+      const lm = own('#111', { emissive: CASE_GLOW[c.id] ?? '#ff4d8d', emissiveIntensity: 3 }); this.leds.push(lm); add(B, box(0.006, 0.004, D - 0.06), lm, W / 2 - 0.02, y, 0, 0, 0, 0, false);
+      // «блум» ленты: мягкое свечение полосой вдоль неё (постобработки в игре нет — дорого)
+      const hm = new THREE.MeshBasicMaterial({ map: stripGlowTex(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, color: lm.emissive });
+      const hp = new THREE.Mesh(new THREE.PlaneGeometry(D - 0.02, 0.07), hm); hp.position.set(W / 2 - 0.016, y + (y > 0 ? -0.02 : 0.02), 0); hp.rotation.y = Math.PI / 2; hp.userData.keep = true; hp.castShadow = false; hp.renderOrder = 4;
+      B.add(hp); this.halos.push({ m: hm, src: lm, k: 1.2 });
+    }
+    // ореол вокруг светящихся вентиляторов корпуса — без него RGB читается как просто цветной пластик
+    if (c.rgb) for (const f of this.fans) {
+      const sm = new THREE.SpriteMaterial({ map: fanGlowTex(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
+      const sp = new THREE.Sprite(sm); sp.scale.set(0.24, 0.24, 1); sp.position.copy(f.group.position); sp.position.x += 0.02; sp.renderOrder = 4; sp.userData.keep = true;
+      B.add(sp); this.halos.push({ m: sm, src: f.rgb[0], k: 1 });
+    }
     P.position.x = W / 2 - 0.001;
     // зона «боковая панель»
     this.zone('panel', box(0.02, H, D), V(W / 2, 0, 0));
@@ -323,7 +357,9 @@ export class PcRig {
     this.paste.set(b.cpu ? (b.paste ? 'new' : b.oldPaste ? 'old' : 'none') : 'none');
     this.place('cooler', b.cooler, () => {
       // Радиатор СВО — под крышей корпуса: считаем его точку в системе якоря процессора.
-      const top = V(-0.02, this.H / 2 - 0.035, 0.02);
+      // 360-мм радиатор (длина 0,36) заканчивается перед задним вентилятором (он занимает последние 3 см глубины)
+      // и сдвинут к боковой панели (ширина радиатора 0,12): так он не нависает над памятью и радиаторами платы
+      const top = V(this.W / 2 - 0.066, this.H / 2 - 0.035, Math.min(0.02, this.D / 2 - 0.214));
       const anchorWorld = bd.anchors.cpu.position.clone();
       bd.group.updateMatrix();
       const inv = bd.group.matrix.clone().invert();
@@ -540,6 +576,7 @@ export class PcRig {
       // светящаяся башня процессорного кулера — радуга со сдвигом
       for (const [i, f] of (this.content.cooler?.cooler?.fans ?? []).entries()) { c.setHSL((t * 0.15 + 0.5 + i * 0.2) % 1, 0.9, 0.55); for (const m of f.rgb) m.emissive.copy(c); }
     }
+    for (const h of this.halos) { if (h.src) h.m.color.copy(h.src.emissive); h.m.opacity = h.k * (0.6 + 0.4 * p) * (this.panel.visible && !this.caseRef?.glass ? 0 : 1); }
   }
 
   /*
@@ -557,6 +594,8 @@ export class PcRig {
   gpu2: GpuModel | null = null; private gpu2Id = '';
   /** Светодиодные ленты корпуса (у корпусов с подсветкой). */
   private leds: THREE.MeshStandardMaterial[] = [];
+  /** Ореолы подсветки: цвет берут у своего светящегося материала, яркость — от «включённости». */
+  private halos: { m: THREE.MeshBasicMaterial | THREE.SpriteMaterial; src?: THREE.MeshStandardMaterial; k: number }[] = [];
   /** Высота нижней крышки корпуса (у мини-корпуса ниже). */
   private coverH = 0.09;
   private rearGeo(): { io: number[]; fan: number[]; slots: number[]; psu: number[] } {

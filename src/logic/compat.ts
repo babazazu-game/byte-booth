@@ -114,7 +114,7 @@ export function canInstall(b: Build, id: string): Verdict {
       if (!b.paste) return NO(b.oldPaste ? 'why.wipeFirst' : 'why.needPaste');
       const c = g.case(b);
       if (c && p.kind === 'tower' && p.height > c.coolerMax) return NO('why.coolerTall', { h: p.height, max: c.coolerMax });
-      if (c && p.kind === 'aio' && c.size === 'mini') return NO('why.aioNoRoom');
+      if (c && p.kind === 'aio' && (c.size === 'mini' || c.rad360 === false)) return NO('why.aioNoRoom');
       // на ITX-плате процессор в 7 см от слота видеокарты: широкая башня упирается
       // в видеокарту и задний вентилятор — только низкий кулер, маленькая башня или СВО
       if (g.mb(b)?.form === 'ITX' && p.kind === 'tower' && p.id !== 'ag400') return NO('why.itxTower');
