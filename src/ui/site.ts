@@ -31,7 +31,7 @@ export class Site {
   /** Название магазина — обновляется при смене языка (раньше оставалось «Мегабайт» в EN). */
   private titleEl!: HTMLElement;
   tab: Tab = 'shop';
-  cat: Cat | 'all' = 'all';
+  cat: Cat | 'all' | 'used' = 'all';
   private recFor: number | null = null;
 
   constructor(private app: App) {
@@ -105,8 +105,10 @@ export class Site {
     const rec = this.recommended();
     const cats = dragScroll(h('div', { class: 'cats' }));
     // Категории «К заказу» нет: подбор деталей — работа игрока (автор), подсказки только в обучении.
-    for (const c of ['all', ...CATS] as (Cat | 'all')[]) {
-      const b = h('button', { class: 'live ' + (this.cat === c ? 'on' : '') }, c === 'all' ? t('site.all') : t('cat.' + c));
+    // «Б/у и сюрпризы» — своя вкладка: на телефоне эти строки уезжали в самый конец «Всех», и их теряли
+    const hasDeal = (s.deals ?? []).some((d) => !d.sold);
+    for (const c of ['all', 'used', ...CATS] as (Cat | 'all' | 'used')[]) {
+      const b = h('button', { class: 'live ' + (this.cat === c ? 'on' : '') }, c === 'all' ? t('site.all') : c === 'used' ? (hasDeal ? '● ' : '') + t('site.used2') : t('cat.' + c));
       b.addEventListener('click', () => { sound.tab(); this.cat = c; this.render(); });
       cats.append(b);
     }
@@ -138,7 +140,8 @@ export class Site {
     const phone = !!this.app.views.phone;
     const specials = () => {
     // Объявления частников (видеокарты сильно дешевле — на свой страх и риск)
-    if (this.cat === 'all' || this.cat === 'gpu') (s.deals ?? []).forEach((d, i) => {
+    if (this.cat === 'used' && !hasDeal) this.body.append(h('p', { class: 'sp', style: 'margin:4px 2px 10px' }, t('site.noDeals')));
+    if (this.cat === 'all' || this.cat === 'gpu' || this.cat === 'used') (s.deals ?? []).forEach((d, i) => {
       if (d.sold) return;
       const p = part(d.id), mkt = S.buyPrice(s, d.id);
       this.body.append(h('div', { class: 'row deal' },
@@ -152,7 +155,7 @@ export class Site {
           }), 'primary small'))));
     });
     // Коробки-сюрпризы
-    if (this.cat === 'all') for (const id of Object.keys(S.BOXES) as S.BoxId[]) {
+    if (this.cat === 'all' || this.cat === 'used') for (const id of Object.keys(S.BOXES) as S.BoxId[]) {
       const B = S.BOXES[id], locked = lvl < B.minRep;
       this.body.append(h('div', { class: 'row box ' + (locked ? 'locked' : '') },
         h('div', { class: 'boxic' }, '?'),
@@ -162,7 +165,7 @@ export class Site {
           btn([icon('box'), t('box.open')], () => this.openBox(id), 'primary small', locked ? { disabled: true } : {}))));
     }
     };
-    if (!phone) specials();
+    if (!phone || this.cat === 'used') specials();
     const list = ALL.filter((p) => this.cat === 'all' || p.cat === this.cat)
       .sort((a, b) => Number(rec.has(b.id)) - Number(rec.has(a.id)) || CATS.indexOf(a.cat) - CATS.indexOf(b.cat) || a.price - b.price);
     for (const p of list) {
@@ -194,7 +197,7 @@ export class Site {
           h('div', { style: 'display:flex;align-items:center;gap:6px' }, spark(hist), h('span', { class: 'chg ' + (chg > 0 ? 'up' : chg < 0 ? 'down' : '') }, `${chg > 0 ? '+' : ''}${chg}%`)),
           buyBtn)));
     }
-    if (phone) specials();
+    if (phone && this.cat === 'all') specials();
   }
 
   private openBox(id: S.BoxId): void {

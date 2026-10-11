@@ -55,9 +55,23 @@ export class Director {
 
   /* ───────────── клиент ───────────── */
 
+  /*
+   * Модель следующего клиента, построенная заранее в свободное время (App.prepareNext):
+   * сборка человечка — 20–50 мс на ПК и в разы дольше на телефоне, и раньше она
+   * шла прямо в момент нажатия «Позвать клиента».
+   */
+  private pre: { key: string; p: Person } | null = null;
+  prebuild(look: PersonLook, seed: number): void {
+    const key = seed + JSON.stringify(look);
+    if (this.pre?.key !== key) this.pre = { key, p: buildPerson(look, seed) };
+  }
+  hasPrebuilt(look: PersonLook, seed: number): boolean { return this.pre?.key === seed + JSON.stringify(look); }
+
   spawn(look: PersonLook, seed: number, onArrive: () => void): void {
     this.clear();
-    const p = buildPerson(look, seed);
+    const key = seed + JSON.stringify(look);
+    const p = this.pre?.key === key ? this.pre.p : buildPerson(look, seed);
+    this.pre = null;
     // клиент — тень-пятно, а не тень от солнца: карта теней теперь статичная (FPS)
     p.root.traverse((o) => { o.castShadow = false; });
     blobShadow(p.root, 0.45);

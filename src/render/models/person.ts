@@ -172,7 +172,7 @@ function stripeTex(a: string, b: string): THREE.Texture {
 export interface Person {
   root: THREE.Group;
   head: THREE.Group;
-  st: { walkW: number; leanW: number; carryW: number; walking: boolean; leaning: boolean; carrying: boolean; grip: number; talking: boolean; speed: number; mood: Mood; restY: number | null; restZ?: number | null };
+  st: { walkW: number; leanW: number; carryW: number; walking: boolean; leaning: boolean; carrying: boolean; grip: number; talking: boolean; speed: number; mood: Mood; restY: number | null; restZ?: number | null; /** сидит (качели): ноги вперёд, руки держат цепи; swing — фаза раскачки */ sit?: boolean; swing?: number };
   carrySlot: THREE.Group;
   update(t: number, dt: number): void;
 }
@@ -495,6 +495,18 @@ function buildPersonFull(L: PersonLook, seed: number, far: boolean): Person {
         talkT -= dt;
         if (talkT <= 0) { talkT = 0.08 + Math.random() * 0.09; const r = Math.random(); mouthMat.map = r < 0.45 ? M.talk : r < 0.8 ? M.smile : M.closed; }
       } else mouthMat.map = M[st.mood];
+      if (st.sit) {
+        // качели: бёдра вперёд, голени вниз и чуть «качают», руки вверх к цепям
+        const sw = st.swing ?? 0;
+        hips.position.y = 0.6; hips.rotation.y = 0; torso.rotation.set(-0.06 - sw * 0.15, 0, 0);
+        for (let k = 0; k < 2; k++) {
+          const s = k ? 1 : -1;
+          R.thigh[k].rotation.x = -1.45; R.knee[k].rotation.x = 1.25 - sw * 0.45; R.ankle[k].rotation.x = 0.2;
+          R.shoulder[k].rotation.set(-2.55, 0, s * 0.16); R.elbow[k].rotation.x = -0.25;
+          (R.hand[k].userData.curl as (a: number) => void)(0.9);
+        }
+        st.mood = 'smile';
+      }
     },
   };
 }

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { buildRetailBox, BOX_DIMS } from '../render/models/retail.ts';
-import { part } from '../logic/parts.ts';
+import { part, type Part } from '../logic/parts.ts';
 import type { GameState } from '../logic/state.ts';
 import { SHELF_X } from '../render/world.ts';
 import { isRu } from '../render/kit.ts';
@@ -26,6 +26,22 @@ export class Shelf {
     parent.add(this.group, this.ready);
   }
 
+  /*
+   * Коробка каждой модели строится один раз (рисунок упаковки — холст и
+   * текстура), дальше на полку ставится копия с общей геометрией и материалами.
+   * Раньше при каждой покупке перестраивались ВСЕ коробки: 160+ мс зависания.
+   */
+  private boxes = new Map<string, THREE.Object3D>();
+  private box(p: Part): THREE.Object3D {
+    const key = p.id + (isRu() ? ':ru' : ':en');
+    let b = this.boxes.get(key);
+    if (!b) { b = buildRetailBox(p); this.boxes.set(key, b); }
+    return b.clone();
+  }
+
+  /** Заготовить коробку заранее (прогрев после старта). */
+  warm(p: Part): void { this.box(p); }
+
   sync(s: GameState): void {
     const readyIds = s.orders.filter((o) => o.state === 'ready').map((o) => o.build.case ?? 'zalman-t8');
     const sig = s.inv.map((i) => i.uid).join(',') + '|' + readyIds.join(',') + (isRu() ? 'ru' : 'en');
@@ -42,14 +58,14 @@ export class Shelf {
       const order = BIG.has(p.cat) ? [1, 0, 2, 3, 4] : [3, 2, 1, 4, 0];
       const lvl = order.find((L) => cursor[L] + w <= Z1 && hgt < (LEVELS[L + 1] ?? 2.6) - LEVELS[L] - 0.02);
       if (lvl === undefined) continue;
-      const m = buildRetailBox(p);
+      const m = this.box(p);
       m.rotation.y = -Math.PI / 2;
       m.position.set(SHELF_X + 0.2 - d / 2 - 0.02, LEVELS[lvl] + hgt / 2, cursor[lvl] + w / 2);
       cursor[lvl] += w + 0.012;
       this.group.add(m);
     }
     readyIds.forEach((id, i) => {
-      const m = buildRetailBox(part(id));
+      const m = this.box(part(id));
       m.scale.setScalar(0.8);
       const [, hgt] = BOX_DIMS.case;
       m.rotation.y = 0.15 * (i % 2 ? 1 : -1);

@@ -711,3 +711,23 @@ button.chip.rep { cursor: pointer; text-align: left; }
 .chip.rep { flex-direction: column; align-items: stretch; justify-content: center; gap: 3px; }
 .chip.rep .repbar { width: 100%; min-width: 70px; flex: none; }
 .chip.rep .repn { text-align: right; line-height: 1; }
+
+/* ── Телефон и планшет лёжа: карточки и окно теста не закрывают ПК ──
+   Свёрнутая карточка — одна строка «вид · имя · цена»; остальное по нажатию.
+   У монитора карточки прячутся совсем: магазин занимает экран, а заказы есть
+   во вкладке «Заказы». Окно теста — узкое и мелкое, под карточкой. */
+@media (max-width: 900px), (max-height: 560px) {
+  .hud-orders { width: min(232px, 28vw); gap: 6px; }
+  .hud-orders .ocard { font-size: .8em; padding: .6em .75em .65em; }
+  /* свёрнутая: две строки — «вид · имя · цена» и мелко тип сборки; без пунктира */
+  .hud-orders .ocard:not(.open) .h { border-bottom: 0; padding-bottom: 0; margin-bottom: .2em; }
+  .hud-orders .ocard:not(.open) .m { font-size: .86em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 26px; }
+  /* развёрнутая: те же 232 px, плотнее строки списка */
+  .hud-orders .ocard.open { font-size: .76em; }
+  .hud-orders .ocard.open ul { margin-top: .25em; }
+  .hud-orders .ocard.open li { line-height: 1.3; }
+  .hud-orders .ocard.ready::after, .hud-orders .ocard.bench::after { top: auto; bottom: 8px; right: 7px; font-size: .7em; padding: 2px 4px; }
+  .hud-orders[data-zone="pc"] { display: none; }
+  .testcard { top: calc(100px + var(--safe-t)); width: min(230px, 27vw); max-height: calc(100% - 210px); font-size: .74em; }
+  .testcard .th { padding: 4px 4px 4px 8px; }
+}

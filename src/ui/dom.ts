@@ -1,5 +1,5 @@
 import { part, type Part } from '../logic/parts.ts';
-import { drawIcon } from '../render/models/retail.ts';
+import { drawPartIcon } from './partIcon.ts';
 import { sound } from '../audio/audio.ts';
 import { t } from '../i18n.ts';
 
@@ -69,7 +69,7 @@ export function thumb(id: string): string {
   const p = part(id);
   const c = document.createElement('canvas'); c.width = 160; c.height = 120;
   const g = c.getContext('2d')!;
-  drawIcon(g, p.cat, 80, 60, p.cat === 'gpu' || p.cat === 'ram' || p.cat === 'ssd' ? 112 : 92, p.look.main, p.look.accent);
+  drawPartIcon(g, p, c.width, c.height);
   u = c.toDataURL();
   thumbs.set(id, u);
   return u;

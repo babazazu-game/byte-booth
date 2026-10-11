@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { add, std, phys, own, rbox, box, cyl, canvasTex, mulberry32, V, TAU, blobShadow} from './kit.ts';
 import { tree, bush, FOL, FOL_DARK, type Season } from './flora.ts';
+import { buildPerson, type Person } from './models/person.ts';
+import { makeLook } from '../logic/customers.ts';
 
 /**
  * Окружение ларька в спальном районе и в деловом центре.
@@ -13,7 +15,7 @@ import { tree, bush, FOL, FOL_DARK, type Season } from './flora.ts';
  * Всё статичное: группа потом склеивается mergeTree в десяток вызовов.
  */
 
-export interface DistrictSet { lamps: THREE.PointLight[]; bulbs: THREE.MeshStandardMaterial[] }
+export interface DistrictSet { lamps: THREE.PointLight[]; bulbs: THREE.MeshStandardMaterial[]; /** анимация района (качели и т.п.), пока он показан */ tick?: (t: number, dt: number) => void }
 
 /** Рисованный задник района: две панели (вторая зеркальная), без света, с дымкой. */
 /** Материалы рисованных задников: вечером они темнеют вместе с небом (см. world.setPhase). */
@@ -126,6 +128,76 @@ function lamp(set: DistrictSet, modern: boolean): THREE.Group {
 
 /* ─────────────────────────────── спальный район ─────────────────────────────── */
 
+/**
+ * Детская площадка спального района: двойные качели, качели-«гнездо» и
+ * балансир. Сиденья — отдельные узлы (keep), их качает tick. Время от времени
+ * на свободное сиденье садится школьник и раскачивается 20–40 секунд.
+ */
+function playground(g: THREE.Group, r: () => number): (t: number, dt: number) => void {
+  const frameM = std('#3f7d6a', { roughness: 0.5, metalness: 0.35 }), chain = std('#9aa0a8', { roughness: 0.4, metalness: 0.6 });
+  const seatC = ['#e2a93a', '#3b7bd0', '#d8573f'];
+  type Seat = { pivot: THREE.Group; len: number; amp: number; ph: number; kid: Person | null; until: number };
+  const seats: Seat[] = [];
+  const aFrame = (x: number, z: number, w: number, h: number) => {
+    for (const sx of [-w / 2, w / 2]) for (const dz of [-0.45, 0.45]) add(g, cyl(0.04, 0.045, h + 0.08, 10), frameM, x + sx, h / 2, z + dz * 0.5, dz > 0 ? -0.24 : 0.24, 0, 0);
+    add(g, cyl(0.045, 0.045, w + 0.1, 12), frameM, x, h, z, 0, 0, Math.PI / 2);
+  };
+  const seatPivot = (x: number, z: number, h: number, len: number) => {
+    const p = new THREE.Group(); p.position.set(x, h, z); p.userData.keep = true; g.add(p);
+    const s: Seat = { pivot: p, len, amp: 0.04, ph: r() * TAU, kid: null, until: 0 }; seats.push(s); return { p, s };
+  };
+  // двойные качели
+  aFrame(-5.6, -14.4, 2.4, 2.2);
+  for (const [i, x] of [-6.15, -5.05].entries()) {
+    const { p } = seatPivot(x, -14.4, 2.2, 1.75);
+    for (const d of [-0.2, 0.2]) add(p, cyl(0.008, 0.008, 1.75, 5), chain, d, -0.875, 0, 0, 0, 0, false);
+    add(p, rbox(0.48, 0.05, 0.2, 0.02), std(seatC[i], { roughness: 0.5 }), 0, -1.76, 0);
+  }
+  // «гнездо»: круглое плетёное сиденье на четырёх верёвках
+  aFrame(-2.6, -14.9, 1.9, 2.0);
+  {
+    const { p } = seatPivot(-2.6, -14.9, 2.0, 1.45);
+    for (const a of [0.6, 2.2, 3.7, 5.3]) add(p, cyl(0.009, 0.009, 1.5, 5), std('#c9b48a', { roughness: 0.9 }), Math.cos(a) * 0.32, -0.72, Math.sin(a) * 0.32, Math.sin(a) * 0.2, 0, -Math.cos(a) * 0.2, false);
+    add(p, new THREE.TorusGeometry(0.4, 0.05, 8, 28), std('#c84a4a', { roughness: 0.6 }), 0, -1.46, 0, Math.PI / 2);
+    add(p, new THREE.CircleGeometry(0.38, 20), std('#2f3640', { roughness: 0.9, side: THREE.DoubleSide }), 0, -1.47, 0, -Math.PI / 2, 0, 0, false);
+  }
+  // балансир
+  add(g, cyl(0.12, 0.16, 0.42, 12), frameM, -1.9, 0.21, -12.0);
+  const see = new THREE.Group(); see.position.set(-1.9, 0.46, -12.0); see.rotation.y = 0.3; see.userData.keep = true; g.add(see);
+  add(see, rbox(2.6, 0.07, 0.26, 0.03), std('#e2a93a', { roughness: 0.55 }), 0, 0, 0);
+  // ручки: стойка на доске и поперечная рукоятка сверху
+  for (const x of [-0.95, 0.95]) { add(see, cyl(0.022, 0.022, 0.3, 8), frameM, x, 0.17, 0); add(see, cyl(0.02, 0.02, 0.3, 8), frameM, x, 0.32, 0, Math.PI / 2, 0, 0); }
+  see.rotation.z = 0.18;
+  let nextKid = 6 + r() * 20;
+  return (t: number, dt: number) => {
+    // свободное сиденье — лёгкое покачивание ветром; с ребёнком — размах
+    for (const s of seats) {
+      const busy = !!s.kid;
+      s.amp += ((busy ? 0.55 : 0.04) - s.amp) * Math.min(1, dt * 0.6);
+      const w = Math.sqrt(9.8 / s.len) * (busy ? 1 : 0.8);
+      const a = s.amp * Math.sin(t * w + s.ph);
+      s.pivot.rotation.x = a;
+      if (s.kid) {
+        s.kid.st.swing = Math.cos(t * w + s.ph); s.kid.update(t, dt);
+        if (t > s.until) { s.kid.root.removeFromParent(); s.kid = null; }
+      }
+    }
+    see.rotation.z = 0.18 * Math.sin(t * 0.25); // балансир медленно перевешивается сам
+    if (t > nextKid) {
+      nextKid = t + 35 + r() * 50;
+      const free = seats.filter((s) => !s.kid);
+      if (free.length) {
+        const s = free[(r() * free.length) | 0];
+        const kid = buildPerson(makeLook(r() < 0.5 ? 'schoolkid' : 'teen', (r() * 1e9) | 0), (r() * 1e6) | 0, true);
+        kid.st.sit = true; kid.root.scale.setScalar(0.72);
+        kid.root.position.set(0, -s.len + 0.03 - 0.6 * 0.72 + 0.04, -0.06);
+        kid.root.traverse((o) => { o.castShadow = false; });
+        s.pivot.add(kid.root); s.kid = kid; s.until = t + 20 + r() * 20;
+      }
+    }
+  };
+}
+
 export function buildBlock(g: THREE.Group): DistrictSet {
   const set: DistrictSet = { lamps: [], bulbs: [] };
   const r = mulberry32(3131);
@@ -143,25 +215,14 @@ export function buildBlock(g: THREE.Group): DistrictSet {
   add(g, box(60, 0.12, 0.16), std('#a7a29a', { roughness: 0.8 }), 0, 0.06, -8.25);
   // разметка парковочных мест
   for (let i = 0; i < 14; i++) add(g, box(0.06, 0.005, 1.6), std('#e8e2cf'), -12 + i * 2.2, 0.009, -7.2, 0, 0, 0, false);
-  const colors = ['#d8d4cc', '#3d63a8', '#c8372d', '#6a9a4f', '#e2a93a', '#8a8f99', '#ffffff'];
-  for (const [x, ci] of [[-9.9, 0], [-7.7, 1], [-3.3, 2], [5.5, 3], [7.7, 4], [9.9, 5], [12.1, 6]] as const) {
-    const c = car(colors[ci]); c.position.set(x, 0, -7.1); c.rotation.y = Math.PI / 2 + (r() - 0.5) * 0.08; g.add(c);
-  }
+  // машин на парковке нет: прямо перед окном они смотрелись игрушечно
   // низкий заборчик-«дуги» вдоль газона
   const fence = std('#2f6a5a', { roughness: 0.6, metalness: 0.3 });
   for (let x = -24; x < 24; x += 0.5) { if (Math.abs(x - 1.2) < 1.2) continue; add(g, new THREE.TorusGeometry(0.25, 0.012, 4, 10, Math.PI), fence, x, 0, -3.9, 0, 0, 0, false); }
-  // детская площадка
-  const pad = add(g, new THREE.CircleGeometry(3.2, 40), std('#c9573e', { roughness: 0.95 }), -4.5, 0.007, -12.5, -Math.PI / 2); flat(pad);
-  const red = std('#d8432f', { roughness: 0.5 }), yel = std('#f2c94c', { roughness: 0.5 }), blu = std('#3b7bd0', { roughness: 0.5 }), post = std('#3a6fb0', { roughness: 0.5, metalness: 0.3 });
-  // горка
-  for (const [x, z] of [[-5.6, -12.1], [-5.6, -12.9], [-4.8, -12.1], [-4.8, -12.9]] as const) add(g, cyl(0.04, 0.04, 1.4, 8), post, x, 0.7, z);
-  add(g, box(0.9, 0.06, 0.9), yel, -5.2, 1.0, -12.5);
-  add(g, new THREE.ConeGeometry(0.75, 0.6, 4), red, -5.2, 1.7, -12.5, 0, Math.PI / 4, 0);
-  add(g, box(1.9, 0.05, 0.5), blu, -3.65, 0.55, -12.5, 0, 0, 0.5);
-  // качели
-  for (const x of [-2.6, -1.0]) { add(g, cyl(0.035, 0.035, 2.0, 8), post, x, 0.95, -14.2, 0.35, 0, 0); add(g, cyl(0.035, 0.035, 2.0, 8), post, x, 0.95, -15.0, -0.35, 0, 0); }
-  add(g, cyl(0.04, 0.04, 1.7, 8), post, -1.8, 1.88, -14.6, 0, 0, Math.PI / 2);
-  for (const x of [-2.2, -1.4]) { add(g, box(0.4, 0.04, 0.18), yel, x, 0.45, -14.6); for (const d of [-0.18, 0.18]) add(g, cyl(0.006, 0.006, 1.4, 4), post, x + d, 1.16, -14.6, 0, 0, 0, false); }
+  // детская площадка: песок, двойные качели, «гнездо», балансир (красный резиновый
+  // круг и горка смотрелись чужеродно). Иногда катаются школьники.
+  flat(add(g, new THREE.PlaneGeometry(7.4, 5.4), std('#d8c79e', { roughness: 1 }), -4.2, 0.006, -13.1, -Math.PI / 2));
+  set.tick = playground(g, r);
   // песочница
   add(g, box(1.6, 0.25, 0.08), std('#b07a48'), -6.6, 0.12, -10.9); add(g, box(1.6, 0.25, 0.08), std('#b07a48'), -6.6, 0.12, -12.4);
   add(g, box(0.08, 0.25, 1.5), std('#b07a48'), -7.4, 0.12, -11.65); add(g, box(0.08, 0.25, 1.5), std('#b07a48'), -5.8, 0.12, -11.65);

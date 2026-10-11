@@ -359,6 +359,8 @@ export const EN: Record<string, string> = {
   'site.week': '7 days',
   'site.forecast': 'Forecast',
   'site.all': 'All',
+  'site.used2': 'Used & surprises',
+  'site.noDeals': 'No used graphics card listings today, check back tomorrow. Surprise boxes are always here.',
   'site.capacity': 'Stock {n}/{max}',
   'site.empty': 'Stock is empty',
   'site.used': 'used',

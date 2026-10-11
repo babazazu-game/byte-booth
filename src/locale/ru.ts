@@ -379,6 +379,8 @@ export const RU: Record<string, string> = {
   'site.week': '7 дней',
   'site.forecast': 'Прогноз',
   'site.all': 'Все',
+  'site.used2': 'Б/у и сюрпризы',
+  'site.noDeals': 'Сегодня объявлений о б/у видеокартах нет — загляни завтра. Коробки-сюрпризы есть всегда.',
   'site.capacity': 'Склад {n}/{max}',
   'site.empty': 'Склад пуст',
   'site.used': 'б/у',

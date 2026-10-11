@@ -157,7 +157,7 @@ export class Hud {
   orderCard(o: Order, open: boolean): HTMLElement {
     const s = this.app.state!;
     const st = o.state === 'ready' ? t('ord.ready') : o.state === 'bench' ? t('ord.onBench') : t('ord.day', { n: o.day });
-    const card = h('div', { class: `ocard ${o.state}` },
+    const card = h('div', { class: `ocard ${o.state}${open ? ' open' : ''}` },
       h('div', { class: 'h' }, h('span', {}, `${o.blogger ? '🎥 ' : ''}${o.trait ? { hurry: '⏱ ', grumpy: '😤 ', fickle: '📞 ' }[o.trait] : ''}${t('ord.' + o.kind)} · ${this.app.custName(o)}`), h('span', {}, money(o.pay + o.haggle))),
       h('div', { class: 'm' }, `${t('preset.' + o.req.preset)} · ${st}${o.rework ? ' · ⟲ ' + t('ord.rework') : ''}`));
     if (open) {

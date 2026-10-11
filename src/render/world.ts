@@ -294,6 +294,7 @@ export function buildWorld(scene: THREE.Scene): World {
     g.userData.keep = false; flattenStatic(g); mergeTree(g); g.userData.keep = true;
   };
   let curDistrict = 'park';
+  const ticks: Record<string, ((t: number, dt: number) => void) | undefined> = {};
   const k = buildKiosk(root, inner);
   const props = buildProps(root);
   const sun = new THREE.DirectionalLight('#fff1d8', 2.6);
@@ -330,6 +331,7 @@ export function buildWorld(scene: THREE.Scene): World {
       if (!groups[id]) {
         const g = new THREE.Group(); g.userData.keep = true; root.add(g);
         const set = BUILDERS[id](g);
+        ticks[id] = set.tick;
         bulbs.push(...set.bulbs);
         finalize(g);
         groups[id] = g;
@@ -383,6 +385,7 @@ export function buildWorld(scene: THREE.Scene): World {
       flow.streakT.offset.y = (t * 0.9) % 1;
       const k = (t * 0.35) % 1; flow.ripple.scale.setScalar(0.85 + k * 0.15); (flow.ripple.material as THREE.MeshBasicMaterial).opacity = 0.9 - k * 0.6;
       props.update(dt);
+      ticks[curDistrict]?.(t, dt);
     },
   };
   world.setPhase(0.2);

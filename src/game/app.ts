@@ -11,13 +11,13 @@ import { Shelf } from './shelf.ts';
 import { Hud } from '../ui/hud.ts';
 import { Site, newsText } from '../ui/site.ts';
 import { Menu, pauseMenu } from '../ui/menu.ts';
-import { h, btn, toast, modal, confirmBox, floaty, isModalOpen } from '../ui/dom.ts';
+import { h, btn, toast, modal, confirmBox, floaty, isModalOpen, thumb } from '../ui/dom.ts';
 import { sound } from '../audio/audio.ts';
 import { t, variant, nameOf, money, lang } from '../i18n.ts';
 import * as S from '../logic/state.ts';
 import * as D from '../logic/daily.ts';
 import * as A from '../logic/achievements.ts';
-import { part, partOrNull } from '../logic/parts.ts';
+import { part, partOrNull, ALL } from '../logic/parts.ts';
 import { ARCHS, makeLook } from '../logic/customers.ts';
 import { buildPerson } from '../render/models/person.ts';
 import { setLabelLang } from '../render/kit.ts';
@@ -121,6 +121,7 @@ export class App {
     this.menu.show(true);
     if (this.state) this.syncAll();
     this.engine.renderer.setAnimationLoop(() => this.frame());
+    this.prewarm();
     /*
      * Музыка должна звучать уже в меню. Браузер не даёт звука до первого жеста,
      * поэтому контекст создаём сразу (если страница уже «активирована» кликом —
@@ -212,6 +213,7 @@ export class App {
 
   applyUpgrades(): void {
     const s = this.state; if (!s) return;
+    this.engine.shadowDirty = true; // новые предметы в ларьке, другой район
     this.world.setDistrict(s.district ?? 'park');
     const dec = S.upVal(s, 'decor');
     this.world.decor.forEach((d, i) => (d.visible = i < dec));
@@ -330,7 +332,7 @@ export class App {
    * солнце и свет в ларьке «доезжают» до цели со скоростью phaseSpeed в секунду.
    */
   private phaseCur = 0.25; private phaseTo = 0.25; private phaseSpeed = 0.06;
-  private phaseNow(p: number): void { this.phaseCur = this.phaseTo = p; this.world.setPhase(p); }
+  private phaseNow(p: number): void { this.phaseCur = this.phaseTo = p; this.world.setPhase(p); this.engine.shadowDirty = true; }
   private fade: HTMLElement | null = null;
   private fadeEl(): HTMLElement {
     if (!this.fade) { this.fade = document.createElement('div'); this.fade.className = 'fadeov'; this.uiRoot.append(this.fade); }
@@ -349,6 +351,8 @@ export class App {
       const d = this.phaseTo - this.phaseCur, st = this.phaseSpeed * dt;
       this.phaseCur += Math.abs(d) < st ? d : Math.sign(d) * st;
       this.world.setPhase(this.phaseCur);
+      // солнце доехало — тени пересчитать один раз (пока едет, карту не трогаем)
+      if (Math.abs(this.phaseTo - this.phaseCur) <= 1e-4) this.engine.shadowDirty = true;
     }
     const w = this.world, dusk = w.dusk;
     const ceil = w.inner.find((l) => (l as THREE.PointLight).isPointLight) as THREE.PointLight | undefined;
@@ -1043,9 +1047,11 @@ export class App {
     // как часто перерисовывать тени: клиент двигается — каждый кадр, стоит — раз в 3, нет — раз в 12
     const pp = this.director.person;
     // жалюзи плавно едут к цели; новый клиент — поднимаем, чтобы его было видно
-    if (Math.abs(this.blindsTo - this.blindsK) > 0.001) { this.blindsK += Math.sign(this.blindsTo - this.blindsK) * Math.min(Math.abs(this.blindsTo - this.blindsK), dt * 0.9); this.world.setBlinds(this.blindsK); this.engine.shadowDirty = true; }
+    // жалюзи едут — тени от планок пересчитываем один раз, когда доехали (не каждый кадр)
+    if (Math.abs(this.blindsTo - this.blindsK) > 0.001) { this.blindsK += Math.sign(this.blindsTo - this.blindsK) * Math.min(Math.abs(this.blindsTo - this.blindsK), dt * 0.9); this.world.setBlinds(this.blindsK); if (Math.abs(this.blindsTo - this.blindsK) <= 0.001) this.engine.shadowDirty = true; }
     // карта теней почти статична: люди с тенью-пятном, солнце ползёт медленно
-    this.engine.shadowEvery = 90; void pp;
+    // карта теней — только по событию (shadowDirty): всё, что её меняет, отмечает это само
+    this.engine.shadowEvery = Infinity; void pp;
     if (this.bench.shadowDirty) { this.engine.shadowDirty = true; this.bench.shadowDirty = false; }
     // паутина появляется сама — в среднем раз в 3 минуты игры, в случайном углу
     // кофемашина иногда варит кофе (если куплена и смотрим в окно)
@@ -1055,6 +1061,7 @@ export class App {
     for (const slot of this.world.props.figSlots) for (const c of slot.children) (c.userData.tick as ((t: number) => void) | undefined)?.(t);
     this.cullOutdoor();
     this.updateCeil();
+    this.prepareNext();
     this.engine.render();
   }
 
@@ -1066,6 +1073,52 @@ export class App {
    * меняются: камера теней солнца видит слой 1 всегда. Свет остаётся на слое 0 —
    * иначе при переключении шейдеры пересобирались бы с подвисанием.
    */
+  /*
+   * Прогрев в свободное время после старта: текстуры сцены заранее уходят в
+   * видеокарту (иначе каждая грузится в кадре, когда камера впервые повернулась
+   * к ней, — рывок при смене зоны), затем рисуются миниатюры магазина (при
+   * первом открытии их было ~60 подряд, 60–220 мс зависания).
+   */
+  private prewarm(): void {
+    const texs = new Set<THREE.Texture>();
+    this.engine.scene.traverse((o) => {
+      const ms = (o as THREE.Mesh).material as THREE.Material | THREE.Material[] | undefined;
+      const list = !ms ? [] : Array.isArray(ms) ? ms : [ms];
+      for (const m of list) for (const v of Object.values(m)) if ((v as THREE.Texture)?.isTexture) texs.add(v as THREE.Texture);
+    });
+    const jobs: (() => void)[] = [...texs].map((tx) => () => this.engine.renderer.initTexture(tx));
+    for (const p of ALL) jobs.push(() => void thumb(p.id));
+    for (const p of ALL) jobs.push(() => this.shelf.warm(p));
+    const idle = (cb: (d?: IdleDeadline) => void) => ('requestIdleCallback' in window ? requestIdleCallback(cb, { timeout: 500 }) : setTimeout(cb, 40));
+    const step = (d?: IdleDeadline) => {
+      const until = performance.now() + 6;
+      while (jobs.length && (d ? d.timeRemaining() > 3 : performance.now() < until)) jobs.shift()!();
+      if (jobs.length) idle(step);
+    };
+    idle(step);
+  }
+
+  /*
+   * Следующий клиент — заранее. Пока у окна никого нет, на копии состояния
+   * «зовём» клиента (генератор случайных чисел детерминирован — придёт тот же)
+   * и в свободное время строим его модель. Если до нажатия что-то сдвинуло
+   * случайность (торг и т.п.), модель просто строится как раньше.
+   */
+  private nextKey = '';
+  private prepareNext(): void {
+    const s = this.state;
+    if (!s || s.pending || this.views.menu || !this.director.free) return;
+    const key = `${s.day}:${s.nextOrder}:${s.visitsToday}:${s.rngS}`;
+    if (key === this.nextKey) return;
+    this.nextKey = key;
+    const c = structuredClone(s);
+    const first = c.day === 1 && c.nextOrder === 1;
+    if (S.callCustomer(c, (id) => part(id).price, first ? { arch: 'gamer', kind: 'build', preset: 'office' } : undefined) || !c.pending) return;
+    const { look, seed } = c.pending.cust;
+    const idle = (cb: () => void) => ('requestIdleCallback' in window ? requestIdleCallback(cb, { timeout: 3000 }) : setTimeout(cb, 300));
+    idle(() => { if (this.nextKey === key && !this.state?.pending) this.director.prebuild(look, seed); });
+  }
+
   /** Потолочная лампа → униформы «дешёвого» света (позиция в осях камеры, цвет × яркость). */
   private readonly ceilV = new THREE.Vector3();
   private updateCeil(): void {
