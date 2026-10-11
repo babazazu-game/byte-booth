@@ -587,7 +587,7 @@ export function buildKiosk(root: THREE.Group, inner: THREE.Light[]): KioskParts 
     n.userData.keep = true; n.visible = false;
     return n;
   };
-  const neonA = neonSign(-1.21, (g, w, h) => { g.font = '900 96px Rubik'; g.textAlign = 'center'; g.textBaseline = 'middle'; fitText(g, tr('ОТКРЫТО', 'OPEN'), w / 2, h / 2 - 30, w - 50, 110, 900); g.strokeRect(24, 24, w - 48, h - 48); g.font = '700 44px Rubik'; fitText(g, tr('сборка ПК', 'PC builds'), w / 2, h - 70, w - 120, 50, 700); }, '#ff5fa2');
+  const neonA = neonSign(-1.21, (g, w, h) => { g.font = '900 96px Rubik'; g.textAlign = 'center'; g.textBaseline = 'middle'; fitText(g, tr('ОТКРЫТО', 'OPEN'), w / 2, h / 2 - 28, w - 130, 96, 900); g.strokeRect(24, 24, w - 48, h - 48); g.font = '700 44px Rubik'; fitText(g, tr('сборка ПК', 'PC builds'), w / 2, h - 70, w - 120, 50, 700); }, '#ff5fa2');
   const neonB = neonSign(1.21, (g, w) => { g.strokeRect(w / 2 - 120, 40, 240, 150); g.beginPath(); g.moveTo(w / 2, 190); g.lineTo(w / 2, 230); g.moveTo(w / 2 - 60, 240); g.lineTo(w / 2 + 60, 240); g.stroke(); g.textAlign = 'center'; g.textBaseline = 'middle'; fitText(g, 'PC', w / 2, 116, 200, 100, 900); }, '#4fe0ff');
   // 3-я ступень: широкая жёлто-зелёная — геймпад и «ИГРОВЫЕ ПК», на прилавке под надписью
   const neonC = neonSign(0, (g, w, h) => {
