@@ -664,6 +664,8 @@ export const EN: Record<string, string> = {
   'ad.visit': 'Watch an ad → 1 more customer',
   'ad.warranty': 'Watch an ad → warranty refund of {n} for the PSU',
   'ad.warrantyDone': 'The supplier refunded the PSU under warranty. Fit a stronger one.',
+  'menu.soundOn': 'Sound on',
+  'menu.soundOff': 'Sound off',
   'ad.fail': 'The ad wasn’t finished, no reward',
   'ad.double': 'Watch an ad → double tip',
   'ad.title': 'Watch a video?',

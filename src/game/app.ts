@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Save } from 'yg-core';
-import { core } from '../core.ts';
+import { core, adHooks } from '../core.ts';
 import { watchRewarded, interstitialBetweenLevels } from '../ads.ts';
 import { Engine, CEIL, type Quality } from '../render/engine.ts';
 import { buildWorld, type World } from '../render/world.ts';
@@ -35,7 +35,7 @@ import type { DistrictId } from '../logic/districts.ts';
  * кто когда говорит, что показывать после действия, когда сохраняться.
  */
 
-export interface Settings { music: number; sfx: number; amb: boolean; quality: Quality; hints: boolean; qualityChosen?: boolean; fps?: boolean }
+export interface Settings { music: number; sfx: number; amb: boolean; quality: Quality; hints: boolean; qualityChosen?: boolean; fps?: boolean; /** весь звук выключен кнопкой в шапке */ mute?: boolean }
 interface SaveData extends Record<string, unknown> { game: S.GameState | null; settings: Settings }
 
 const defaultQuality = (): Quality => (/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) ? 'mid' : 'high');
@@ -114,7 +114,12 @@ export class App {
   /** Солнце в меню повёрнуто на 90° по часовой (вид сверху): фасад ларька не в тени. */
   private menuSun(on: boolean): void { this.world.sunYaw = on ? -Math.PI / 2 : 0; this.world.setPhase(this.phaseCur); }
 
+  /** Идёт реклама: кадры не считаем, мир стоит (п. 4.7). */
+  private adPaused = false;
+
   start(): void {
+    adHooks.onSuspend = () => { this.adPaused = true; };
+    adHooks.onResume = () => { this.adPaused = false; this.clock.getDelta(); if (!this.views.menu) core.gameplayStart(); };
     this.views.menu = true;
     this.menuSun(true);
     this.views.snap();
@@ -298,8 +303,9 @@ export class App {
   }
 
   applySettings(): void {
-    sound.setVolumes(this.settings.music, this.settings.sfx);
-    sound.setAmbience(this.settings.amb);
+    const m = !!this.settings.mute;
+    sound.setVolumes(m ? 0 : this.settings.music, m ? 0 : this.settings.sfx);
+    sound.setAmbience(this.settings.amb && !m);
     this.engine.setQuality(this.settings.quality, this.world.sun);
     // Лампы внутри ларька (точечная и прожектор над верстаком) — по ~2 мс каждая на
     // встроенной графике. На низком их заменяет рассеянный свет движка.
@@ -1038,7 +1044,7 @@ export class App {
   private frame(): void {
     const raw = this.clock.getDelta();
     const dt = Math.min(0.05, raw);
-    if (this.paused || document.hidden) return;
+    if (this.paused || this.adPaused || document.hidden) return;
     this.engine.adapt(raw);
     this.tickFps(raw);
     this.updateLight(dt);

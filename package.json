@@ -8,7 +8,8 @@
     "lan": "vite --host 0.0.0.0",
     "build": "tsc --noEmit && vite build && node tools/copy_assets.js",
     "preview": "vite preview",
-    "zip": "npm run build && python tools/make_zip.py"
+    "zip": "npm run build && python tools/make_zip.py",
+    "check": "node tools/check_build.js"
   },
   "dependencies": {
     "@fontsource/caveat": "^5.3.0",

@@ -33,6 +33,8 @@ const ICONS: Record<string, string> = {
   shelf: '<path d="M3 3v18 M21 3v18 M3 8h18 M3 15h18 M6 5h4v3H6z M12 11h5v4h-5z M6 17h6v4H6z" fill="none" stroke="currentColor" stroke-width="2"/>',
   pc: '<path d="M3 4h18v12H3z M8 20h8 M12 16v4" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>',
   bell: '<path d="M12 3a6 6 0 0 0-6 6v5l-2 3h16l-2-3V9a6 6 0 0 0-6-6z M10 20a2 2 0 0 0 4 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>',
+  sound: '<path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path d="M16 8.5a5 5 0 0 1 0 7 M18.5 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+  mute: '<path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path d="M16 9l6 6 M22 9l-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
   gear: '<circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2v3 M12 19v3 M2 12h3 M19 12h3 M4.9 4.9l2.1 2.1 M17 17l2.1 2.1 M4.9 19.1L7 17 M17 7l2.1-2.1" stroke="currentColor" stroke-width="2"/>',
   left: '<path d="M15 4l-8 8 8 8" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>',
   right: '<path d="M9 4l8 8-8 8" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>',

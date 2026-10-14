@@ -55,6 +55,8 @@ export class Hud {
       // репутация — с числами до следующего уровня; нажатие открывает объяснение
       (() => { const el = h('button', { class: 'chip rep live', 'aria-label': t('rep.title') }, h('span', {}, '★ ' + t('hud.rep', { n: lv })), h('div', { class: 'repbar' }, h('i', { style: `width:${pct}%` })), h('span', { class: 'sub repn' }, REP_XP[lv + 1] ? `${s.xp - cur}/${next - cur}` : 'MAX')); el.addEventListener('click', () => this.repInfo()); return el; })(),
       h('div', { class: 'spacer' }),
+      // звук одним нажатием (рекомендация площадки 6.2): громкости в настройках не трогаем
+      btn([icon(this.app.settings.mute ? 'mute' : 'sound')], () => { this.app.settings.mute = !this.app.settings.mute; this.app.applySettings(); this.app.saveSettings(); this.render(); }, 'small sound-toggle', { 'aria-label': t(this.app.settings.mute ? 'menu.soundOn' : 'menu.soundOff') }),
       btn([icon('gear')], () => this.app.pause(), 'small', { 'aria-label': t('menu.pause') }),
     );
     // карточки заказов

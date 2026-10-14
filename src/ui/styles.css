@@ -272,7 +272,7 @@
 .tut { z-index: 8; position: absolute; left: 50%; top: calc(58px + var(--safe-t)); width: min(620px, calc(100% - 20px)); transform: translateX(-50%) rotate(-.6deg);
   background: rgba(243, 210, 102, .96); color: var(--ink); padding: .65em 1.1em; display: flex; gap: 12px; align-items: center; font-weight: 600; box-shadow: 0 4px 10px rgba(0, 0, 0, .25);
   clip-path: polygon(0 6%, 2% 0, 6% 5%, 10% 0, 90% 0, 94% 6%, 98% 0, 100% 8%, 100% 92%, 98% 100%, 94% 95%, 90% 100%, 10% 100%, 6% 94%, 2% 100%, 0 93%); }
-.tut button.x { margin-left: auto; min-height: 40px; padding: 0 .8em; border-radius: 6px; background: rgba(23, 25, 28, .12); font: 700 .8em/1 var(--mono); white-space: nowrap; }
+.tut button.x { margin-left: auto; min-height: 44px; padding: 0 .8em; border-radius: 6px; background: rgba(23, 25, 28, .12); font: 700 .8em/1 var(--mono); white-space: nowrap; }
 .tut.low { top: auto; bottom: calc(var(--tap) + 40px + var(--safe-b)); }
 
 /* Низкий ландшафт (телефон боком): снизу места нет вовсе — лоток и инструменты
@@ -422,7 +422,7 @@
   .site .ph { flex-wrap: nowrap; padding-top: 4px; }
   .site .ph h3 { display: none; }
   .site .tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; flex: 1; min-width: 0; }
-  .site .tabs button { white-space: nowrap; min-height: 38px; }
+  .site .tabs button { white-space: nowrap; min-height: 44px; }
   .site .cats { display: flex; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; gap: 4px; }
   .site .cats button { white-space: nowrap; flex: none; }
 }
@@ -449,7 +449,7 @@
   .site .row .tags { margin-top: 2px; gap: 3px; }
   .site .row .tags .tag { font-size: 10px; padding: 1px 4px; }
   .site .price svg, .site .price .chg { display: none; }
-  .site .price .btn { min-height: 36px; padding: 0 .7em; font-size: .85em; }
+  .site .price .btn { min-height: 44px; padding: 0 .7em; font-size: .85em; }
   .site .price b { font-size: .92em; }
   /* верстак: кнопки и лоток мельче, PC остаётся виден */
   .bench-left .btn, .bench-right .btn { min-height: 40px; font-size: .8em; padding-left: 1.25em; }
@@ -598,8 +598,8 @@
 .panel .pb, .modal .mb { touch-action: pan-x pan-y; }
 @media (max-height: 560px), (max-width: 700px) {
   .site .tabs, .site .cats { touch-action: pan-x; overscroll-behavior-x: contain; cursor: grab; }
-  .site .tabs button { min-height: 34px; padding: 0 .65em; font-size: 13px; flex: none; }
-  .site .cats button { min-height: 34px; padding: 0 .6em; font-size: 12.5px; }
+  .site .tabs button { min-height: 44px; padding: 0 .65em; font-size: 13px; flex: none; }
+  .site .cats button { min-height: 44px; padding: 0 .6em; font-size: 12.5px; }
   .site .ph { gap: 6px; }
 }
 /* лента деталей не шире экрана — иначе прокручивать было нечего и она
@@ -737,11 +737,14 @@ button.chip.rep { cursor: pointer; text-align: left; }
    «самотест пройден / система загружена» прячем (ошибки остаются), показатели
    в две колонки — отчёт занимает три строки и не закрывает ПК целиком. */
 @media (max-width: 600px) and (orientation: portrait) {
+  /* шапка: с кнопкой звука «Репутация» обрезалась — плашки компактнее */
+  .hud-top { gap: 5px; }
+  .hud-top .chip { font-size: .8em; padding-left: .55em; padding-right: .55em; }
   .hud-orders { width: min(260px, 64vw); }
   .hint { left: calc(10px + var(--safe-l)); right: calc(10px + var(--safe-r, 0px)); top: calc(120px + var(--safe-t)); transform: none; max-width: none; text-align: left; }
   .testcard { left: calc(10px + var(--safe-l)); right: calc(10px + var(--safe-r, 0px)); width: auto; top: calc(166px + var(--safe-t)); max-height: 36vh; font-size: .72em; }
   .testcard .th { padding: 2px 2px 2px 10px; }
-  .testcard .th .btn { min-height: 26px; height: 26px; width: 30px; padding: 0; }
+  .testcard .th .btn { min-height: 44px; height: 44px; width: 44px; padding: 0; margin: -9px -2px -9px 0; }
   .testcard .post { padding-top: 6px; padding-bottom: 6px; }
   .testcard .post { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 12px; }
   .testcard .post > :not(.meter) { grid-column: 1 / -1; }
@@ -753,3 +756,7 @@ button.chip.rep { cursor: pointer; text-align: left; }
 /* кнопка «за ролик» в отчёте теста — на всю ширину, отдельной строкой */
 .testcard .adrow { margin: 8px 0 2px; }
 .testcard .adrow .btn { width: 100%; justify-content: center; }
+
+/* Требование площадки (п. 1.8): у любой нажимаемой кнопки сторона не меньше
+   44 px — на телефоне мелкие крестик, шестерёнка и вкладки «Все»/«SSD» были 30–40 px */
+#ui button { min-width: 44px; min-height: 44px; }
