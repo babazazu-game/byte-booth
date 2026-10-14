@@ -760,3 +760,10 @@ button.chip.rep { cursor: pointer; text-align: left; }
 /* Требование площадки (п. 1.8): у любой нажимаемой кнопки сторона не меньше
    44 px — на телефоне мелкие крестик, шестерёнка и вкладки «Все»/«SSD» были 30–40 px */
 #ui button { min-width: 44px; min-height: 44px; }
+
+/* таблица рекордов */
+.lb { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; min-width: min(360px, 80vw); }
+.lbrow { display: grid; grid-template-columns: 3em 1fr auto; gap: 8px; align-items: center; padding: 6px 10px; border-radius: 6px; background: rgba(0,0,0,.04); }
+.lbrow.me { background: #fff1c4; font-weight: 800; }
+.lbrow .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lbrow .v { font-family: var(--mono); }

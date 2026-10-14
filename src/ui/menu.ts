@@ -1,5 +1,6 @@
 import type { App } from '../game/app.ts';
-import { t, lang, setLangByPlayer } from '../i18n.ts';
+import { t, lang, setLangByPlayer, money } from '../i18n.ts';
+import { core } from '../core.ts';
 import { h, btn, icon, modal, confirmBox } from './dom.ts';
 import { sound } from '../audio/audio.ts';
 import { LEGEND_REP } from '../logic/districts.ts';
@@ -27,6 +28,7 @@ export class Menu {
     else btns.append(btn([icon('play'), t('menu.play')], () => this.app.play(true), 'primary'));
     if (has) btns.append(btn([icon('plus'), t('menu.new')], () => confirmBox(t('menu.confirmNew'), t('menu.yes'), () => this.app.play(true)), ''));
     btns.append(btn([icon('book'), t('menu.howto')], () => howTo(), ''));
+    btns.append(btn([icon('star'), t('lb.title')], () => records(), ''));
     btns.append(btn([icon('gear'), t('menu.settings')], () => settings(this.app), ''));
     this.el.append(
       // нарисованный логотип (Codex) на своём языке; текст — запасной вариант для читалок
@@ -77,10 +79,29 @@ export function settings(app: App): void {
   const closeSet = modal(t('set.title'), body, [{ label: t('ok'), cls: 'primary', act: () => { app.saveSettings(); } }], { dismissable: true });
 }
 
+/**
+ * Таблица рекордов «Самые богатые ларьки»: сколько денег ларёк заработал за всю
+ * игру (state.totalEarned). Техническое имя в Консоли разработчика — LB_NAME.
+ */
+export const LB_NAME = 'totalEarned';
+export function records(): void {
+  const list = h('div', { class: 'lb' }, h('p', { class: 'sp' }, t('lb.loading')));
+  modal(t('lb.title'), [h('p', { class: 'sp' }, t('lb.desc')), list], [{ label: t('close'), cls: 'primary' }], { dismissable: true });
+  void Promise.all([core.leaderboards.top(LB_NAME, 10, true, 2), core.leaderboards.playerEntry(LB_NAME)]).then(([entries, me]) => {
+    list.innerHTML = '';
+    if (!entries.length) { list.append(h('p', { class: 'sp' }, t('lb.empty'))); return; }
+    for (const e of entries) {
+      const mine = !!me && e.rank === me.rank;
+      list.append(h('div', { class: 'lbrow' + (mine ? ' me' : '') }, h('b', {}, '#' + e.rank), h('span', { class: 'nm' }, e.player.publicName || t('lb.anon')), h('span', { class: 'v' }, money(e.score))));
+    }
+  });
+}
+
 export function pauseMenu(app: App): void {
   modal(t('menu.pause'), [], [
     { label: t('menu.toMenu'), act: () => { app.toMenu(); } },
     { label: t('menu.howto'), act: () => { howTo(); } },
+    { label: t('lb.title'), act: () => { records(); } },
     { label: t('menu.settings'), act: () => { settings(app); } },
     { label: t('menu.resume'), cls: 'primary' },
   ], { dismissable: true });

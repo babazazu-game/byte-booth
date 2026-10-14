@@ -10,7 +10,7 @@ import { Bench } from './bench.ts';
 import { Shelf } from './shelf.ts';
 import { Hud } from '../ui/hud.ts';
 import { Site, newsText } from '../ui/site.ts';
-import { Menu, pauseMenu } from '../ui/menu.ts';
+import { Menu, pauseMenu, LB_NAME } from '../ui/menu.ts';
 import { h, btn, toast, modal, confirmBox, floaty, isModalOpen, thumb } from '../ui/dom.ts';
 import { sound } from '../audio/audio.ts';
 import { t, variant, nameOf, money, lang } from '../i18n.ts';
@@ -441,7 +441,11 @@ export class App {
   persist(): void {
     if (!this.state) return;
     this.save.patch({ game: this.state, settings: { ...this.settings } });
+    // рекорд «Всего заработано» — только когда сумма изменилась (частые вызовы каркас схлопывает)
+    const earned = Math.max(0, Math.round(this.state.totalEarned));
+    if (earned !== this.lbSent) { this.lbSent = earned; core.leaderboards.submit(LB_NAME, earned); }
   }
+  private lbSent = -1;
 
   /** Перерисовать всё, что зависит от состояния. */
   refresh(): void {
