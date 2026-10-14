@@ -99,7 +99,10 @@ export class Hud {
       const ready = s.orders.filter((o) => o.state === 'ready');
       for (const o of ready) this.actions.append(btn([icon('box'), t('hud.deliver', { name: this.app.custName(o) })], () => this.app.callBack(o.id), 'teal live'));
       if (s.visitsToday < S.visitsMax(s)) this.actions.append(btn([h('span', { class: 'key' }, '␣'), icon('bell'), t('hud.callNext')], () => this.app.callNext(), 'primary live' + (s.tutorial === 0 ? ' pulse' : '')));
-      else this.actions.append(h('div', { class: 'chip' }, t('hud.dayDone')));
+      else if (S.canAdVisit(s)) {
+        // лимит на сегодня выбран — можно позвать ещё одного за ролик (раз в день)
+        this.actions.append(btn(['▶ ', t('ad.visit')], () => { void this.app.adVisit(); }, 'teal live'));
+      } else this.actions.append(h('div', { class: 'chip' }, t('hud.dayDone')));
       this.actions.append(btn([icon('moon'), t('hud.closeDay')], () => this.app.closeDay(), 'dark live' + (s.visitsToday >= S.visitsMax(s) && !ready.length ? ' pulse' : '')));
     }
   }

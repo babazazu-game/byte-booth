@@ -141,6 +141,8 @@ export interface GameState {
   built: number;
   /** Ежедневный бонус и задания (daily.ts). */
   daily?: Daily;
+  /** День, когда игрок посмотрел ролик за дополнительного клиента. */
+  adVisitDay?: number;
   /** Виды последних заказов (не больше двух чисток подряд). */
   recentKinds?: string[];
   /** Последние сборки-пресеты: один и тот же заказ не идёт три раза подряд. */
@@ -178,7 +180,11 @@ export const upVal = (s: GameState, id: UpId): number => UPGRADES[id].values[s.u
 export const capacity = (s: GameState): number => upVal(s, 'shelf');
 export const slotsMax = (s: GameState): number => upVal(s, 'slots');
 /** Клиентов в день: 3 и по одному за каждую ступень вывески; больше шести не бывает (даже с шумихой от блогера). */
-export const visitsMax = (s: GameState): number => Math.min(6, 3 + upVal(s, 'sign') + (s.buzz?.day === s.day ? s.buzz.n : 0));
+/** Клиентов в день: 3 + вывеска (+ шумиха от блогера), не больше 6; ролик за награду даёт ещё одного сверху. */
+export const visitsMax = (s: GameState): number => Math.min(6, 3 + upVal(s, 'sign') + (s.buzz?.day === s.day ? s.buzz.n : 0)) + (s.adVisitDay === s.day ? 1 : 0);
+/** «Ещё один клиент» за ролик — раз в день, когда дневной лимит выбран. */
+export const canAdVisit = (s: GameState): boolean => s.adVisitDay !== s.day && s.visitsToday >= visitsMax(s);
+export function grantAdVisit(s: GameState): void { s.adVisitDay = s.day; }
 export const rent = (s: GameState): number => Math.round((30 + level(s) * 9 + s.up.shelf * 10) * districtOf(s).rentK);
 export const buyPrice = (s: GameState, id: string): number => priceOf(s.market, id, upVal(s, 'wholesale'));
 export const activeOrders = (s: GameState): Order[] => s.orders.filter((o) => o.state === 'active' || o.state === 'bench' || o.state === 'ready');
@@ -484,6 +490,13 @@ export function install(s: GameState, uidOrLoose: { uid?: number; looseId?: stri
 }
 
 /** БП сгорел на тесте: из сборки он исчезает совсем (на склад не возвращается). */
+/** Гарантия поставщика за ролик: деньги за сгоревший блок питания возвращаются. */
+export function refundPsu(s: GameState, n: number): void {
+  s.cash += n;
+  const e = s.today.losses?.find((x) => x.k === 'loss.psu');
+  if (e) e.n = Math.max(0, e.n - n);
+}
+
 export function burnPsu(s: GameState): void {
   const o = benchOrder(s);
   if (!o?.build.psu) return;

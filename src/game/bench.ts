@@ -13,6 +13,7 @@ import { h, btn, icon, thumb, toast, confirmBox, modal } from '../ui/dom.ts';
 import { openGuide } from '../ui/guide.ts';
 import { openCablePuzzle } from '../ui/cablePuzzle.ts';
 import { sound } from '../audio/audio.ts';
+import { watchRewarded } from '../ads.ts';
 
 /**
  * Верстак: 3D-сборка и её интерфейс.
@@ -567,6 +568,20 @@ export class Bench {
     // объяснение по-человечески: что сломано и что с этим делать
     if (doaLine) body.append(h('p', { class: 'warn' }, t('test.doaHint')));
     if (o.build.fakeKnown && o.build.gpu) body.append(h('p', { class: 'warn' }, t('test.fakeHint', { name: part(o.build.gpu).name })));
+    // Второй шанс: БП сгорел — гарантия поставщика за ролик возвращает деньги (раз за блок)
+    if (r.stage === 'burn' && o.build.psu) {
+      const n = S.buyPrice(this.s, o.build.psu);
+      const b = btn(['▶ ', t('ad.warranty', { n: money(n) })], () => {
+        b.setAttribute('disabled', '');
+        void watchRewarded().then((ok) => {
+          if (!ok) { toast(t('ad.fail'), 'bad'); b.removeAttribute('disabled'); return; }
+          S.refundPsu(this.s, n); sound.cash(); toast('+' + money(n), 'good');
+          this.app.persist(); this.app.refresh();
+          b.replaceWith(h('p', { class: 'good' }, t('ad.warrantyDone')));
+        });
+      }, 'teal small');
+      body.append(h('div', { class: 'adrow' }, b));
+    }
     if (r.stage === 'ok' || r.stage === 'throttle') {
       body.append(meter(t('test.score'), r.score, 120, ''), meter(t('test.work'), r.work, 120, ''), meter(t('test.cpuT'), r.temps.cpu, 105, '°C'), meter(t('test.gpuT'), r.temps.gpu, 100, '°C'), meter(t('test.draw'), r.draw, Math.max(r.draw, (this.build?.psu ? (part(this.build.psu) as { watt: number }).watt : r.draw)), 'W'));
       setTimeout(() => sound.success(), 1300);

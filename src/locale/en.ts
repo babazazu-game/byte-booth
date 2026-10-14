@@ -661,7 +661,11 @@ export const EN: Record<string, string> = {
   'site.fitEmpty': 'No build order yet — take one at the window and fitting parts will show up here.',
   'tut.skip': 'Skip tutorial',
 
-  'ad.double': 'Double the tip for an ad',
+  'ad.visit': 'Watch an ad → 1 more customer',
+  'ad.warranty': 'Watch an ad → warranty refund of {n} for the PSU',
+  'ad.warrantyDone': 'The supplier refunded the PSU under warranty. Fit a stronger one.',
+  'ad.fail': 'The ad wasn’t finished, no reward',
+  'ad.double': 'Watch an ad → double tip',
   'ad.title': 'Watch a video?',
   'ad.text': 'The ad runs about thirty seconds. The reward comes right after.',
   'watch': 'Watch',

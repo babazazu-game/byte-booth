@@ -492,6 +492,15 @@ export class App {
 
   /* ───────────── клиенты у окна ───────────── */
 
+  /** Ролик за награду → ещё один клиент сегодня, и он сразу подходит к окну. */
+  async adVisit(): Promise<void> {
+    const s = this.state; if (!s || !S.canAdVisit(s)) return;
+    const ok = await watchRewarded();
+    if (!ok) { toast(t('ad.fail'), 'bad'); return; }
+    S.grantAdVisit(s); this.persist(); this.refresh();
+    this.callNext();
+  }
+
   callNext(): void {
     const s = this.state!;
     if (!this.director.free) return;

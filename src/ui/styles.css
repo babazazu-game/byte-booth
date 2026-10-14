@@ -749,3 +749,7 @@ button.chip.rep { cursor: pointer; text-align: left; }
   .testcard .meter { grid-template-columns: auto 1fr auto; gap: 5px; margin: 2px 0; }
   .testcard .meter span { white-space: nowrap; }
 }
+
+/* кнопка «за ролик» в отчёте теста — на всю ширину, отдельной строкой */
+.testcard .adrow { margin: 8px 0 2px; }
+.testcard .adrow .btn { width: 100%; justify-content: center; }
