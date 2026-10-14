@@ -731,3 +731,21 @@ button.chip.rep { cursor: pointer; text-align: left; }
   .testcard { top: calc(100px + var(--safe-t)); width: min(230px, 27vw); max-height: calc(100% - 210px); font-size: .74em; }
   .testcard .th { padding: 4px 4px 4px 8px; }
 }
+
+/* ── Телефон вертикально: узкие колонки слева не помещали текст ──
+   Карточка заказа — шире; отчёт теста — полосой во всю ширину под шапкой:
+   «самотест пройден / система загружена» прячем (ошибки остаются), показатели
+   в две колонки — отчёт занимает три строки и не закрывает ПК целиком. */
+@media (max-width: 600px) and (orientation: portrait) {
+  .hud-orders { width: min(260px, 64vw); }
+  .hint { left: calc(10px + var(--safe-l)); right: calc(10px + var(--safe-r, 0px)); top: calc(120px + var(--safe-t)); transform: none; max-width: none; text-align: left; }
+  .testcard { left: calc(10px + var(--safe-l)); right: calc(10px + var(--safe-r, 0px)); width: auto; top: calc(166px + var(--safe-t)); max-height: 36vh; font-size: .72em; }
+  .testcard .th { padding: 2px 2px 2px 10px; }
+  .testcard .th .btn { min-height: 26px; height: 26px; width: 30px; padding: 0; }
+  .testcard .post { padding-top: 6px; padding-bottom: 6px; }
+  .testcard .post { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 12px; }
+  .testcard .post > :not(.meter) { grid-column: 1 / -1; }
+  .testcard .post > div.good, .testcard .post > div:first-child { display: none; }
+  .testcard .meter { grid-template-columns: auto 1fr auto; gap: 5px; margin: 2px 0; }
+  .testcard .meter span { white-space: nowrap; }
+}
